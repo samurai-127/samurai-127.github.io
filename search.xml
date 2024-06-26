@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<search>
+  <entry>
+    <title>git速查</title>
+    <url>/2024/06/26/git%E9%80%9F%E6%9F%A5/</url>
+    <content><![CDATA[<h3 id="1-博客前言"><a href="#1-博客前言" class="headerlink" title="1. 博客前言"></a>1. 博客前言</h3><p>这篇博客适用于有git基础的人看，如果没学习过git不建议看这篇博客。<br>本篇博客记录git常用的命令。基于命令行，对一个项目进行版本控制（不使用图形化界面，例如idea、vscode等）。</p>
+<h3 id="2-常用命令"><a href="#2-常用命令" class="headerlink" title="2. 常用命令"></a>2. 常用命令</h3><p>只写有针对项目的内容！！！！</p>
+<h4 id="2-1-删除git仓库"><a href="#2-1-删除git仓库" class="headerlink" title="2.1 删除git仓库"></a>2.1 删除git仓库</h4><p>​	如果项目是拉取的，或者想要换一个gitee仓库，那么在使用自己的仓库之前需要将之前的删掉。步骤如下：</p>
+<ol>
+<li><p>打开命令行工具,得航到你的项目所在的目录。</p>
+</li>
+<li><p>输入以下命令来取消当前项目与Gitee的关联: </p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">git remote remove origin</span><br></pre></td></tr></table></figure>
+
+<p>这里的”origin”通常是默认的远程仓库名称，但如果你使用了不同的名称，你需要将其替换为实际的远程仓库名。</p>
+</li>
+<li><p>输入以下命令来检查是否已成功取消关联:</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">git remote -V</span><br></pre></td></tr></table></figure></li>
+</ol>
+<p>​		如果没有版本提示，说明就是删除成功了，跳到2.2步</p>
+<h4 id="2-2-提交代码到gitee仓库"><a href="#2-2-提交代码到gitee仓库" class="headerlink" title="2.2 提交代码到gitee仓库"></a>2.2 提交代码到gitee仓库</h4><ol>
+<li><p>项目初始化。右键自己的项目，或者进项目的目录一级，右键打开git bash</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 右键自己的项目，或者进项目的目录一级，右键打开git bash</span></span><br><span class="line">git init</span><br></pre></td></tr></table></figure>
+
+
+
+<p>此时文件夹中多出一个.git文件（需要打开隐藏文件夹开关）</p>
+<img src="init%E5%91%BD%E4%BB%A4.png" style="zoom: 50%;">
+
+
+
+
+</li>
+<li><p>添加远程仓库</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># origin 后面的是自己在gitee上创建的仓库地址</span></span><br><span class="line">git remote add origin https://gitee.com/samurai127/XXX.git</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>查看是否连接成功</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">git remote</span><br></pre></td></tr></table></figure>
+
+<p>提示版本号说明成功绑定</p>
+</li>
+</ol>
+<h4 id="2-3-提交"><a href="#2-3-提交" class="headerlink" title="2.3 提交"></a>2.3 提交</h4><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 将代码提交到本地仓库</span></span><br><span class="line">git add .</span><br><span class="line"></span><br><span class="line"><span class="comment"># 提交</span></span><br><span class="line">git commit -m <span class="string">&#x27;版本备注&#x27;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 将代码推送到远程仓库。如果多人开发，需要把master换成自己的分支，例如dev01</span></span><br><span class="line">git push origin master</span><br></pre></td></tr></table></figure>
+
+<p>至此，在gitee上已经能够看到提交的代码了</p>
+<h4 id="2-4-版本回退"><a href="#2-4-版本回退" class="headerlink" title="2.4 版本回退"></a>2.4 版本回退</h4><p>如果本地的代码被你改的bug一大堆，那么可以尝试恢复到之前交的git仓库的版本。<br>此处推荐使用reset命令进行版本回退（如果想恢复到之前某个提交的版本，且那个版本之后提交的版本我们都不要了，就可以用这种方法）。</p>
+<h5 id="2-4-1-回退到上一个版本"><a href="#2-4-1-回退到上一个版本" class="headerlink" title="2.4.1 回退到上一个版本"></a>2.4.1 回退到上一个版本</h5><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 拉取所有更新，不同步</span></span><br><span class="line">git fetch --all </span><br><span class="line"></span><br><span class="line"><span class="comment"># 本地代码同步线上最新版本(会覆盖本地所有与远程仓库.上同名的文件);</span></span><br><span class="line">git reset --hard origin/ master</span><br><span class="line"></span><br><span class="line"><span class="comment"># 再更新一次 (其实也可以不用，第二二步命令做过了其实)</span></span><br><span class="line">git pull</span><br></pre></td></tr></table></figure>
+
+
+
+<h5 id="2-4-2-回退到指定版本"><a href="#2-4-2-回退到指定版本" class="headerlink" title="2.4.2 回退到指定版本"></a>2.4.2 回退到指定版本</h5><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 查看版本号</span></span><br><span class="line">git logs</span><br><span class="line"><span class="comment"># 回退版本：f42aa0e换成需要的版本号</span></span><br><span class="line">git reset --hard f42aa0e</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="3-管理分支开发"><a href="#3-管理分支开发" class="headerlink" title="3. 管理分支开发"></a>3. 管理分支开发</h3><h4 id="3-1-从其他分支更新本地代码"><a href="#3-1-从其他分支更新本地代码" class="headerlink" title="3.1 从其他分支更新本地代码"></a>3.1 从其他分支更新本地代码</h4><p>假设多人开发，我在dev01，另一个成员在dev02，dev02更新后上传到origin dev02，我需要在本地更新dev02的代码</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">git pull origin dev02:dev01</span><br></pre></td></tr></table></figure>
+
+
+
+<p>看一张图了解原理：</p>
+<img src="pull%E5%91%BD%E4%BB%A4.png" style="zoom: 50%;">
+
+<p><strong>所以：git pull &#x3D; git fetch + git merge</strong></p>
+<h4 id="3-2-绑定远程分支和本地分支"><a href="#3-2-绑定远程分支和本地分支" class="headerlink" title="3.2 绑定远程分支和本地分支"></a>3.2 绑定远程分支和本地分支</h4><p>按照3.1的场景，命令如下</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">git checkout -b dev02 origin/dev02 </span><br></pre></td></tr></table></figure>
+
+<p>这个命令做了如下事情：</p>
+<ol>
+<li><strong>创建本地分支</strong>：如果本地不存在名为 dev02 的分支，这个命令会创建一个新的本地分支 dev02。</li>
+<li><strong>设置上游分支</strong>：新创建的本地 dev02 分支会自动设置为跟踪（tracking）远程仓库 origin 上的 dev02 分支。这意味着当你以后在这个本地分支上执行 git pull 或 git  push（不带参数）时，Git 会知道要与远程的 origin&#x2F;dev02 分支进行交互。</li>
+</ol>
+]]></content>
+      <categories>
+        <category>软件技术</category>
+      </categories>
+      <tags>
+        <tag>git</tag>
+      </tags>
+  </entry>
+</search>
