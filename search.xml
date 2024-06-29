@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
-    <title>快速上手git</title>
+    <title>快速复习git</title>
     <url>/2024/06/26/git%E9%80%9F%E6%9F%A5/</url>
-    <content><![CDATA[<h3 id="1-博客前言"><a href="#1-博客前言" class="headerlink" title="1. 博客前言"></a>1. 博客前言</h3><p>这篇博客适用于有git基础的人看，如果没学习过git不建议看这篇博客。<br>本篇博客记录git常用的命令。基于命令行，对一个项目进行版本控制（不使用图形化界面，例如idea、vscode等）。</p>
-<h3 id="2-常用命令"><a href="#2-常用命令" class="headerlink" title="2. 常用命令"></a>2. 常用命令</h3><p>只写有针对项目的内容！！！！</p>
-<h4 id="2-1-删除git仓库"><a href="#2-1-删除git仓库" class="headerlink" title="2.1 删除git仓库"></a>2.1 删除git仓库</h4><p>​	如果项目是拉取的，或者想要换一个gitee仓库，那么在使用自己的仓库之前需要将之前的删掉。步骤如下：</p>
+    <content><![CDATA[<h3 id="1-博客前言"><a href="#1-博客前言" class="headerlink" title="1. 博客前言"></a>1. 博客前言</h3><p>这篇博客适用于有git基础的人看，如果没学习过git不建议看这篇博客。<br>本篇博客记录git常用的命令，用于快速复习。基于命令行，对一个项目进行版本控制（不使用图形化界面，例如idea、vscode等）。</p>
+<h3 id="2-常用命令"><a href="#2-常用命令" class="headerlink" title="2. 常用命令"></a>2. 常用命令</h3><h4 id="2-1-删除git仓库"><a href="#2-1-删除git仓库" class="headerlink" title="2.1 删除git仓库"></a>2.1 删除git仓库</h4><p>​	如果项目是拉取的，或者想要换一个gitee仓库，那么在使用自己的仓库之前需要将之前的删掉。步骤如下：</p>
 <ol>
 <li><p>打开命令行工具,得航到你的项目所在的目录。</p>
 </li>
