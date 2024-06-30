@@ -77,7 +77,7 @@
       </tags>
   </entry>
   <entry>
-    <title>MySQL数据库-索引</title>
+    <title>MySQL数据库：（一）索引底层原理与实现</title>
     <url>/2024/06/29/%E6%95%B0%E6%8D%AE%E5%BA%93-%E7%B4%A2%E5%BC%95/</url>
     <content><![CDATA[<h2 id="一、-什么是索引？"><a href="#一、-什么是索引？" class="headerlink" title="一、 什么是索引？"></a>一、 什么是索引？</h2><p>索引是一个排序的列表，在这个列表中存储着索引的值和包含这个值的数据所在行的物理地址，可以大大加快查询的速度，使用索引后可以不用扫描全表来定位某行的数据，而是先通过索引表找到该行数据对应的物理地址然后访问相应的数据。索引的作用类似于书的目录，可以根据目录中的页码快速找到所需的内容。</p>
 <h3 id="1-1-索引概述（了解）"><a href="#1-1-索引概述（了解）" class="headerlink" title="1.1 索引概述（了解）"></a>1.1 索引概述（了解）</h3><p>当数据保存在磁盘类存储介质上时，它是作为数据块存放。这些数据块是被当作一个整体来访问的，这样可以保证操作的原子性。硬盘数据块存储结构类似于链表，都包含数据部分，以及一个指向下一个节点（或数据块）的指针，不需要连续存储。</p>
@@ -97,7 +97,7 @@
 <h2 id="二、索引的分类（逻辑分类）"><a href="#二、索引的分类（逻辑分类）" class="headerlink" title="二、索引的分类（逻辑分类）"></a>二、索引的分类（逻辑分类）</h2><p>逻辑的角度来划分，索引分为普通索引、唯一索引、主键索引、组合索引和全文索引。</p>
 <h3 id="2-1-普通索引"><a href="#2-1-普通索引" class="headerlink" title="2.1 普通索引"></a>2.1 普通索引</h3><h4 id="2-1-1-普通索引格式"><a href="#2-1-1-普通索引格式" class="headerlink" title="2.1.1 普通索引格式"></a>2.1.1 普通索引格式</h4><p>普通索引是最基本的索引，它没有任何限制，也是大多数情况下用到的索引。</p>
 <p>直接创建索引的方式</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">mysql&gt;CREATE INDEX index_name ON table_name (column(length));</span><br><span class="line"><span class="comment"># column 是指定要创建索引的列名</span></span><br><span class="line"><span class="comment"># length 是可选项</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># column 是指定要创建索引的列名</span></span><br><span class="line"><span class="comment"># length 是可选项</span></span><br><span class="line">mysql&gt;CREATE INDEX index_name ON table_name (column(length));</span><br></pre></td></tr></table></figure>
 
 <p>索引列的长度有一个最大上限 255 个字节（MyISAM 和 InnoDB 表的最大上限为 1000 个字 节），如果索引列的长度超过了这个上限，就只能用列的前缀进行索引。另外，BLOB 或 TEXT 类型的列也必须使用前缀索引。</p>
 <h4 id="2-1-2-创建普通索引"><a href="#2-1-2-创建普通索引" class="headerlink" title="2.1.2 创建普通索引"></a>2.1.2 创建普通索引</h4><p>方法一：</p>
@@ -216,7 +216,7 @@
 <p>此处讨论B+树，结合案例见4.3。</p>
 <h3 id="4-2-搜索引擎"><a href="#4-2-搜索引擎" class="headerlink" title="4.2 搜索引擎"></a>4.2 搜索引擎</h3><p>常见的有InnoDB、MyASIM（不支持数据库事务）、Memory等。存储引擎和存储方式（磁盘等）见文章：<a href="https://blog.csdn.net/wangfeijiu/article/details/112454405">MySQL体系构架、存储引擎和索引结构</a></p>
 <p>此处使用InnoDB来讨论索引的存储结构，见4.3。</p>
-<h3 id="4-3-InnoDB-B-树存储数据结构"><a href="#4-3-InnoDB-B-树存储数据结构" class="headerlink" title="4.3 InnoDB B+树存储数据结构"></a>4.3 InnoDB B+树存储数据结构</h3><p>存储数据结构，也是索引分类的一种：物理分类（第二章讲了逻辑分类）。物理分类分为<strong>聚簇索引</strong>和非聚簇索引。存储数据结构虽然说是索引分类的一种，但是准确的来说，<strong>聚簇索引和非局促索引是一种数据的存储方式。</strong></p>
+<h3 id="4-3-InnoDB-B-树存储数据结构"><a href="#4-3-InnoDB-B-树存储数据结构" class="headerlink" title="4.3 InnoDB B+树存储数据结构"></a>4.3 InnoDB B+树存储数据结构</h3><p>存储数据结构，也是索引分类的一种：物理分类（第二章讲了逻辑分类）。物理分类分为<strong>聚簇索引</strong>和非聚簇索引。存储数据结构虽然说是索引分类的一种，但是准确的来说，<strong>聚簇索引和非聚簇索引是一种数据的存储方式。</strong></p>
 <p><strong>聚簇索引（clustered index）</strong>不是单独的一种索引类型，而是一种数据存储方式。这种存储方式是依靠B+树来实现的，根据表的主键构造一棵B+树且B+树叶子节点存放的都是表的行记录数据时，方可称该主键索引为聚簇索引。聚簇索引也可理解为将数据存储与索引放到了一块，找到索引也就找到了数据。</p>
 <img src="%E8%81%9A%E7%B0%87%E7%B4%A2%E5%BC%95.jpg">
 
