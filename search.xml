@@ -86,11 +86,11 @@
 <p>存储单元和输入输出设备要与中央处理器打交道的话，离不开总线。所以，它们之间的关系如下图：</p>
 <p><img src="%E5%86%AF%E8%AF%BA%E4%BE%9D%E6%9B%BC%E6%A8%A1%E5%9E%8B.webp"></p>
 <hr>
-<h4 id="1-1-内存"><a href="#1-1-内存" class="headerlink" title="1.1 内存"></a>1.1 内存</h4><h5 id="1-什么是内存？"><a href="#1-什么是内存？" class="headerlink" title="1.什么是内存？"></a>1.什么是内存？</h5><p><strong>内存是硬件，是用于存放数据的硬件。</strong></p>
+<h4 id="1-1-内存"><a href="#1-1-内存" class="headerlink" title="1.1 内存"></a>1.1 内存</h4><h4 id="1-什么是内存？"><a href="#1-什么是内存？" class="headerlink" title="1.什么是内存？"></a>1.什么是内存？</h4><p><strong>内存是硬件，是用于存放数据的硬件。</strong></p>
 <p>程序执行前需要先放到内存中才能被CPU处理。</p>
 <p>内存是与CPU沟通的桥梁，计算机中所有程序的运行都要依靠内存，内存对计算机的影响非常大。</p>
 <p><strong>主存储器，内存，内存条，内部存储器是一个东西</strong>。这很重要，不然看到后面概念都混淆。</p>
-<h5 id="2-内存的作用"><a href="#2-内存的作用" class="headerlink" title="2.内存的作用"></a>2.内存的作用</h5><p><strong>内存，用于存放CPU中的运算数据以及硬盘等外部存储设备交换的数据。</strong></p>
+<h4 id="2-内存的作用"><a href="#2-内存的作用" class="headerlink" title="2.内存的作用"></a>2.内存的作用</h4><p><strong>内存，用于存放CPU中的运算数据以及硬盘等外部存储设备交换的数据。</strong></p>
 <p>CPU一般会把需要运算的数据调到主存中进行运算，运算完后CPU将结果再传出来。</p>
 <p>我们的程序和数据都是存储在内存，存储的区域是线性的。</p>
 <p>在计算机数据存储中，存储数据的基本单位是<strong>字节（byte）</strong>，1 字节等于 8 位（8 bit）。每一个字节都对应一个内存地址。</p>
@@ -127,24 +127,24 @@
 <p>但是并不代表 64 位 CPU 性能比 32 位 CPU 高很多，很少应用需要算超过 32 位的数字，所以<strong>如果计算的数额不超过 32 位数字的情况下，32 位和 64 位 CPU 之间没什么区别的，只有当计算超过 32 位数字的情况下，64 位的优势才能体现出来</strong>。</p>
 <p>另外，32 位 CPU 最大只能操作 4GB 内存，就算装了 8 GB 内存条，也没用。而 64 位 CPU 寻址范围则很大，理论最大的寻址空间为 <code>2^64</code>（256T）</p>
 <h2 id="二、存储器的层次结构"><a href="#二、存储器的层次结构" class="headerlink" title="二、存储器的层次结构"></a>二、存储器的层次结构</h2><h3 id="层次结构介绍"><a href="#层次结构介绍" class="headerlink" title="层次结构介绍"></a>层次结构介绍</h3><p>计算机的两类存储器，一是外部存储器，二是内部存储器。<strong>常见的外部存储器主要是磁盘，磁盘又分为硬盘和软盘，而内部存储器就是常说的内存。</strong></p>
-<p>硬盘有如下的内容：</p>
-<p><strong>机械硬盘（HDD）</strong><br>机械硬盘是计算机中的一种数据存储设备，它使用旋转的盘片和移动的磁头来读写数据。机械硬盘通常比固态硬盘容量更大，价格更便宜，但是速度相对较慢，且比较容易受到机械损伤的影响。机械硬盘通常用于存储大量数据和长期存储。</p>
-<p><strong>固态硬盘（SSD）</strong><br>固态硬盘是一种新型的数据存储设备，它使用闪存芯片来读写数据。固态硬盘比机械硬盘速度更快，能够更快地启动计算机和打开文件，且比较抗震抗摔，寿命也更长。但是，固态硬盘价格相对较高，容量相对较小。</p>
-<p>在第一节介绍内存的时候，曾说内存就是主存，<strong>但是严格的说，内存包括主存(内存条,基于DRAM)与高速缓存(Cache,基于SRAM)两部分。</strong></p>
 <p><strong>小林coding层次结构：</strong></p>
-<img src="%E5%AD%98%E5%82%A8%E5%99%A8%E7%9A%84%E5%B1%82%E6%AC%A1%E7%BB%93%E6%9E%84.png" style="zoom: 67%;">
+<img src="%E5%AD%98%E5%82%A8%E5%99%A8%E7%9A%84%E5%B1%82%E6%AC%A1%E7%BB%93%E6%9E%84.png" style="zoom: 80%;">
 
 <p><strong>OS教材：</strong></p>
-<img src="OS%E7%9A%84%E5%AD%98%E5%82%A8%E5%B1%82%E6%AC%A1.png" style="zoom:67%;">
+<img src="OS%E7%9A%84%E5%AD%98%E5%82%A8%E5%B1%82%E6%AC%A1.png" style="zoom: 80%;">
 
 <h3 id="聚焦CPU内部："><a href="#聚焦CPU内部：" class="headerlink" title="聚焦CPU内部："></a>聚焦CPU内部：</h3><p>我们想象中一个场景，大学期末准备考试了，你前去图书馆临时抱佛脚。那么，在看书的时候，我们的大脑会思考问题，也会记忆知识点，另外我们通常也会把常用的书放在自己的桌子上，当我们要找一本不常用的书，则会去图书馆的书架找。</p>
 <p>我们可以把 CPU 比喻成我们的大脑，大脑正在思考的东西，就好比 CPU 中的<strong>寄存器</strong>，处理速度是最快的，但是能存储的数据也是最少的，毕竟我们也不能一下同时思考太多的事情，除非你练过。</p>
 <p>我们大脑中的记忆，就好比 <strong>CPU Cache</strong>，中文称为 CPU 高速缓存，处理速度相比寄存器慢了一点，但是能存储的数据也稍微多了一些。</p>
 <p>CPU Cache 通常会分为 <strong>L1、L2、L3 三层</strong>，其中 L1 Cache 通常分成「数据缓存」和「指令缓存」，L1 是距离 CPU 最近的，因此它比 L2、L3 的读写速度都快、存储空间都小。我们大脑中短期记忆，就好比 L1 Cache，而长期记忆就好比 L2&#x2F;L3 Cache。</p>
 <p>寄存器和 CPU Cache 都是在 CPU 内部，跟 CPU 挨着很近，因此它们的读写速度都相当的快，但是能存储的数据很少，毕竟 CPU 就这么丁点大。</p>
+<p><img src="%E5%AD%A6%E4%B9%A0%E4%B8%8E%E5%AD%98%E5%82%A8%E5%B1%82%E6%AC%A1%E5%85%B3%E7%B3%BB.webp"></p>
 <h3 id="聚焦CPU外部："><a href="#聚焦CPU外部：" class="headerlink" title="聚焦CPU外部："></a>聚焦CPU外部：</h3><p>知道 CPU 内部的存储器的层次分布，我们放眼看看 CPU 外部的存储器。</p>
 <p>当我们大脑记忆中没有资料的时候，可以从书桌或书架上拿书来阅读，那我们桌子上的书，就好比<strong>内存</strong>，我们虽然可以一伸手就可以拿到，但读写速度肯定远慢于寄存器，那图书馆书架上的书，就好比<strong>硬盘</strong>，能存储的数据非常大，但是读写速度相比内存差好几个数量级，更别说跟寄存器的差距了。</p>
-<p><img src="%E5%AD%A6%E4%B9%A0%E4%B8%8E%E5%AD%98%E5%82%A8%E5%B1%82%E6%AC%A1%E5%85%B3%E7%B3%BB.webp"></p>
+<p>硬盘有如下的内容：</p>
+<p><strong>机械硬盘（HDD）</strong><br>机械硬盘是计算机中的一种数据存储设备，它使用旋转的盘片和移动的磁头来读写数据。机械硬盘通常比固态硬盘容量更大，价格更便宜，但是速度相对较慢，且比较容易受到机械损伤的影响。机械硬盘通常用于存储大量数据和长期存储。</p>
+<p><strong>固态硬盘（SSD）</strong><br>固态硬盘是一种新型的数据存储设备，它使用闪存芯片来读写数据。固态硬盘比机械硬盘速度更快，能够更快地启动计算机和打开文件，且比较抗震抗摔，寿命也更长。但是，固态硬盘价格相对较高，容量相对较小。</p>
+<p>在第一节介绍内存的时候，曾说内存就是主存，<strong>但是严格的说，内存包括主存(内存条,基于DRAM)与高速缓存(Cache,基于SRAM)两部分。</strong></p>
 <h3 id="总结："><a href="#总结：" class="headerlink" title="总结："></a>总结：</h3><h4 id="1-CPU的寄存器"><a href="#1-CPU的寄存器" class="headerlink" title="1. CPU的寄存器"></a>1. CPU的寄存器</h4><p><strong>定义与功能</strong></p>
 <ol>
 <li><p>寄存器是CPU内部的高速存储单元，用于暂时存储CPU运算过程中的数据和指令。</p>
@@ -207,6 +207,7 @@
       </categories>
       <tags>
         <tag>操作系统</tag>
+        <tag>面试</tag>
       </tags>
   </entry>
   <entry>
@@ -394,6 +395,7 @@
 <p>在4.3中提到，非聚簇索引的叶子结点存储的是指向数据表中相应行的指针，这个指针通常是数据表中主键的值。那么查询到K或者name后，自然的指向了对应的id，那么这个行数据自然也就拿到了。</p>
 <h2 id="五、总结-面试"><a href="#五、总结-面试" class="headerlink" title="五、总结+面试"></a>五、总结+面试</h2><p>本篇文章介绍了索引的类型，底层原理。mysql的语句了解即可，需要时查起来就可以。另外，文章针对面试需要知道的内容，这样背八股文也能很快反应过来不需要记得太难。</p>
 <p>面试需要掌握的知识：mysql的搜索引擎和搜索引擎的差别（4.2节）、mysql的底层存储原理（4.1节，B+树等），mysql数据库优化（4.4节，涉及索引优化），另外需要掌握：mysql锁，mysql事务、mysql数据库优化、数据库备份等。</p>
+<h2 id="六、附上一篇美团讲解的索引内容"><a href="#六、附上一篇美团讲解的索引内容" class="headerlink" title="六、附上一篇美团讲解的索引内容"></a>六、附上一篇美团讲解的索引内容</h2><p><a href="https://tech.meituan.com/2014/06/30/mysql-index.html">美团：MySQL索引原理及慢查询优化</a></p>
 ]]></content>
       <categories>
         <category>数据库</category>
@@ -467,9 +469,53 @@
 <p>我们拿split的例子来说，得到两个子数组[9,3]和[7,2]的时候，l的值是0，那么排序的时候k应该从0开始，得到两个子数组[8,5]和[1,4]的时候，i的值应该对应8索引，然后赋值到temp索引中。所以merge方法的k索引取决于扔进去的两个区间的最左边的范围。<img src="temp%E6%95%B0%E7%BB%84%E7%B4%A2%E5%BC%95.png" style="zoom:80%;"></p>
 </li>
 <li><p>范围上都是left到mid，mid+1到right</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">split(arr, left, mid, temp);//递归</span><br><span class="line">split(arr, mid + 1, right, temp);//递归</span><br><span class="line">merge(arr, left, mid, mid + 1, right, temp);</span><br></pre></td></tr></table></figure></li>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">split(arr, left, mid, temp);<span class="comment">//递归</span></span><br><span class="line">split(arr, mid + <span class="number">1</span>, right, temp);<span class="comment">//递归</span></span><br><span class="line">merge(arr, left, mid, mid + <span class="number">1</span>, right, temp);</span><br></pre></td></tr></table></figure></li>
 </ol>
 <h1 id="面试常考排序算法"><a href="#面试常考排序算法" class="headerlink" title="面试常考排序算法"></a>面试常考排序算法</h1><p><a href="https://blog.csdn.net/qq_45792749/article/details/124410972">面试常考的排序算法</a></p>
+<h1 id="acWing代码模板"><a href="#acWing代码模板" class="headerlink" title="acWing代码模板"></a>acWing代码模板</h1><p><a href="https://www.acwing.com/blog/content/31431/">【Java版本】常用代码模板1——基础算法 + 模板题参考实现 - AcWing</a></p>
+]]></content>
+      <categories>
+        <category>算法</category>
+      </categories>
+      <tags>
+        <tag>算法</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>算法：（二）二分查找</title>
+    <url>/2024/07/03/%E7%AE%97%E6%B3%95%EF%BC%9A%EF%BC%88%E4%BA%8C%EF%BC%89%E4%BA%8C%E5%88%86%E6%9F%A5%E6%89%BE/</url>
+    <content><![CDATA[<h2 id="一、基础二分查找"><a href="#一、基础二分查找" class="headerlink" title="一、基础二分查找"></a>一、基础二分查找</h2><p>直接上代码</p>
+<p>左闭右闭区间：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="type">int</span> <span class="title function_">search</span><span class="params">(<span class="type">int</span>[] nums, <span class="type">int</span> target)</span> &#123;</span><br><span class="line">        <span class="comment">// 避免当 target 小于nums[0] nums[nums.length - 1]时多次循环运算</span></span><br><span class="line">        <span class="keyword">if</span> (target &lt; nums[<span class="number">0</span>] || target &gt; nums[nums.length - <span class="number">1</span>]) &#123;</span><br><span class="line">            <span class="keyword">return</span> -<span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="type">int</span> <span class="variable">left</span> <span class="operator">=</span> <span class="number">0</span>, right = nums.length - <span class="number">1</span>;</span><br><span class="line">        <span class="keyword">while</span> (left &lt;= right) &#123;</span><br><span class="line">            <span class="type">int</span> <span class="variable">mid</span> <span class="operator">=</span> left + ((right - left) &gt;&gt; <span class="number">1</span>);</span><br><span class="line">            <span class="keyword">if</span> (nums[mid] == target) &#123;</span><br><span class="line">                <span class="keyword">return</span> mid;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">else</span> <span class="keyword">if</span> (nums[mid] &lt; target) &#123;</span><br><span class="line">                left = mid + <span class="number">1</span>;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">else</span> &#123; <span class="comment">// nums[mid] &gt; target</span></span><br><span class="line">                right = mid - <span class="number">1</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 未找到目标值</span></span><br><span class="line">        <span class="keyword">return</span> -<span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>左闭右开区间：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="type">int</span> <span class="title function_">search</span><span class="params">(<span class="type">int</span>[] nums, <span class="type">int</span> target)</span> &#123;</span><br><span class="line">        <span class="type">int</span> <span class="variable">left</span> <span class="operator">=</span> <span class="number">0</span>, right = nums.length;</span><br><span class="line">        <span class="keyword">while</span> (left &lt; right) &#123;</span><br><span class="line">            <span class="type">int</span> <span class="variable">mid</span> <span class="operator">=</span> left + ((right - left) &gt;&gt; <span class="number">1</span>);</span><br><span class="line">            <span class="keyword">if</span> (nums[mid] == target) &#123;</span><br><span class="line">                <span class="keyword">return</span> mid;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">else</span> <span class="keyword">if</span> (nums[mid] &lt; target) &#123;</span><br><span class="line">                left = mid + <span class="number">1</span>;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">else</span> &#123; <span class="comment">// nums[mid] &gt; target</span></span><br><span class="line">                right = mid;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 未找到目标值</span></span><br><span class="line">        <span class="keyword">return</span> -<span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<p><strong>left和right的含义（贼他妈重点，区分两个写法的区间到底怎么写）：</strong></p>
+<p>作为<strong>区间</strong>[left,right]或者[left,right)；作为指针指向元素。</p>
+<p>在左闭右闭区间中，left&lt;&#x3D;right，right是有可能指向target的，但是left&lt;right，<strong>right只是边界</strong>，right不可能是target。因此在左闭右闭区间的时候，right&#x3D;arr.length-1，而左闭右开区间right&#x3D;arr.length。</p>
+<img src="%E4%BA%8C%E5%88%86%E7%AE%97%E6%B3%95%E8%8D%89%E7%A8%BF.jpg" style="zoom: 50%;">
+
+
+
+
+
+
+
+<p><strong>二分查找注意点：</strong></p>
+<ol>
+<li><p><strong>单单只看左闭右闭区间，while循环中到底是left&lt;right还是left&lt;&#x3D;right？</strong></p>
+<p>可以有一个具体的例子，当查找的数字是左边界的时候，left&lt;right会漏掉一次查询。因为left和right共同指向一个位置的时候不满足while条件，所以退出循环。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 拿草稿纸自己写一下，别只看不动笔的</span></span><br><span class="line"><span class="type">int</span>[] arr = &#123;<span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">13</span>, <span class="number">16</span>, <span class="number">23</span>, <span class="number">24</span>&#125;;</span><br><span class="line">target = <span class="number">2</span>;</span><br></pre></td></tr></table></figure>
+
+
+</li>
+<li><p><strong>int mid &#x3D; left + ((right - left) &gt;&gt; 1)是什么？为什么不是直接相加除2？</strong></p>
+<p>超过int类型的范围以后会变负数。右移运算符&gt;&gt;1相当于转换成二进制除2，需要补一下原码，反码，补码的内容，懒得写了。</p>
+</li>
+</ol>
 ]]></content>
       <categories>
         <category>算法</category>
