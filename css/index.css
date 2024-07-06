@@ -6862,7 +6862,7 @@ body[data-type=music] #nav-music {
 #about-page .author-content-item.careers img {
   position: absolute;
   left: 0;
-  bottom: 20px;
+  bottom: 90px;
   width: 100%;
   transition: 0.6s;
   user-select: none;
