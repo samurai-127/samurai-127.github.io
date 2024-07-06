@@ -1,0 +1,485 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="utf-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><title>JDBC：Java语言连接数据库 | 颓废市民黄先生</title><noscript>开启JavaScript才能访问本站哦~</noscript><link rel="icon" href="/img/avatar.ico"><!-- index.css--><link rel="stylesheet" href="/css/index.css?v=1.12.2"><!-- inject head--><link rel="canonical" href="https://samurai-127.github.io/2024/07/06/JDBC%20%E7%AC%94%E8%AE%B0/"><link rel="stylesheet" href="https://cdn2.codesign.qq.com/icons/7pOrz0WXB5ZWJPX/latest/iconfont.css"><!-- aplayer--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aplayer/1.10.1/APlayer.min.css"><!-- swiper--><!-- fancybox ui--><!-- katex--><!-- Open Graph--><meta name="description" content="一、 什么是JDBCJDBC（Java DataBase Connectivity）是Java数据库连接技术的简称，提供连接和操作各种常用数据库的能力，JDBC只定义了Java应用程序访问数据库的标准接口层，而对于不同的数据库而言则由数据库厂商去实现JDBC接口层的功能 （叫做数据库驱动程序包）。"><!-- pwa--><meta name="apple-mobile-web-app-capable" content="颓废市民黄先生"><meta name="theme-color" content="var(--efu-main)"><meta name="apple-mobile-web-app-status-bar-style" content="var(--efu-main)"><link rel="bookmark" href="/img/avatar.ico"><link rel="apple-touch-icon" href="/img/avatar.ico" sizes="180x180"><script>console.log(
+    "%c Program: Hexo %c Theme: Solitude %c Version: v1.12.2",
+    "border-radius:5px 0 0 5px;padding: 5px 10px;color:white;background:#ff3842;",
+    "padding: 5px 10px;color:white;background:#3e9f50;",
+    "padding: 5px 10px;color:white;background:#0084ff;border-radius:0 5px 5px 0",
+)
+</script><script>(()=>{
+        const saveToLocal = {
+            set: function setWithExpiry(key, value, ttl) {
+                if (ttl === 0)
+                    return
+                const now = new Date()
+                const expiryDay = ttl * 86400000
+                const item = {
+                    value: value,
+                    expiry: now.getTime() + expiryDay
+                }
+                localStorage.setItem(key, JSON.stringify(item))
+            },
+            get: function getWithExpiry(key) {
+                const itemStr = localStorage.getItem(key)
+    
+                if (!itemStr) {
+                    return undefined
+                }
+                const item = JSON.parse(itemStr)
+                const now = new Date()
+    
+                if (now.getTime() > item.expiry) {
+                    localStorage.removeItem(key)
+                    return undefined
+                }
+                return item.value
+            }
+        };
+        window.utils = {
+            saveToLocal: saveToLocal,
+            getCSS: (url, id = false) => new Promise((resolve, reject) => {
+              const link = document.createElement('link')
+              link.rel = 'stylesheet'
+              link.href = url
+              if (id) link.id = id
+              link.onerror = reject
+              link.onload = link.onreadystatechange = function() {
+                const loadState = this.readyState
+                if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+                link.onload = link.onreadystatechange = null
+                resolve()
+              }
+              document.head.appendChild(link)
+            }),
+            getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+              const script = document.createElement('script')
+              script.src = url
+              script.async = true
+              script.onerror = reject
+              script.onload = script.onreadystatechange = function() {
+                const loadState = this.readyState
+                if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+                script.onload = script.onreadystatechange = null
+                resolve()
+              }
+    
+              Object.keys(attr).forEach(key => {
+                script.setAttribute(key, attr[key])
+              })
+    
+              document.head.appendChild(script)
+            }),
+            addGlobalFn: (key, fn, name = false, parent = window) => {
+                const globalFn = parent.globalFn || {}
+                const keyObj = globalFn[key] || {}
+        
+                if (name && keyObj[name]) return
+        
+                name = name || Object.keys(keyObj).length
+                keyObj[name] = fn
+                globalFn[key] = keyObj
+                parent.globalFn = globalFn
+            },
+        }
+    })()</script><!-- global head--><script>const GLOBAL_CONFIG = {
+    root: '/',
+    algolia: undefined,
+    localsearch: {"preload":false,"path":"/search.xml"},
+    runtime: '2024-06-25 00:00:00',
+    lazyload: {
+        enable: false,
+        error: '/img/error_load.avif'
+    },
+    copyright: {"limit":50,"author":"作者: 颓废市民黄先生","link":"链接: ","source":"来源: 颓废市民黄先生","info":"著作权归作者所有。 商业转载请联系作者获得授权，非商业转载请注明出处。"},
+    highlight: {"limit":200,"expand":true,"copy":true,"syntax":"highlight.js"},
+    randomlink: false,
+    lang: {"theme":{"dark":"已切换至深色模式","light":"已切换至浅色模式"},"copy":{"success":"复制成功","error":"复制失败"},"backtop":"返回顶部","time":{"day":"天前","hour":"小时前","just":"刚刚","min":"分钟前","month":"个月前"},"day":" 天","f12":"开发者模式已打开，请遵循GPL协议。","totalk":"无需删除空行，直接输入评论即可","search":{"empty":"找不到你查询的内容：${query}","hit":"找到 ${hits} 条结果，用时 ${time} 毫秒","placeholder":"输入关键词快速查找","count":"共 <b>${count}</b> 条结果。"},"barrage":{"title":"热评"}},
+    aside: {
+        sayhello: {
+            morning: '起那么早看博客？',
+            noon: '中午休息一下呗',
+            afternoon: '下午好像在犯困',
+            night: '晚上洗个澡爽一下呗',
+            goodnight: '睡个好觉，保证精力充沛',
+        },
+        sayhello2: [],
+        sayhello3: {
+            prefix: '好久不见，',
+            back: '欢迎再次回来，',
+        },
+    },
+    covercolor: {
+        enable: false
+    },
+    comment: {"avatar":"https://cravatar.cn","commentBarrage":true},
+    lightbox: 'null',
+    post_ai: {"key":"449aa72132adf73ef7084ef83c46792af1edab","talk":null,"randomPost":false},
+    right_menu: {"mode":{"dark":"深色模式","light":"浅色模式"},"img_error":"此图片无法复制与下载","music":{"start":"播放音乐","stop":"暂停音乐"},"barrage":{"open":"显示热评","close":"关闭热评"},"translate":{"translateDelay":0,"defaultEncoding":2}},
+};</script><!-- page-config head--><script id="config-diff">var PAGE_CONFIG = {
+    is_post: true,
+    is_page: false,
+    is_home: false,
+    page: 'string',
+    toc: true,
+    comment: true,
+    ai_text: false
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body id="body" data-type="string"><!-- universe--><canvas id="universe"></canvas><!-- loading--><!-- console--><div id="console"><div class="close-btn" onclick="sco.hideConsole()"><i class="solitude st-close-fill"></i></div><div class="console-card-group"><div class="console-card-group-left"><div class="console-card" id="card-newest-comments" onclick="sco.hideConsole()"><div class="card-content"><div class="author-content-item-tips">互动</div><div class="author-content-item-title">最新评论<a class="recent-comment-more" href="/recentcomments/" title="最近评论"><i class="solitude st-right-btn-fill"></i></a></div></div><a class="recent-comment-image" href="/recentcomments/"><img src="/img/recent_c.avif"></a></div></div><div class="console-card-group-right"><div class="console-card tags" onclick="sco.hideConsole()"><div class="card-content"><div class="author-content-item-tips">标签</div><div class="author-content-item-title">寻找感兴趣的领域</div></div><div class="card-tag-cloud"><a href="/tags/docker/">docker<sup>2</sup></a><a href="/tags/%E8%BD%AF%E4%BB%B6%E6%8A%80%E6%9C%AF/">软件技术<sup>4</sup></a><a href="/tags/JDBC/">JDBC<sup>1</sup></a><a href="/tags/mybatis/">mybatis<sup>1</sup></a><a href="/tags/git/">git<sup>1</sup></a><a href="/tags/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/">操作系统<sup>1</sup></a><a href="/tags/%E9%9D%A2%E8%AF%95/">面试<sup>2</sup></a><a href="/tags/mysql/">mysql<sup>1</sup></a><a href="/tags/%E7%AE%97%E6%B3%95/">算法<sup>2</sup></a></div></div><div class="console-card history" onclick="sco.hideConsole()"><ul class="card-archive-list"><li class="card-archive-list-item"><a class="card-archive-list-link" href="/archives/2024/07/"><span class="card-archive-list-date">2024/07</span><div class="card-archive-list-count-group"><span class="card-archive-list-count">7</span><span class="card-archive-list-count-unit">篇</span></div></a></li><li class="card-archive-list-item"><a class="card-archive-list-link" href="/archives/2024/06/"><span class="card-archive-list-date">2024/06</span><div class="card-archive-list-count-group"><span class="card-archive-list-count">2</span><span class="card-archive-list-count-unit">篇</span></div></a></li></ul></div></div></div><div class="button-group"><div class="console-btn-item"><span class="darkmode_switchbutton" onclick="sco.switchDarkMode()" title="昼夜切换"><i class="solitude st-moon-clear-fill"></i></span></div><div class="console-btn-item" id="consoleHideAside"><span class="asideSwitch" onclick="sco.switchHideAside()" title="边栏显示控制"><i class="solitude st-side-bar-fill"></i></span></div><div class="console-btn-item" id="consoleMusic" onclick="sco.musicToggle()"><span class="music-switch" title="音乐开关"><i class="solitude st-disc-fill"></i></span></div><div class="console-btn-item on" id="consoleCommentBarrage" onclick="sco.switchCommentBarrage()"><span class="commentBarrage"><i class="solitude st-chat-fill"></i></span></div></div><div class="console-mask" onclick="sco.hideConsole()"></div></div><!-- sidebar--><div id="sidebar" style="zoom: 1;"><div id="menu-mask" style="display: none;"></div><div id="sidebar-menus"><div class="site-data"><div class="data-item is-center"><div class="data-item-link"><a href="/archives/"><div class="headline">文章</div><div class="length-num">9</div></a></div></div><div class="data-item is-center"><div class="data-item-link"><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div></div><div class="data-item is-center"><div class="data-item-link"><a href="/tags/"><div class="headline">标签</div><div class="length-num">9</div></a></div></div></div><span class="sidebar-menu-item-title">功能</span><div class="sidebar-menu-item"><span class="darkmode_switchbutton menu-child" onclick="sco.switchDarkMode()"><i class="solitude st-moon-clear-fill"></i><span>显示模式</span></span></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><span>首页</span></a></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>文库</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="solitude  st-folder-fill"></i><span>文章列表</span></a></li><li><a class="site-page child" href="/categories/"><i class="solitude  st-checkbox-multiple-blank-fill"></i><span>全部分类</span></a></li><li><a class="site-page child" href="/tags/"><i class="solitude  st-price-tag-fill"></i><span>全部标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>我的歌单</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="solitude  st-disc-fill"></i><span>音乐馆</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>关于</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/about/"><i class="solitude  st-contacts-fill"></i><span>关于本站</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/message"><span>留言板</span></a></div></div><span class="sidebar-menu-item-title">标签</span><div class="card-widget card-tags card-archives card-webinfo card-allinfo"><div class="card-tag-cloud"><a href="/tags/docker/">docker<sup>2</sup></a><a href="/tags/%E8%BD%AF%E4%BB%B6%E6%8A%80%E6%9C%AF/">软件技术<sup>4</sup></a><a href="/tags/JDBC/">JDBC<sup>1</sup></a><a href="/tags/mybatis/">mybatis<sup>1</sup></a><a href="/tags/git/">git<sup>1</sup></a><a href="/tags/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/">操作系统<sup>1</sup></a><a href="/tags/%E9%9D%A2%E8%AF%95/">面试<sup>2</sup></a><a href="/tags/mysql/">mysql<sup>1</sup></a><a href="/tags/%E7%AE%97%E6%B3%95/">算法<sup>2</sup></a></div></div></div></div><!-- keyboard--><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav class="show" id="nav"><div id="nav-group"><div id="blog_name"><a id="site-name" href="/" title="返回博客主页"><span class="title">颓废市民黄先生</span></a></div><div id="page-name-mask"><div id="page-name"><a id="page-name-text" onclick="sco.toTop()">JDBC：Java语言连接数据库</a></div></div><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><span>首页</span></a></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>文库</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="solitude  st-folder-fill"></i><span>文章列表</span></a></li><li><a class="site-page child" href="/categories/"><i class="solitude  st-checkbox-multiple-blank-fill"></i><span>全部分类</span></a></li><li><a class="site-page child" href="/tags/"><i class="solitude  st-price-tag-fill"></i><span>全部标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>我的歌单</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="solitude  st-disc-fill"></i><span>音乐馆</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>关于</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/about/"><i class="solitude  st-contacts-fill"></i><span>关于本站</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/message"><span>留言板</span></a></div></div></div><div id="nav-left"></div><div id="nav-right"><div class="nav-button" id="randomPost_button"><a class="site-page" onclick="toRandomPost()" title="随机一篇文章" href="javascript:void(0);"><i class="solitude st-dice-line"></i></a></div><div class="nav-button" id="search-button"><a class="site-page social-icon search" href="javascript:void(0);" title="搜索"><i class="solitude st-search-line"></i></a></div><div class="nav-button" id="nav-console"><a class="console_switchbutton" onclick="sco.showConsole()" title="中控台" href="javascript:void(0);"><i class="solitude st-dashboard-fill"></i></a></div><div class="nav-button" id="nav-totop" onclick="sco.toTop()"><a class="totopbtn"><i class="solitude st-arrow-up-line"></i><span id="percent">0</span></a></div><div id="toggle-menu"><a class="site-page"><i class="solitude st-menu-line"></i></a></div></div></div></nav><div class="coverdiv" id="coverdiv"><img class="nolazyload" id="post-cover" src="/img/jdbccover.png" alt="JDBC：Java语言连接数据库"></div><div id="post-info"><div id="post-firstinfo"><div class="meta-firstline"><a class="post-meta-original" title="该文章为原创文章，注意版权协议">原创</a><span class="post-meta-categories"><a class="post-meta-categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%BC%80%E5%8F%91/">后端开发</a></span><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/JDBC/"><span class="tags-name tags-punctuation">JDBC</span></a></div></div></div></div><h1 class="post-title">JDBC：Java语言连接数据库</h1><div id="post-meta"><div class="meta-secondline"><span class="post-meta-date" title="发布于 2024-07-06 11:00:00"><i class="post-meta-icon solitude st-calendar-todo-fill"></i><time datetime="2024-07-06T03:00:00.000Z">2024-07-06T03:00:00.000Z</time></span><span class="post-meta-date" title="最后更新于 2024-07-06 11:23:51"><i class="post-meta-icon solitude st-refresh-line"></i><time datetime="2024-07-06T03:23:51.774Z">2024-07-06T03:23:51.774Z</time></span><span class="post-meta-position" title="作者IP归属地为未知"><i class="post-meta-icon solitude st-map-pin-fill"></i><span>未知</span></span><a class="post-meta-pv" href="/2024/07/06/JDBC%20%E7%AC%94%E8%AE%B0/" title="文章热度"><i class="post-meta-icon solitude st-fire-fill"></i><span id="twikoo_visitors"><i class="solitude st-loading-line"></i></span></a><span class="post-meta-commentcount" title="评论数" onclick="sco.scrollTo('post-comment')"><i class="solitude st-chat-fill"></i><a href="/2024/07/06/JDBC%20%E7%AC%94%E8%AE%B0/#post-comment"><span class="twikoo-count"><i class="solitude st-loading-line"></i></span></a></span></div></div></div><section class="main-hero-waves-area waves-area"><svg class="waves-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" viewBox="0 24 150 28" preserveAspectRatio="none" shape-rendering="auto"><defs><path id="gentle-wave" d="M -160 44 c 30 0 58 -18 88 -18 s 58 18 88 18 s 58 -18 88 -18 s 58 18 88 18 v 44 h -352 Z"></path></defs><g class="parallax"><use href="#gentle-wave" x="48" y="0"></use><use href="#gentle-wave" x="48" y="3"></use><use href="#gentle-wave" x="48" y="5"></use><use href="#gentle-wave" x="48" y="7"></use></g></svg></section></header><main class="layout" id="content-inner"><div id="post"><div class="post-ai"><div class="ai-title"><div class="ai-title-left"><i class="ai-title-icon solitude st-robot-fill"></i><div class="ai-title-text">文章摘要</div></div><div class="ai-tag" id="ai-tag">GPT 4</div></div><div class="ai-explanation" style="display: block;"></div><div class="ai-suggestions"></div><div class="ai-bottom"><div class="ai-tips">此内容根据文章生成，仅用于文章内容的解释与总结</div><a class="ai-report" title="投诉" href="https://samurai-127.github.io">投诉</a></div></div><article class="post-content" id="article-container"><h1 id="一、-什么是JDBC"><a href="#一、-什么是JDBC" class="headerlink" title="一、 什么是JDBC"></a>一、 什么是JDBC</h1><p><em>JDBC（Java DataBase Connectivity）</em>是Java数据库连接技术的简称，提供连接和操作各种常用数据库的能力，JDBC只定义了Java应用程序访问数据库的标准接口层，而对于不同的数据库而言则由数据库厂商去实现JDBC接口层的功能 （叫做数据库驱动程序包）。</p>
+<h1 id="二、-JDBC工作原理"><a href="#二、-JDBC工作原理" class="headerlink" title="二、  JDBC工作原理"></a>二、  JDBC工作原理</h1><p><img src="image-20230509201759580-3634684.png"></p>
+<p>JDBC驱动程序包实际上是对JDK jdbc api的具体实现。可以理解成JDBC只定义了与数据库通信的规范和协议，而这些规范的具体实现由各数据库厂商自己实现也只有数据库厂商才知道怎样操作自己的数据库。</p>
+<p><img src="image-20230509201842721-3634725.png"></p>
+<h1 id="三、-JDBC访问数据库的步骤"><a href="#三、-JDBC访问数据库的步骤" class="headerlink" title="三、  JDBC访问数据库的步骤"></a>三、  JDBC访问数据库的步骤</h1><p>准备工作：把驱动程序包<em>mysql-connector-j-8.2.0.jar</em>引入<strong>项目依赖</strong>，</p>
+<p><em>Project Structure</em> —&gt;选中<em>module</em> —&gt; <em>Dependency</em> —&gt;点击右侧<em>”+”</em>号添加依赖库。</p>
+<ol>
+<li><p>注册数据库动程序</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"> <span class="keyword">final</span> <span class="type">String</span> <span class="variable">DRIVER</span> <span class="operator">=</span> <span class="string">&quot;com.mysql.cj.jdbc.Driver&quot;</span>;</span><br><span class="line"><span class="keyword">final</span> <span class="type">String</span> <span class="variable">URL</span> <span class="operator">=</span> <span class="string">&quot;jdbc:mysql://localhost:3306/scott&quot;</span>;</span><br><span class="line"><span class="keyword">final</span> <span class="type">String</span> <span class="variable">USERNAME</span> <span class="operator">=</span> <span class="string">&quot;root&quot;</span>;</span><br><span class="line"><span class="keyword">final</span> <span class="type">String</span> <span class="variable">PASSWORD</span> <span class="operator">=</span> <span class="string">&quot;123456&quot;</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">try</span> &#123;</span><br><span class="line">  <span class="comment">//1. 注册数据库动程序</span></span><br><span class="line">  Class.forName(DRIVER);</span><br><span class="line"></span><br><span class="line">&#125; <span class="keyword">catch</span> (ClassNotFoundException e) &#123;</span><br><span class="line">  System.err.println(<span class="string">&quot;注册数据库驱动失败&quot;</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>通过<code>java.sql.DriverManager</code> 获得数据库连接 <code>java.sql.Connection</code> </p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">Connection</span> <span class="variable">conn</span> <span class="operator">=</span> <span class="literal">null</span>; </span><br><span class="line"><span class="comment">//2. 通过`java.sql.DriverManager` 获得数据库连接 `java.sql.Connection`</span></span><br><span class="line">conn = DriverManager.getConnection(URL, USERNAME, PASSWORD);</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>通过 <code>java.sql.Connection</code> 创建语句对象 <code>java.sql.Statement</code> </p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">Statement</span> <span class="variable">stmt</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line"><span class="comment">//3. 通过 `java.sql.Connection` 创建语句对象 `java.sql.Statement`</span></span><br><span class="line">stmt = conn.createStatement();</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>执行 SQL 语句</p>
+<ul>
+<li><p><strong>select 查询</strong>：<em>java.sql.ResultSet  statement.exceuteQuery( sql : String )</em> 返回结果集对象</p>
+</li>
+<li><p><strong>insert, update, delete 语句</strong>：<em>int  statement.executeUpate( sql : String )</em> 返回整数，此操作数据库影响的行数。</p>
+</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">ResultSet</span> <span class="variable">rs</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line"> <span class="comment">//4.执行 SQL 语句获得结果集对象</span></span><br><span class="line">rs = stmt.executeQuery(<span class="string">&quot;select * from emp&quot;</span>);</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>遍历查询结果集 <code>java.sql.ResultSet</code>（select 操作）</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">List&lt;Employee&gt; employees = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;();</span><br><span class="line"></span><br><span class="line"><span class="comment">//5. 遍历查询结果集 `java.sql.ResultSet`（select 操作）</span></span><br><span class="line"><span class="keyword">while</span> (rs.next()) &#123; <span class="comment">//遍历每一行</span></span><br><span class="line">  <span class="comment">//取每一列</span></span><br><span class="line">  <span class="type">int</span> <span class="variable">empno</span> <span class="operator">=</span> rs.getInt(<span class="string">&quot;empno&quot;</span>);</span><br><span class="line">  <span class="type">String</span> <span class="variable">ename</span> <span class="operator">=</span> rs.getString(<span class="string">&quot;ename&quot;</span>);</span><br><span class="line">  <span class="type">String</span> <span class="variable">job</span> <span class="operator">=</span> rs.getString(<span class="string">&quot;job&quot;</span>);</span><br><span class="line">  <span class="type">int</span> <span class="variable">mgr</span> <span class="operator">=</span> rs.getInt(<span class="string">&quot;mgr&quot;</span>);</span><br><span class="line">  <span class="type">Date</span> <span class="variable">hiredate</span> <span class="operator">=</span> rs.getDate(<span class="string">&quot;hiredate&quot;</span>);</span><br><span class="line">  <span class="type">double</span> <span class="variable">sal</span> <span class="operator">=</span> rs.getDouble(<span class="string">&quot;sal&quot;</span>);</span><br><span class="line">  <span class="type">double</span> <span class="variable">comm</span> <span class="operator">=</span> rs.getDouble(<span class="string">&quot;comm&quot;</span>);</span><br><span class="line">  <span class="type">int</span> <span class="variable">deptno</span> <span class="operator">=</span> rs.getInt(<span class="string">&quot;deptno&quot;</span>);</span><br><span class="line"></span><br><span class="line">  <span class="type">Employee</span> <span class="variable">e</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Employee</span>(empno, ename, job, mgr, hiredate, sal, comm, deptno);</span><br><span class="line">  employees.add(e);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>关闭 <code>java.sql.ResultSet</code>、<code>java.sql.Statement</code>、<code>java.sql.Connection</code> 对象</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">try</span> &#123;</span><br><span class="line">  ......</span><br><span class="line">&#125; <span class="keyword">catch</span>(SQLException e) &#123;</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">finally</span> &#123;</span><br><span class="line">  <span class="keyword">try</span> &#123;</span><br><span class="line">    <span class="comment">//6. 关闭 `java.sql.ResultSet`、`java.sql.Statement`、`java.sql.Connection` 对象</span></span><br><span class="line">    <span class="keyword">if</span> (rs != <span class="literal">null</span>) &#123;</span><br><span class="line">      rs.close();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (stmt != <span class="literal">null</span>) &#123;</span><br><span class="line">      stmt.close();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (conn != <span class="literal">null</span>) &#123;</span><br><span class="line">      conn.close();</span><br><span class="line">    &#125;</span><br><span class="line">  &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">    System.err.println(<span class="string">&quot;关闭数据资源失败！&quot;</span> + e.getMessage());</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ol>
+<p><img src="image-20230509201950686-3634794.png"></p>
+<blockquote>
+<p><strong>注意：</strong></p>
+<p>注册数据驱动只需在整个项目运行时注册一次即可。不需要每次获取<code>Connection</code> 时都去注册驱动。注册数据库驱动程序后其它的类再去访问数据库时 JVM 就能找得到数据库驱动了，所以通常把注册驱动的代码写在某个类的*static{ ….. }*静态初始化块中。</p>
+</blockquote>
+<h3 id="3-1-各数据库-URL"><a href="#3-1-各数据库-URL" class="headerlink" title="3.1 各数据库 URL"></a>3.1 各数据库 URL</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//url格式：协议:子协议:主机:port:数据库</span></span><br><span class="line"><span class="comment">//SQL Server</span></span><br><span class="line"><span class="type">String</span> <span class="variable">URL</span> <span class="operator">=</span> <span class="string">&quot;jdbc:sqlserver://localhost:1433;DatabaseName=数据库名&quot;</span>;</span><br><span class="line"><span class="comment">//Oracle</span></span><br><span class="line"><span class="type">String</span> <span class="variable">URL</span> <span class="operator">=</span> <span class="string">&quot;jdbc:oracle:thin:@localhost:1521:ORCL(实例名,SID)&quot;</span>;</span><br><span class="line"><span class="comment">//MySQL</span></span><br><span class="line"><span class="type">String</span> <span class="variable">URL</span> <span class="operator">=</span> <span class="string">&quot;jdbc:mysql://localhost:3306/数据库名?autoReconnect=true&amp;useUnicode=true&amp;characterEncoding=utf-8&amp;serverTimezone=Asia/Shanghai&quot;</span>;</span><br></pre></td></tr></table></figure>
+
+<h1 id="四、-JDBC-API-类"><a href="#四、-JDBC-API-类" class="headerlink" title="四、 JDBC API 类"></a>四、 JDBC API 类</h1><h2 id="4-1-Connection常用方法"><a href="#4-1-Connection常用方法" class="headerlink" title="4.1 Connection常用方法"></a>4.1 Connection常用方法</h2><ol>
+<li><p><code>close()</code>：立即释放此 Connection 对象的数据库和 JDBC 资源，而不是等待它们被自动释放。</p>
+</li>
+<li><p><code>commit()</code> ：提交SQL操作，默认是自动提交SQL操作，很少情况需要手动提交。</p>
+</li>
+<li><p>createStatement() ：创建一个 Statement (普通语句)对象并将 SQL 语句发送到数据库去执行。</p>
+</li>
+<li><p><code>prepareStatement(String sql)</code>：创建一个 <code>PreparedStatement</code>(预编译语句) 对象来将参数化的 SQL 语句发送到数据库，其后对<strong>占位符</strong>设置参数，这种语句类型可获得更好的性能。</p>
+</li>
+<li><p><code>prepareCall(String sql)</code> ：创建一个 <code>CallableStatement</code> 对象来调用数据库存储过程。</p>
+</li>
+<li><p>必须在 <em>finally</em> 块中关闭<code>Connection</code>。</p>
+</li>
+<li><p><code>void rollback()</code>：取消在当前事务中进行的所有更改，并释放此 <code>Connection</code> 对象当前持有的所有数据库锁。</p>
+</li>
+<li><p><code>void setAutoCommit(boolean autoCommit):</code> 将此连接的自动提交模式设置为给定状态。</p>
+</li>
+</ol>
+<h2 id="4-2-Statement常用方法"><a href="#4-2-Statement常用方法" class="headerlink" title="4.2 Statement常用方法"></a>4.2 Statement常用方法</h2><ol>
+<li><p><strong>（不推荐用）</strong><code>Boolean execute(String sql)</code> ：执行给定的 SQL 语句（增删改查语句都可以），该语句可能返回多个结果。</p>
+</li>
+<li><p><code>ResultSet executeQuery(String sql)</code> : 执行给定的 SQL 查询语句，该语句返回单个 <code>ResultSet</code> 对象。</p>
+</li>
+<li><p><code>int intexecuteUpdate(Stringsql)</code>: 执行给定 SQL 语句，该语句可能为 <em>INSERT、UPDATE 或 DELETE</em> 语句，或者不返回任何内容的 SQL 语句（如 DDL 语句）。</p>
+</li>
+<li><p><code>setQueryTimeout(int seconds)</code> ：将驱动程序等待 <code>Statement</code> 对象执行的秒数设置为给定秒数。</p>
+</li>
+<li><p>必须在finally块中关闭<code>Statement</code>。</p>
+</li>
+</ol>
+<h2 id="4-3-ResultSet常用方法"><a href="#4-3-ResultSet常用方法" class="headerlink" title="4.3  ResultSet常用方法"></a>4.3  ResultSet常用方法</h2><ol>
+<li><p><code>next()</code>: 将光标从当前位置向前移一行。ResultSet 光标最初位于第一行之前；第一次调用 next 方法使第一行成为当前行；第二次调用使第二行成为当前行，依此类推。</p>
+</li>
+<li><p><code>close()</code> ：立即释放此 ResultSet 对象的数据库和 JDBC 资源，而不是等待该对象自动关闭时发生此操作。</p>
+</li>
+<li><p><code>getXxx(int columnIndex)</code> ：使用列索引来获取数据，Xxx表示相应的数据类型。</p>
+</li>
+</ol>
+<p>​		例如：</p>
+<ul>
+<li>获字符串用<em>getString(int columnIndex)，getString(String columnNanme)</em></li>
+<li>获取整数用<em>getInt(int columnIndex),  getInt(String columnName)</em></li>
+</ul>
+<p>d)   必须在<code>finally</code>块中关闭<code>ResultSet</code>。</p>
+<h1 id="五、PreparedStatement"><a href="#五、PreparedStatement" class="headerlink" title="五、PreparedStatement"></a>五、PreparedStatement</h1><ol>
+<li><p>预编译语句<code>PreparedStatement</code>是<code>Statement</code>的子类</p>
+</li>
+<li><p>为什么要使用预编译语句？</p>
+<ul>
+<li><p>执行效率高</p>
+</li>
+<li><p>安全</p>
+</li>
+<li><p>支持参数值占位符：？</p>
+</li>
+</ul>
+</li>
+</ol>
+<p><img src="image-20230509215556993-3640563.png"></p>
+<p>SQL中的 “**- -**” 把后面的语句给注掉了，这样就出现了SQL漏洞。预编译语句可以避免此类问题的发生。</p>
+<p>如果要多次执行相似的SQL语句，如：一次插入（更新、删除）几百条记录; 又如不同用户登录执行 SQL语句只有用户名和密码不同。可以使用<code>PreparedStatement</code>（预编译语句对象）对象来执行。由于预编译语句使用占位符 ”?”，在执行SQL之前语句会被先发送到数据库服务器进行语法检查和编译等工作，并将SQL语句加入到数据库的语句缓冲池里，随后再对SQL语句中的占位符 <strong>”?”</strong> 设置定值。那么也就说如果你要执行1000行插入的时候第一次先SQL语句发送给数据库服务器处理，接着后面只需传递占位符的值就可以了。因此它不需每次传递大量的SQL语句也无需对每条SQL语句做语法检查和编译所以比较高效。</p>
+<ol start="3">
+<li>通过Connection的prepareStatement( sql )方法来创建预编译语句对象。</li>
+</ol>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="type">int</span> <span class="title function_">save</span><span class="params">(Employee e)</span>&#123;</span><br><span class="line">  <span class="keyword">try</span> (</span><br><span class="line">    <span class="type">Connection</span> <span class="variable">conn</span> <span class="operator">=</span> JdbcUtils.getConnection();</span><br><span class="line">  ) &#123;</span><br><span class="line">      <span class="comment">//? 占位符只能对赋值的地方占位，</span></span><br><span class="line">      <span class="comment">//如：where empno=?;    update emp set ename=? ....</span></span><br><span class="line">      <span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;insert into emp(ename,job,mgr,hiredate,sal,comm,deptno) values (?,?,?,?,?,?,?)&quot;</span>; </span><br><span class="line">      <span class="comment">//1.先创建预编译语句，占位符只能给值进行占位</span></span><br><span class="line">      <span class="type">PreparedStatement</span> <span class="variable">ps</span> <span class="operator">=</span> conn.prepareStatement(sql);</span><br><span class="line">      <span class="type">int</span> <span class="variable">index</span> <span class="operator">=</span> <span class="number">1</span>;</span><br><span class="line">      <span class="comment">//2.再给？(点位符)设置值, 占位符索引位置从1开始</span></span><br><span class="line">      ps.setString(index++, e.getEname());</span><br><span class="line">      ps.setString(index++, e.getJob());</span><br><span class="line">      ps.setInt(index++, e.getMgr());</span><br><span class="line">      ps.setDate(index++, <span class="keyword">new</span> <span class="title class_">java</span>.sql.Date(e.getHiredate().getTime()));</span><br><span class="line">      ps.setDouble(index++, e.getSal());</span><br><span class="line">      <span class="comment">//如果列允许为空时，需要作一下JDBC 的空值处理, setNull(i, sqlType);</span></span><br><span class="line">      <span class="keyword">if</span>(e.getComm()==<span class="literal">null</span>)&#123;</span><br><span class="line">          ps.setNull(index++, java.sql.Types.DOUBLE);</span><br><span class="line">      &#125; <span class="keyword">else</span>&#123;</span><br><span class="line">          ps.setDouble(index++,e.getComm());</span><br><span class="line">      &#125;</span><br><span class="line">      ps.setInt(index++, e.getDeptno());</span><br><span class="line">      <span class="comment">//3.执行，不能再指定SQL 语句</span></span><br><span class="line">      <span class="type">int</span> <span class="variable">row</span> <span class="operator">=</span> ps.executeUpdate();</span><br><span class="line">  &#125; <span class="keyword">catch</span> (SQLException ex) &#123;</span><br><span class="line">          System.err.println(<span class="string">&quot;&gt;&gt;2.新增员工实体失败：&quot;</span> + ex.getMessage());</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="5-1-常用方法"><a href="#5-1-常用方法" class="headerlink" title="5.1 常用方法"></a>5.1 常用方法</h2><ul>
+<li><p><code>boolean   execute()</code>：在此 <code>PreparedStatement</code> 对象中执行 SQL 语句，该语句可以是任何种类的 SQL 语句。</p>
+</li>
+<li><p><code>ResultSet executeQuery()</code> 在此 <code>PreparedStatement</code> 对象中执行 SQL 查询，并返回该查询生成的 ResultSet 对象。</p>
+</li>
+<li><p><code>int executeUpdate()</code>：在此 <code>PreparedStatement</code> 对象中执行 SQL 语句，该语句必须是一个 SQL 数据操作语言<em>（Data Manipulation Language，DML）</em>语句，比如 <em>INSERT、UPDATE 或 DELETE</em> 语句；或者是无返回内容的 SQL 语句，比如 DDL 语句。</p>
+</li>
+<li><p><code>void setXxx(int parameterIndex, Xxx value)</code>: Xxx表示相应的数据类型，如：setString(…), setInt(…)等。设置点位符位置的值，第一个参数是 1，第二个参数是 2，…..</p>
+</li>
+<li><p><code>setNull(int parameterIndex, java.sql.Types value)</code>: 插入或更新时处理空值的字段，通常对非<code>char, varchar</code>类型字段空值时使用。</p>
+</li>
+<li><p>必须在 <em>finally</em> 块中关闭<code>PreparedStatement</code>。</p>
+</li>
+</ul>
+<h2 id="5-2-PreparedStatement与Statement的对比"><a href="#5-2-PreparedStatement与Statement的对比" class="headerlink" title="5.2 PreparedStatement与Statement的对比"></a>5.2 PreparedStatement与Statement的对比</h2><table>
+<thead>
+<tr>
+<th></th>
+<th>Statement</th>
+<th>PreparedStatement</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>创建语句对象的方法</td>
+<td><em>Connection.createStatement( )</em>  创建语句对象时 不提供SQL</td>
+<td><em>Connection.preparedStatement( sql )</em>  创建语句对象时 提供SQL</td>
+</tr>
+<tr>
+<td>查询</td>
+<td><em>executeQuery( sql )</em>  要提供SQL语句</td>
+<td><em>executeQuery( )</em>  不提供提供SQL语句，但随后要设置占位符的值</td>
+</tr>
+<tr>
+<td>插入、更新、删除</td>
+<td><em>executeUpdate( sql )</em>  要提供SQL语句</td>
+<td><em>executeUpdate( )</em>  不提供提供SQL语句</td>
+</tr>
+</tbody></table>
+<h1 id="六-存储过程调用"><a href="#六-存储过程调用" class="headerlink" title="六. 存储过程调用"></a>六. 存储过程调用</h1><p>调用存储过程可以使用<code>CallableStatement</code>语句类型来调用。</p>
+<ol>
+<li><p>通过conn.prepareCall(<strong>“</strong>{call find_employee(?,?)}”); 获得一个使用CallableStatement语句对象。</p>
+</li>
+<li><p>设置<em>输入（IN模式）参数</em>的值和注册<em>输出（OUT模式）参数</em>。</p>
+<ul>
+<li><p>设置输入（IN模式）参数的值使用：</p>
+<p><code>CallableStatement.setString(parameterIndex, value);</code></p>
+<p>根据参数类型选择调用相应的方法。</p>
+</li>
+<li><p>注册输出（OUT模式）参数:</p>
+</li>
+</ul>
+</li>
+</ol>
+<p>​			<code>CallableStatement.registerOutParameter(OUT_ ParameterIndex, java.sql.Types.类型常量);</code></p>
+<ol start="3">
+<li>获得输出参数的值使用方法：getString (输出参数的索引位置); 根据输出参数类型调用相应的方法。</li>
+</ol>
+<ul>
+<li><strong>示例</strong></li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//调用存储过程</span></span><br><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">testProcedure</span><span class="params">()</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">    <span class="comment">//调用存储过程必须用CallableStatement语句对象，它是PreparedStatement的子类</span></span><br><span class="line">    <span class="type">CallableStatement</span> <span class="variable">cs</span> <span class="operator">=</span></span><br><span class="line">            <span class="built_in">this</span>.conn.prepareCall(<span class="string">&quot;&#123;call get_job_sum_sal(?,?)&#125;&quot;</span>); <span class="comment">//第二个？号的参数模式是out</span></span><br><span class="line">    <span class="comment">//设置点位符的值</span></span><br><span class="line">    cs.setString(<span class="number">1</span>, <span class="string">&quot;SALESMAN&quot;</span>);</span><br><span class="line">    cs.setDouble(<span class="number">2</span>, <span class="number">0.0</span>);</span><br><span class="line">    <span class="comment">//若过程有输出参数模式的，必须在过程执行前注册输出参数，也是说要告诉oracle驱动要得到哪个占位符的值 </span></span><br><span class="line">    cs.registerOutParameter(<span class="number">2</span>, java.sql.Types.DOUBLE, <span class="number">2</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">//执行过程</span></span><br><span class="line">    <span class="type">boolean</span> <span class="variable">b</span> <span class="operator">=</span> cs.execute();</span><br><span class="line">    <span class="comment">//得到结果，即过程的输出参数的值</span></span><br><span class="line">    <span class="type">double</span> <span class="variable">result</span> <span class="operator">=</span> cs.getDouble(<span class="number">2</span>);</span><br><span class="line">    System.out.println(<span class="string">&quot;SALESMAN的总工资：&quot;</span> + result);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="七-批量更新"><a href="#七-批量更新" class="headerlink" title="七. 批量更新"></a>七. 批量更新</h1><h2 id="7-1-Statement-批量更新"><a href="#7-1-Statement-批量更新" class="headerlink" title="7.1 Statement 批量更新"></a>7.1 Statement 批量更新</h2><p>用Statement对象执行批量更新时，用到addBatch()和executeBatch()方法。</p>
+<p><em>insert</em> 和 <em>delete</em> 操作与<em>update</em> 操作相似。</p>
+<ul>
+<li><strong>示例</strong></li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">Connection</span> <span class="variable">connection</span> <span class="operator">=</span> JdbcUtil.getConnection();</span><br><span class="line"><span class="type">Statement</span> <span class="variable">statement</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line"><span class="keyword">try</span>&#123;</span><br><span class="line">    <span class="comment">//1.设置自动提交事务为 false</span></span><br><span class="line">    connection.setAutoCommit(<span class="literal">false</span>);</span><br><span class="line">    statement = connection.createStatement();</span><br><span class="line">    <span class="comment">//2.使用addBatch（）方法添加要在批处理中执行的SQL语句。然后使用executeBatch（）执行SQL语句。</span></span><br><span class="line">    statement.addBatch(<span class="string">&quot;update people set firstname=&#x27;aaa&#x27; where id=123&quot;</span>);</span><br><span class="line">    statement.addBatch(<span class="string">&quot;update people set firstname=&#x27;bbb&#x27; where id=456&quot;</span>);</span><br><span class="line">    statement.addBatch(<span class="string">&quot;update people set firstname=&#x27;ccc&#x27;  where id=789&quot;</span>);</span><br><span class="line">		<span class="comment">//返回每条件语句数据受影响的行数</span></span><br><span class="line">    <span class="type">int</span>[] recordsAffected = statement.executeBatch();</span><br><span class="line">    <span class="comment">//3.1 提交事务</span></span><br><span class="line">    connection.commit();</span><br><span class="line">&#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">  	<span class="comment">//3.2 回滚事务</span></span><br><span class="line">  	connection.rollback();</span><br><span class="line">    e.printStackTrace();</span><br><span class="line">&#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (statement != <span class="literal">null</span>) &#123;</span><br><span class="line">            statement.close();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">        e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="7-2-PreparedStatement-批量更新"><a href="#7-2-PreparedStatement-批量更新" class="headerlink" title="7.2 PreparedStatement 批量更新"></a>7.2 PreparedStatement 批量更新</h2><p>使用<code>PreparedStatement</code>对象执行批量更新。<code>PreparedStatement</code><em>可以重用相同的SQL语句</em>，并只需插入新参数即可执行每个更新。</p>
+<p><em>insert</em> 和 <em>delete</em> 操作与<em>update</em> 操作相似。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">Connection</span> <span class="variable">connection</span> <span class="operator">=</span> JdbcUtil.getConnection();</span><br><span class="line"><span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;update PEOPLE set firstname=? where id=?&quot;</span>;</span><br><span class="line"></span><br><span class="line"><span class="type">PreparedStatement</span> <span class="variable">preparedStatement</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line"><span class="keyword">try</span>&#123;</span><br><span class="line">    <span class="comment">//1.设置自动提交事务为 false</span></span><br><span class="line">    connection.setAutoCommit(<span class="literal">false</span>);</span><br><span class="line">    preparedStatement = connection.prepareStatement(sql);</span><br><span class="line">  	<span class="comment">//2.添加语句组，并为每条语句设置参数值</span></span><br><span class="line">    <span class="comment">//第1条记录</span></span><br><span class="line">    preparedStatement.setString(<span class="number">1</span>, <span class="string">&quot;james&quot;</span>);</span><br><span class="line">    preparedStatement.setLong  (<span class="number">2</span>, <span class="number">123</span>);</span><br><span class="line">    <span class="comment">//加入到批量处理</span></span><br><span class="line">    preparedStatement.addBatch();</span><br><span class="line">    <span class="comment">//第2条记录</span></span><br><span class="line">    preparedStatement.setString(<span class="number">1</span>, <span class="string">&quot;zhang&quot;</span>);</span><br><span class="line">    preparedStatement.setLong  (<span class="number">2</span>, <span class="number">456</span>);</span><br><span class="line">    preparedStatement.addBatch();</span><br><span class="line"></span><br><span class="line">    <span class="type">int</span>[] affectedRecords = preparedStatement.executeBatch();</span><br><span class="line">    <span class="comment">//3.1 提交事务</span></span><br><span class="line">    connection.commit();</span><br><span class="line">&#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">  	<span class="comment">//3.2 回滚事务</span></span><br><span class="line">  	connection.rollback();</span><br><span class="line">    e.printStackTrace();</span><br><span class="line">&#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="keyword">if</span>(preparedStatement != <span class="literal">null</span>) &#123;</span><br><span class="line">            preparedStatement.close();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">        e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>​		将每组参数值插入到preparedStatement中，并调用*addBatch( )<em>方法。 这会将参数值添加到批处理内部。 现在可以添加另一组值，以便插入到SQL语句中。 将全部批次发送到数据库后，将每组参数插入到SQL中并分别执行。然后执行</em>executeBatch( )*方法，它执行所有的批量更新。 SQL语句和参数集一起发送到数据库。</p>
+<p><strong>注意: 批量操作应该放到事务里进行，因为它会存在某条语句执行失败的情况。</strong></p>
+<h1 id="八-Java数据类型与SQL类型的映射"><a href="#八-Java数据类型与SQL类型的映射" class="headerlink" title="八. Java数据类型与SQL类型的映射"></a>八. Java数据类型与SQL类型的映射</h1><h2 id="8-1-Conversions-by-setObject-index-value"><a href="#8-1-Conversions-by-setObject-index-value" class="headerlink" title="8.1 Conversions by setObject(index, value)"></a>8.1 Conversions by setObject(index, value)</h2><p>下表说明了可用*Statement.setObject(index, value)和 PreparedStatement.setObject(index, value)*方法支持将Java类型到JDBC类型赋值。</p>
+<p><img src="clip_image001.png"></p>
+<p>An “x” means that the given Java object type may be converted to the given JDBC type. This table show the possible values for the parameter specifying a target JDBC type that is passed to the method PreparedStatement.setObject or RowSet.setObject. Note that some conversions may fail at run time if the value presented is invalid.</p>
+<h2 id="8-2-Conversions-by-ResultSet-getXXX-Methods"><a href="#8-2-Conversions-by-ResultSet-getXXX-Methods" class="headerlink" title="8.2 Conversions by ResultSet.getXXX Methods"></a>8.2 Conversions by ResultSet.getXXX Methods</h2><p><img src="clip_image001-3697769-3697774.png"></p>
+<p><code>SQLInput.readXXX</code> methods support only the recommended conversions. An “x” means that the method <em>can</em> retrieve the JDBC type. An “<strong>X</strong>“ means that the method is <em>recommended</em> for retrieving the JDBC type.</p>
+<h1 id="九、apache-DButils-组件库"><a href="#九、apache-DButils-组件库" class="headerlink" title="九、apache DButils 组件库"></a>九、apache DButils 组件库</h1><p>dbutils是apache 中的一个简化了jdbc的编程的工具组件库。</p>
+<p>下载地址：<a target="_blank" rel="noopener" href="https://commons.apache.org/proper/commons-dbutils/">DbUtils – JDBC Utility Component (apache.org)</a></p>
+<p>官方示例：<a target="_blank" rel="noopener" href="https://commons.apache.org/proper/commons-dbutils/examples.html">DbUtils – JDBC Utility Component – Examples (apache.org)</a></p>
+<h2 id="9-1-ResultSetHandler结果集处理器接口"><a href="#9-1-ResultSetHandler结果集处理器接口" class="headerlink" title="9.1 ResultSetHandler结果集处理器接口"></a>9.1 ResultSetHandler结果集处理器接口</h2><p><code>ResultSetHandler</code> 的功能是将查询结果的列名与JavaBean对象的属性名(setter方法)进行反射赋值，有以下几个常用实现类：</p>
+<ul>
+<li><p><code>BeanHandler</code>：JavaBean处理器。将查询结果集 <code>ResultSet</code>的一行仅且一行封装成一个JavaBean对象。</p>
+</li>
+<li><p><code>BeanListHandler</code>：JavaBean列表处理器。 将多行查询集 <code>ResultSet</code>封装成一个JavaBean列表。</p>
+</li>
+<li><p><code>MapHandler</code>：Map处理器。将查询结果集的一行仅且一行封装成一个<em>Map</em>对象，结果集的列名作为 Map 的<em>key</em>，值作为Map 的<em>value</em>;</p>
+</li>
+<li><p><code>MapListHandler</code>： Map列表处理器。返回一个列表其元素为Map，查询结果集的每一行封装成一个Map对象，结果的列名作为key，值作为value;</p>
+</li>
+<li><p><code>ScalarHandler</code>: 标量类型处理器。将只有一行一列的查询结果集封装成一个基本类型的值，如：<em>Select  count(*)  as rows  from  employee</em>;</p>
+</li>
+</ul>
+<p>示例：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//将查询结果集通过反射机制封装成一个JavaBean实体，查询结果的列名将与JavaBean的属性名进行反射（实际上是调用 JavaBean 的setter方法）</span></span><br><span class="line"><span class="comment">//如果结果集的列有与 JavaBean 属性名不同时，可通过给列名取别名的方式使之与JavaBean 属性名一样</span></span><br><span class="line">ResultSetHandler&lt;Employee&gt;  rsh = <span class="keyword">new</span> <span class="title class_">BeanHandler</span>&lt;Employee&gt;(Employee.class); </span><br><span class="line">runner.query(conn, sql, rsh [,Object... params]);</span><br><span class="line"></span><br><span class="line"><span class="comment">//将查询结果集通过反射机制封装成一个JavaBean实体列表</span></span><br><span class="line">ResultSetHandler&lt;Employee&gt;  rsh = <span class="keyword">new</span> <span class="title class_">BeanListHandler</span> &lt;Employee&gt;(Employee.class);</span><br><span class="line">runner.query(conn, sql, rsh [,Object... params]);</span><br></pre></td></tr></table></figure>
+
+<h2 id="9-2-QueryRunner-SQL执行操作类-多线程安全"><a href="#9-2-QueryRunner-SQL执行操作类-多线程安全" class="headerlink" title="9.2 QueryRunner SQL执行操作类(多线程安全)"></a>9.2 QueryRunner SQL执行操作类(多线程安全)</h2><p>官方是这样解释的：</p>
+<blockquote>
+<p>Executes SQL queries with pluggable strategies for handling <code>ResultSet</code>s. This class is thread safe.</p>
+</blockquote>
+<p>所有对数据库的CRUD操作都通过 <code>QueryRunner</code> 完成。</p>
+<p>如果创建<code>QueryRunner</code>实例时没有提供<code>DataSource</code>数据源参数则在执行CRUD操作方法时需提供数据库连接。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//方式 1: 不使用数据源</span></span><br><span class="line"><span class="type">QueryRunner</span> <span class="variable">runner</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">QueryRunner</span>(<span class="literal">true</span>);</span><br><span class="line"><span class="comment">//方式 2：使用数据源，数据源通过其它方式获得并传入构造中</span></span><br><span class="line"><span class="type">QueryRunner</span> <span class="variable">runner</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">QueryRunner</span>([DataSource]);</span><br></pre></td></tr></table></figure>
+
+<h3 id="普通查询（无占位符参数）"><a href="#普通查询（无占位符参数）" class="headerlink" title="普通查询（无占位符参数）"></a>普通查询（无占位符参数）</h3><p>以下示例均以junit 单元测试提供。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">testQuerySingleEmployee</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;select * from emp where ename=&#x27;ZHANG&#x27;&quot;</span>;</span><br><span class="line">    <span class="comment">//默认dbutil会通过结果集的类名与bean的属性名进行反射，</span></span><br><span class="line">    <span class="comment">//如果列名与bean的属性名不一致时可以为列名取别名来解决</span></span><br><span class="line">    ResultSetHandler&lt;Employee&gt; rsh = <span class="keyword">new</span> <span class="title class_">BeanHandler</span>&lt;Employee&gt;(Employee.class);</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">      <span class="type">Employee</span> <span class="variable">e</span> <span class="operator">=</span> runner.query(conn, sql, rsh);</span><br><span class="line">      System.out.println(e);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">      e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="带占位符参数查询"><a href="#带占位符参数查询" class="headerlink" title="带占位符参数查询"></a>带占位符参数查询</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">testQueryEmployeeList</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">//复杂查询时SQL语句需动态构建</span></span><br><span class="line">    <span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;select * from emp where ename like ? and sal between ? and ?&quot;</span>;</span><br><span class="line">    <span class="comment">//默认dbutil会通过结果集的类名与bean的属性名进行反射，</span></span><br><span class="line">    <span class="comment">//如果列名与bean的属性名不一致时可以为列名取别名来解决</span></span><br><span class="line">    ResultSetHandler&lt;List&lt;Employee&gt;&gt; rsh = <span class="keyword">new</span> <span class="title class_">BeanListHandler</span>&lt;Employee&gt;(Employee.class);</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        List&lt;Employee&gt; list = runner.query(conn, sql, rsh,<span class="string">&quot;%A%&quot;</span>,<span class="number">1000.0</span>,<span class="number">5000.0</span>);</span><br><span class="line">        <span class="keyword">for</span> (Employee e : list) &#123;</span><br><span class="line">          System.out.println(e);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">      	e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="标量查询"><a href="#标量查询" class="headerlink" title="标量查询"></a>标量查询</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">testCount</span><span class="params">()</span>&#123;</span><br><span class="line">    <span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;select count(empno) AS r from emp&quot;</span>;</span><br><span class="line">    ResultSetHandler&lt;BigDecimal&gt; rsh = <span class="keyword">new</span> <span class="title class_">ScalarHandler</span>&lt;BigDecimal&gt;(<span class="string">&quot;r&quot;</span>);</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="type">BigDecimal</span> <span class="variable">rows</span> <span class="operator">=</span> runner.query(conn, sql, rsh);</span><br><span class="line">        <span class="type">int</span> <span class="variable">r</span> <span class="operator">=</span> rows.intValue();</span><br><span class="line">        System.out.println(rows);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">      	e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="保存"><a href="#保存" class="headerlink" title="保存"></a>保存</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">testSave</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">//SQL语句可能需动态构建，参考以前JDBC的代码</span></span><br><span class="line">    <span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;insert into emp(EMPNO,ENAME,MGR,HIREDATE,SAL,DEPTNO) values(?,?,?,?,?,?)&quot;</span>;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="comment">// 返回数据库受影响的行数，即插入的行数</span></span><br><span class="line">      	<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> runner.update(conn, sql, <span class="number">8136</span>,<span class="string">&quot;Alex&quot;</span>,<span class="number">7369</span>,<span class="keyword">new</span> <span class="title class_">java</span>.sql.Date(<span class="keyword">new</span> <span class="title class_">Date</span>().getTime()),<span class="number">4440.0</span>,<span class="number">10</span>);</span><br><span class="line">      	System.out.println(i);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">      	e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="更新"><a href="#更新" class="headerlink" title="更新"></a>更新</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">testSave</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">//SQL语句可能需动态构建，参考以前JDBC的代码</span></span><br><span class="line">    <span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;update emp set ENAME=?,JOB=?,SAL=? Where EMPNO=?&quot;</span>;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="comment">// 返回数据库受影响的行数，即更新的行数</span></span><br><span class="line">      	<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> runner.update(conn, sql, <span class="number">8136</span>,<span class="string">&quot;Alex&quot;</span>,<span class="number">7369</span>,<span class="keyword">new</span> <span class="title class_">java</span>.sql.Date(<span class="keyword">new</span> <span class="title class_">Date</span>().getTime()),<span class="number">4440.0</span>,<span class="number">10</span>);</span><br><span class="line">      	System.out.println(i);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">      e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="删除"><a href="#删除" class="headerlink" title="删除"></a>删除</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">testDelete</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">//SQL语句可能需动态构建，参考以前JDBC的代码</span></span><br><span class="line">    <span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;delete employee Where EMPNO=?&quot;</span>;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="comment">// 返回数据库受影响的行数，即删除的行数</span></span><br><span class="line">        <span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> runner.update(conn, sql, <span class="number">8136</span>);</span><br><span class="line">        System.out.println(i);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">      e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+</article><div class="post-copyright"><div class="post-copyright__author_group"><a class="post-copyright__author_img" href="/about/"><img class="post-copyright__author_img_front" src="/img/avatar.ico"></a><div class="post-copyright__author_name">颓废市民黄先生</div><div class="post-copyright__author_desc">welcome 艾瑞巴蒂</div></div><div class="post-tools" id="post-tools"><div class="post-tools-left"><div id="quit-box" onclick="RemoveRewardMask()"></div></div></div><div class="social-share"><a class="social-share-ico icon-qq" target="_blank" rel="noopener" href="https://connect.qq.com/widget/shareqq/index.html?url=https%3A%2F%2Fsamurai-127.github.io%2F2024%2F07%2F06%2FJDBC%2520%25E7%25AC%2594%25E8%25AE%25B0%2F&amp;title=JDBC%EF%BC%9AJava%E8%AF%AD%E8%A8%80%E8%BF%9E%E6%8E%A5%E6%95%B0%E6%8D%AE%E5%BA%93&amp;desc=undefined&amp;summary=undefined&amp;site=JDBC%EF%BC%9AJava%E8%AF%AD%E8%A8%80%E8%BF%9E%E6%8E%A5%E6%95%B0%E6%8D%AE%E5%BA%93&amp;pics=img%2Fjdbccover.png" title="分享到QQ"><i class="solitude st-qq-fill"></i></a></div><div class="post-copyright__notice"><span class="post-copyright-info">本文是原创文章，采用<a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh">CC BY-NC-SA 4.0</a>协议，完整转载请注明来自<a href="/">颓废市民黄先生</a></span></div></div><div class="post-tools-right"><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/JDBC/"><span class="tags-punctuation"></span>JDBC<span class="tagsPageCount">1</span></a></div></div></div><nav class="needEndHide pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2024/07/06/mybatis/"><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info">MyBatis：持久层技术、ORM框架</div></div></a></div><div class="next-post pull-right"><a href="/2024/07/03/%E7%AE%97%E6%B3%95%EF%BC%9A%EF%BC%88%E4%BA%8C%EF%BC%89%E4%BA%8C%E5%88%86%E6%9F%A5%E6%89%BE/"><div class="pagination-info"><div class="label">下一篇</div><div class="next_info">算法：（二）二分查找</div></div></a></div></nav><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="solitude st-chat-fill"></i><span> 评论</span><span class="count"> (<span class="twikoo-count"><i class="solitude st-loading-line"></i></span>)</span></div></div><div class="comment-wrap"><div id="twikoo-wrap"></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="card-content"><div class="card-info-bg-top"><div class="is-center"><div class="author-info__top-group"><div class="author-info__sayhi" id="author-info__sayhi" onclick="sco.changeSayHelloText()">sayhello.morning</div></div></div></div><a class="card-info-avatar" href="/about/" title="头像"><div class="avatar-img"><img src="/img/avatar.jpg" alt="头像"></div><div class="avatar-sticker"><img class="avatar-sticker-img" src="https://7.isyangs.cn/34/65f2e4e0423cc-34.png" alt="心情贴纸"></div></a><div class="card-info__desc_group"><div class="author-info__name">颓废市民黄先生</div><div class="author-info__desc">welcome 艾瑞巴蒂</div><div class="card-info__data is-center"><a href="/archives/" title="累计文章数:9"><div class="length-num">9</div><div class="headline">文章</div></a><a href="/tags/" title="标签总数:9"><div class="length-num">9</div><div class="headline">标签</div></a><a href="/categories/" title="分类总数:5"><div class="length-num">5</div><div class="headline">分类</div></a></div><div class="card-info-social-icons is-center"><a class="social-icon" target="_blank" rel="noopener" href="https://space.bilibili.com/314882691" title="Bilibili"><i class="solitude  st-bilibili-line"></i></a><a class="social-icon" target="_blank" rel="noopener" href="https://www.douyin.com/user/MS4wLjABAAAAy1FJN9CK4loLwbU-ngonlCdhB5ZT99fq4_Jdg3qJS7w" title="douyin"><i class="solitude  st-douyin-fill"></i></a></div></div></div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="solitude st-menu-line"></i><span>文章目录</span></div><div class="toc-content" id="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%80%E3%80%81-%E4%BB%80%E4%B9%88%E6%98%AFJDBC"><span class="toc-text">一、 什么是JDBC</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%BA%8C%E3%80%81-JDBC%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86"><span class="toc-text">二、  JDBC工作原理</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%89%E3%80%81-JDBC%E8%AE%BF%E9%97%AE%E6%95%B0%E6%8D%AE%E5%BA%93%E7%9A%84%E6%AD%A5%E9%AA%A4"><span class="toc-text">三、  JDBC访问数据库的步骤</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#3-1-%E5%90%84%E6%95%B0%E6%8D%AE%E5%BA%93-URL"><span class="toc-text">3.1 各数据库 URL</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%9B%9B%E3%80%81-JDBC-API-%E7%B1%BB"><span class="toc-text">四、 JDBC API 类</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#4-1-Connection%E5%B8%B8%E7%94%A8%E6%96%B9%E6%B3%95"><span class="toc-text">4.1 Connection常用方法</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#4-2-Statement%E5%B8%B8%E7%94%A8%E6%96%B9%E6%B3%95"><span class="toc-text">4.2 Statement常用方法</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#4-3-ResultSet%E5%B8%B8%E7%94%A8%E6%96%B9%E6%B3%95"><span class="toc-text">4.3  ResultSet常用方法</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%BA%94%E3%80%81PreparedStatement"><span class="toc-text">五、PreparedStatement</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#5-1-%E5%B8%B8%E7%94%A8%E6%96%B9%E6%B3%95"><span class="toc-text">5.1 常用方法</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#5-2-PreparedStatement%E4%B8%8EStatement%E7%9A%84%E5%AF%B9%E6%AF%94"><span class="toc-text">5.2 PreparedStatement与Statement的对比</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%85%AD-%E5%AD%98%E5%82%A8%E8%BF%87%E7%A8%8B%E8%B0%83%E7%94%A8"><span class="toc-text">六. 存储过程调用</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%83-%E6%89%B9%E9%87%8F%E6%9B%B4%E6%96%B0"><span class="toc-text">七. 批量更新</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#7-1-Statement-%E6%89%B9%E9%87%8F%E6%9B%B4%E6%96%B0"><span class="toc-text">7.1 Statement 批量更新</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#7-2-PreparedStatement-%E6%89%B9%E9%87%8F%E6%9B%B4%E6%96%B0"><span class="toc-text">7.2 PreparedStatement 批量更新</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%85%AB-Java%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B%E4%B8%8ESQL%E7%B1%BB%E5%9E%8B%E7%9A%84%E6%98%A0%E5%B0%84"><span class="toc-text">八. Java数据类型与SQL类型的映射</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#8-1-Conversions-by-setObject-index-value"><span class="toc-text">8.1 Conversions by setObject(index, value)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#8-2-Conversions-by-ResultSet-getXXX-Methods"><span class="toc-text">8.2 Conversions by ResultSet.getXXX Methods</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B9%9D%E3%80%81apache-DButils-%E7%BB%84%E4%BB%B6%E5%BA%93"><span class="toc-text">九、apache DButils 组件库</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#9-1-ResultSetHandler%E7%BB%93%E6%9E%9C%E9%9B%86%E5%A4%84%E7%90%86%E5%99%A8%E6%8E%A5%E5%8F%A3"><span class="toc-text">9.1 ResultSetHandler结果集处理器接口</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#9-2-QueryRunner-SQL%E6%89%A7%E8%A1%8C%E6%93%8D%E4%BD%9C%E7%B1%BB-%E5%A4%9A%E7%BA%BF%E7%A8%8B%E5%AE%89%E5%85%A8"><span class="toc-text">9.2 QueryRunner SQL执行操作类(多线程安全)</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%99%AE%E9%80%9A%E6%9F%A5%E8%AF%A2%EF%BC%88%E6%97%A0%E5%8D%A0%E4%BD%8D%E7%AC%A6%E5%8F%82%E6%95%B0%EF%BC%89"><span class="toc-text">普通查询（无占位符参数）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%B8%A6%E5%8D%A0%E4%BD%8D%E7%AC%A6%E5%8F%82%E6%95%B0%E6%9F%A5%E8%AF%A2"><span class="toc-text">带占位符参数查询</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A0%87%E9%87%8F%E6%9F%A5%E8%AF%A2"><span class="toc-text">标量查询</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BF%9D%E5%AD%98"><span class="toc-text">保存</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9B%B4%E6%96%B0"><span class="toc-text">更新</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%A0%E9%99%A4"><span class="toc-text">删除</span></a></li></ol></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="solitude st-map-line"></i><span>最近发布</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2024/07/06/Docker%E5%AE%9E%E6%93%8D/" title="docker：速速上手docker部署镜像"><img alt="docker：速速上手docker部署镜像" src="/img/dockercover.png"></a><div class="content"><a class="title" href="/2024/07/06/Docker%E5%AE%9E%E6%93%8D/" title="docker：速速上手docker部署镜像">docker：速速上手docker部署镜像</a><a class="article-recent_post_categories" href="/2024/07/06/Docker%E5%AE%9E%E6%93%8D/">软件技术</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/07/06/centOS%E9%83%A8%E7%BD%B2docker/" title="CentOS7部署docker"><img alt="CentOS7部署docker" src="/img/installdocker.png"></a><div class="content"><a class="title" href="/2024/07/06/centOS%E9%83%A8%E7%BD%B2docker/" title="CentOS7部署docker">CentOS7部署docker</a><a class="article-recent_post_categories" href="/2024/07/06/centOS%E9%83%A8%E7%BD%B2docker/">软件技术</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/07/06/mybatis/" title="MyBatis：持久层技术、ORM框架"><img alt="MyBatis：持久层技术、ORM框架" src="/img/mybatiscover.png"></a><div class="content"><a class="title" href="/2024/07/06/mybatis/" title="MyBatis：持久层技术、ORM框架">MyBatis：持久层技术、ORM框架</a><a class="article-recent_post_categories" href="/2024/07/06/mybatis/">后端开发</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/07/06/JDBC%20%E7%AC%94%E8%AE%B0/" title="JDBC：Java语言连接数据库"><img alt="JDBC：Java语言连接数据库" src="/img/jdbccover.png"></a><div class="content"><a class="title" href="/2024/07/06/JDBC%20%E7%AC%94%E8%AE%B0/" title="JDBC：Java语言连接数据库">JDBC：Java语言连接数据库</a><a class="article-recent_post_categories" href="/2024/07/06/JDBC%20%E7%AC%94%E8%AE%B0/">后端开发</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/07/03/%E7%AE%97%E6%B3%95%EF%BC%9A%EF%BC%88%E4%BA%8C%EF%BC%89%E4%BA%8C%E5%88%86%E6%9F%A5%E6%89%BE/" title="算法：（二）二分查找"><img alt="算法：（二）二分查找" src="/img/calucover.jpg"></a><div class="content"><a class="title" href="/2024/07/03/%E7%AE%97%E6%B3%95%EF%BC%9A%EF%BC%88%E4%BA%8C%EF%BC%89%E4%BA%8C%E5%88%86%E6%9F%A5%E6%89%BE/" title="算法：（二）二分查找">算法：（二）二分查找</a><a class="article-recent_post_categories" href="/2024/07/03/%E7%AE%97%E6%B3%95%EF%BC%9A%EF%BC%88%E4%BA%8C%EF%BC%89%E4%BA%8C%E5%88%86%E6%9F%A5%E6%89%BE/">算法</a></div></div></div></div></div></div></main><footer id="footer"><div id="st-footer-bar"><div class="footer-logo"><span>颓废市民黄先生</span></div><div class="footer-bar-description">来自 颓废市民黄先生 的文章</div><a class="footer-bar-link" href="/about/">了解更多</a></div><div id="footer_deal"></div><div id="st-footer"></div><div id="footer-bar"><div class="footer-bar-links"><div class="footer-bar-left"><div class="copyright">© 2024 By&nbsp;<a class="footer-bar-link" href="/">颓废市民黄先生</a></div></div><div class="footer-bar-right"><a class="footer-bar-link" target="_blank" rel="noopener" href="https://github.com/everfu/hexo-theme-solitude" alt="主题">主题</a><a class="footer-bar-link cc" href="/null" aria-label="copyright"><i class="solitude st-copyright-line"></i><i class="solitude st-creative-commons-by-line"></i><i class="solitude st-creative-commons-nc-line"></i><i class="solitude st-creative-commons-nd-line"></i></a></div></div></div><div class="comment-barrage needEndHide"></div></footer></div><!-- right_menu--><div id="rightMenu"><div class="rightMenu-group rightMenu-small"><div class="rightMenu-item" id="menu-backward"><i class="solitude st-arrow-left-line"></i></div><div class="rightMenu-item" id="menu-forward"><i class="solitude st-arrow-right-line"></i></div><div class="rightMenu-item" id="menu-refresh"><i class="solitude st-restart-line"></i></div><div class="rightMenu-item" id="menu-top"><i class="solitude st-arrow-up-line"></i></div></div><div class="rightMenu-group rightMenu-line rightMenuPlugin"><div class="rightMenu-item" id="menu-copytext"><i class="solitude st-copy-fill"></i><span>复制选中文本</span></div><div class="rightMenu-item" id="menu-pastetext"><i class="solitude st-clipboard-fill"></i><span>粘贴文本</span></div><div class="rightMenu-item" id="menu-commenttext"><i class="solitude st-chat-new-fill"></i><span>引用到评论</span></div><div class="rightMenu-item" id="menu-newwindow"><i class="solitude st-window-fill"></i><span>新窗口打开</span></div><div class="rightMenu-item" id="menu-copylink"><i class="solitude st-link-line"></i><span>复制链接地址</span></div><div class="rightMenu-item" id="menu-copyimg"><i class="solitude st-copy-fill"></i><span>复制此图片</span></div><div class="rightMenu-item" id="menu-downloadimg"><i class="solitude st-download-cloud-fill"></i><span>下载此图片</span></div><div class="rightMenu-item" id="menu-search"><i class="solitude st-search-line"></i><span>站内搜索</span></div><div class="rightMenu-item" id="menu-music-toggle"><i class="solitude st-play-fill"></i><span>播放音乐</span></div><div class="rightMenu-item" id="menu-music-back"><i class="solitude st-skip-back-fill"></i><span>切换到上一首</span></div><div class="rightMenu-item" id="menu-music-forward"><i class="solitude st-skip-forward-fill"></i><span>切换到下一首</span></div><div class="rightMenu-item" id="menu-music-copyMusicName"><i class="solitude st-copy-fill"></i><span>复制歌名</span></div></div><div class="rightMenu-group rightMenu-line rightMenuOther"><div class="rightMenu-item" id="menu-randomPost" onclick="toRandomPost()||rm.hideRightMenu()"><i class="solitude st-signal-tower-fill"></i><span>随机短文</span></div><div class="rightMenu-item" onclick="pjax.loadUrl('/categories/')||rm.hideRightMenu()"><i class="solitude st-checkbox-multiple-blank-fill"></i><span>全部分类</span></div><div class="rightMenu-item" onclick="pjax.loadUrl('/tags/')||rm.hideRightMenu()"><i class="solitude st-price-tag-fill"></i><span>全部标签</span></div></div><div class="rightMenu-group rightMenu-line rightMenuOther"><div class="rightMenu-item" id="menu-commentBarrage" onclick="sco.switchCommentBarrage()"><i class="solitude st-chat-fill"></i><span class="menu-commentBarrage-text">关闭热评</span></div><div class="rightMenu-item" id="menu-darkmode" onclick="sco.switchDarkMode()"><i class="solitude st-moon-clear-fill"></i><span class="menu-darkmode-text">深色模式</span></div><div class="rightMenu-item" id="menu-translate"><i class="solitude st-panben-line"></i><span>轉為繁體</span></div></div></div><div id="rightmenu-mask"></div><!-- inject body--><div><script src="/js/utils.js?v=1.12.2"></script><script src="/js/main.js?v=1.12.2"></script><script src="/js/third_party/waterfall.min.js?v=1.12.2"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/pjax/0.2.8/pjax.min.js"></script><script src="/js/third_party/universe.min.js?v=1.12.2"></script><script>dark()
+</script><script src="/js/tw_cn.js?v=1.12.2"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/node-snackbar/0.1.16/snackbar.min.js"></script><script src="/js/third_party/efu_ai.min.js?v=1.12.2"></script><script>var meting_api = 'https://meting.qjqq.cn/?server=:server&type=:type&id=:id&auth=:auth&r=:r';</script><script src="https://cdnjs.cloudflare.com/ajax/libs/aplayer/1.10.1/APlayer.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/meting/2.0.1/Meting.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/pace/1.2.4/pace.min.js"></script><script src="/js/right_menu.js?v=1.12.2"></script><div class="js-pjax"><script>(() => {
+    const getCount = () => {
+        const ele = document.querySelectorAll('.twikoo-count')
+        if (!ele) return
+        twikoo.getCommentsCount({
+            envId: 'https://samurai127.cn',
+            region: '',
+            urls: [window.location.pathname],
+            includeReply: false
+        }).then(res => {
+            ele.forEach(item => item.textContent = res[0].count)
+        }).catch(err => {
+            console.error(err)
+        })
+    }
+    const init = () => {
+        twikoo.init(Object.assign({
+            el: '#twikoo-wrap',
+            envId: 'https://samurai127.cn',
+            region: '',
+            path: window.location.pathname,
+            onCommentLoaded: () => {
+                GLOBAL_CONFIG.lightbox && utils.lightbox(document.querySelectorAll('#twikoo .tk-content img:not(.tk-owo-emotion)'))
+            }
+        }, null))
+
+         && getCount()
+        sco.owoBig({
+            body: '.OwO-body',
+            item: '.OwO-items li'
+        })
+
+        true && barrageTwikoo()
+    }
+
+    const loadTwikoo = () => {
+        if (typeof twikoo === 'object') setTimeout(init,0)
+        else utils.getScript('https://cdnjs.cloudflare.com/ajax/libs/twikoo/1.6.36/twikoo.all.min.js').then(init)
+    }
+
+    if ('Twikoo' === 'Twikoo' || false) {
+        if (false) utils.loadComment(document.getElementById('twikoo-wrap'), loadTwikoo)
+        else loadTwikoo()
+    } else {
+        window.loadTwoComment = loadTwikoo
+    }
+})()
+</script><script>async function barrageTwikoo() {
+    await fetch("https://samurai127.cn", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            event: "COMMENT_GET",
+            accessToken: "",
+            url: window.location.pathname
+        })
+    }).then(async res => {
+        if (!res.ok) throw new Error("HTTP error! status: " + res.status)
+        const data = await res.json();
+        const init = () => {
+            initializeCommentBarrage((data.data).map(item => Object.assign({
+                content: item.comment,
+                nick: item.nick,
+                mailMd5: item.mailMd5,
+                id: item.id
+            })))
+        }
+        if (typeof initializeCommentBarrage === "undefined") await utils.getScript('/js/third_party/barrage.min.js?v=1.12.2').then(init)
+        else init()
+    }).catch(error => console.error("An error occurred while fetching comments: ", error))
+}</script><script defer pjax src="https://cdnjs.cloudflare.com/ajax/libs/busuanzi/2.3.0/bsz.pure.mini.min.js"></script></div></div><!-- pjax--><script>const pjax = new Pjax({
+    elements: 'a:not([target="_blank"])',
+    selectors: ['title','#body-wrap','#site-config','meta[name="description"]','.js-pjax','meta[property^="og:"]','#config-diff'],
+    cacheBust: false,
+    analytics: false,
+    scrollRestoration: false
+})
+
+document.querySelectorAll('script[data-pjax]').forEach(item => {
+    const newScript = document.createElement('script')
+    const content = item.text || item.textContent || item.innerHTML || ""
+    Array.from(item.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value))
+    newScript.appendChild(document.createTextNode(content))
+    item.parentNode.replaceChild(newScript, item)
+})
+
+document.addEventListener('pjax:complete', () => {
+    window.refreshFn()
+
+    document.querySelectorAll('script[data-pjax]').forEach(item => {
+        const newScript = document.createElement('script')
+        const content = item.text || item.textContent || item.innerHTML || ""
+        Array.from(item.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value))
+        newScript.appendChild(document.createTextNode(content))
+        item.parentNode.replaceChild(newScript, item)
+    })
+
+    GLOBAL_CONFIG.islazyload && window.lazyLoadInstance.update()
+
+})
+
+document.addEventListener('pjax:error', (e) => {
+    if (e.request.status === 404) {
+        pjax.loadUrl('/404.html')
+    }
+})</script><!-- theme--><script>initTheme = () => {
+    let isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const cachedMode = utils.saveToLocal.get('theme');
+    if (cachedMode === undefined) {
+        const nowMode =
+            isDarkMode ? 'dark' : 'light'
+        document.documentElement.setAttribute('data-theme', nowMode);
+    } else {
+        document.documentElement.setAttribute('data-theme', cachedMode);
+    }
+    typeof rm === 'object' && rm.mode(cachedMode === 'dark' && isDarkMode)
+}
+initTheme()</script><!-- google adsense--><!-- search--><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><button class="search-close-button"><i class="solitude st-close-fill"></i></button></nav><div class="search-wrap"><div class="search-box"><input class="search-box-input" id="search-input" type="text" autocomplete="off" spellcheck="false" autocorrect="off" autocapitalize="off" placeholder="输入关键词快速查找"></div><div id="search-results"><div id="search-hits"></div></div><div id="search-pagination"></div><div id="search-tips"></div></div></div><div id="search-mask"></div></div><script src="/js/search/local.js?v=1.12.2"></script><!-- Tianli-Talk--><span class="needEndHide" id="efuTalk" onclick="togglePostChatContainer(); return false;" title="问答ai"><i class="solitude st-robot-fill"></i><span class="efuTalkTitle">问答ai</span></span><script>var postChatConfig = {
+backgroundColor: "var(--efu-main)",
+bottom: "60px",
+...{"defaultInput":false,"upLoadWeb":true,"userTitle":"小黄同学来也","userDesc":"有什么可以帮助你的？","showInviteLink":"https://ai.tianli0.top/?InviteID=OZ3Z0V2R","blackDom":[".aplayer"]}
+};
+
+let b = true;
+
+document.getElementById('efuTalk').addEventListener('click', function () {
+    this.classList.toggle('on');
+    let efu = this
+    b && setTimeout(() => {
+        document.getElementById('close-button').addEventListener('click', function () {
+            efu.classList.remove('on');
+        })
+    }, 0);
+    b = false
+});</script><script pjax data-postChat_key="449aa72132adf73ef7084ef83c46792af1edab" src="https://ai.tianli0.top/static/public/postChatUser.min.js"></script><!-- music--><div class="needEndHide" id="nav-music" onclick="sco.musicToggle()"><div id="nav-music-hoverTips">音乐已暂停</div><meting-js id="994057368" server="netease" type="playlist" mutex="true" preload="none" data-lrctype="0" order="random" theme="var(--efu-main)"></meting-js></div></body></html><script>const posts=["2024/07/06/Docker实操/","2024/07/06/centOS部署docker/","2024/07/06/mybatis/","2024/07/06/JDBC 笔记/","2024/07/03/算法：（二）二分查找/","2024/07/03/操作系统：（一）快速学习存储器/","2024/07/03/算法：（一）排序算法/","2024/06/29/数据库-索引/","2024/06/26/git速查/"];function toRandomPost(){ pjax.loadUrl('/'+posts[Math.floor(Math.random()*posts.length)]); }</script>
