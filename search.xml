@@ -411,111 +411,6 @@
       </tags>
   </entry>
   <entry>
-    <title>CentOS7部署docker</title>
-    <url>/2024/07/06/centOS%E9%83%A8%E7%BD%B2docker/</url>
-    <content><![CDATA[<h1 id="0-安装Docker"><a href="#0-安装Docker" class="headerlink" title="0.安装Docker"></a>0.安装Docker</h1><p>Docker 分为 CE 和 EE 两大版本。CE 即社区版（免费，支持周期 7 个月），EE 即企业版，强调安全，付费使用，支持周期 24 个月。</p>
-<p>Docker CE 分为 <code>stable</code> <code>test</code> 和 <code>nightly</code> 三个更新频道。</p>
-<p>官方网站上有各种环境下的 <a href="https://docs.docker.com/install/">安装指南</a>，这里主要介绍 Docker CE 在 CentOS上的安装。</p>
-<h1 id="1-CentOS安装Docker"><a href="#1-CentOS安装Docker" class="headerlink" title="1.CentOS安装Docker"></a>1.CentOS安装Docker</h1><p>Docker CE 支持 64 位版本 CentOS 7，并且要求内核版本不低于 3.10， CentOS 7 满足最低内核的要求，所以我们在CentOS 7安装Docker。</p>
-<h2 id="1-1-卸载（可选）"><a href="#1-1-卸载（可选）" class="headerlink" title="1.1.卸载（可选）"></a>1.1.卸载（可选）</h2><p>如果之前安装过旧版本的Docker，可以使用下面命令卸载：</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">yum remove docker \</span><br><span class="line">                  docker-client \</span><br><span class="line">                  docker-client-latest \</span><br><span class="line">                  docker-common \</span><br><span class="line">                  docker-latest \</span><br><span class="line">                  docker-latest-logrotate \</span><br><span class="line">                  docker-logrotate \</span><br><span class="line">                  docker-selinux \</span><br><span class="line">                  docker-engine-selinux \</span><br><span class="line">                  docker-engine \</span><br><span class="line">                  docker-ce</span><br></pre></td></tr></table></figure>
-
-
-
-<h2 id="1-2-安装docker"><a href="#1-2-安装docker" class="headerlink" title="1.2.安装docker"></a>1.2.安装docker</h2><p>首先需要大家虚拟机联网，安装yum工具</p>
-<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">yum install -y yum-utils \</span><br><span class="line">           device-mapper-persistent-data \</span><br><span class="line">           lvm2 --skip-broken</span><br></pre></td></tr></table></figure>
-
-
-
-<p>然后更新本地镜像源：</p>
-<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">设置docker镜像源</span></span><br><span class="line">yum-config-manager \</span><br><span class="line">    --add-repo \</span><br><span class="line">    https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo</span><br><span class="line">    </span><br><span class="line">sed -i &#x27;s/download.docker.com/mirrors.aliyun.com\/docker-ce/g&#x27; /etc/yum.repos.d/docker-ce.repo</span><br><span class="line"></span><br><span class="line">yum makecache fast</span><br></pre></td></tr></table></figure>
-
-
-
-
-
-<p>然后输入命令：</p>
-<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">yum install -y docker-ce</span><br></pre></td></tr></table></figure>
-
-<p>docker-ce为社区免费版本。稍等片刻，docker即可安装成功。</p>
-<h2 id="1-3-启动docker"><a href="#1-3-启动docker" class="headerlink" title="1.3.启动docker"></a>1.3.启动docker</h2><p>Docker应用需要用到各种端口，逐一去修改防火墙设置。非常麻烦，因此建议大家直接关闭防火墙！</p>
-<p>启动docker前，一定要关闭防火墙后！！</p>
-<p>启动docker前，一定要关闭防火墙后！！</p>
-<p>启动docker前，一定要关闭防火墙后！！</p>
-<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 关闭</span></span><br><span class="line">systemctl stop firewalld</span><br><span class="line"><span class="comment"># 禁止开机启动防火墙</span></span><br><span class="line">systemctl <span class="built_in">disable</span> firewalld</span><br></pre></td></tr></table></figure>
-
-
-
-<p>通过命令启动docker：</p>
-<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">systemctl start docker  <span class="comment"># 启动docker服务</span></span><br><span class="line"></span><br><span class="line">systemctl stop docker  <span class="comment"># 停止docker服务</span></span><br><span class="line"></span><br><span class="line">systemctl restart docker  <span class="comment"># 重启docker服务</span></span><br></pre></td></tr></table></figure>
-
-
-
-<p>然后输入命令，可以查看docker版本：</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">docker -v</span><br></pre></td></tr></table></figure>
-
-<p>如图：</p>
-<p><img src="image-20210418154704436.png"></p>
-<h2 id="1-4-配置镜像加速"><a href="#1-4-配置镜像加速" class="headerlink" title="1.4.配置镜像加速"></a>1.4.配置镜像加速</h2><p>docker官方镜像仓库网速较差，我们需要设置国内镜像服务：</p>
-<p>参考阿里云的镜像加速文档：<a href="https://cr.console.aliyun.com/cn-hangzhou/instances/mirrors">https://cr.console.aliyun.com/cn-hangzhou/instances/mirrors</a></p>
-<h1 id="2-CentOS7安装DockerCompose"><a href="#2-CentOS7安装DockerCompose" class="headerlink" title="2.CentOS7安装DockerCompose"></a>2.CentOS7安装DockerCompose</h1><h2 id="2-1-下载"><a href="#2-1-下载" class="headerlink" title="2.1.下载"></a>2.1.下载</h2><p>Linux下需要通过命令下载：</p>
-<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 安装</span></span><br><span class="line">curl -L https://github.com/docker/compose/releases/download/1.23.1/docker-compose-`<span class="built_in">uname</span> -s`-`<span class="built_in">uname</span> -m` &gt; /usr/local/bin/docker-compose</span><br></pre></td></tr></table></figure>
-
-<p>如果下载速度较慢，或者下载失败，联系博主给你一份</p>
-<p><img src="image-20210417133020614.png"></p>
-<p>上传到<code>/usr/local/bin/</code>目录也可以。</p>
-<h2 id="2-2-修改文件权限"><a href="#2-2-修改文件权限" class="headerlink" title="2.2.修改文件权限"></a>2.2.修改文件权限</h2><p>修改文件权限：</p>
-<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 修改权限</span></span><br><span class="line"><span class="built_in">chmod</span> +x /usr/local/bin/docker-compose</span><br></pre></td></tr></table></figure>
-
-
-
-<h2 id="2-3-Base自动补全命令："><a href="#2-3-Base自动补全命令：" class="headerlink" title="2.3.Base自动补全命令："></a>2.3.Base自动补全命令：</h2><figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 补全命令</span></span><br><span class="line">curl -L https://raw.githubusercontent.com/docker/compose/1.29.1/contrib/completion/bash/docker-compose &gt; /etc/bash_completion.d/docker-compose</span><br></pre></td></tr></table></figure>
-
-<p>如果这里出现错误，需要修改自己的hosts文件：</p>
-<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="built_in">echo</span> <span class="string">&quot;199.232.68.133 raw.githubusercontent.com&quot;</span> &gt;&gt; /etc/hosts</span><br></pre></td></tr></table></figure>
-
-
-
-
-
-<h1 id="3-Docker镜像仓库"><a href="#3-Docker镜像仓库" class="headerlink" title="3.Docker镜像仓库"></a>3.Docker镜像仓库</h1><p>搭建镜像仓库可以基于Docker官方提供的DockerRegistry来实现。</p>
-<p>官网地址：<a href="https://hub.docker.com/_/registry">https://hub.docker.com/_/registry</a></p>
-<h2 id="3-1-简化版镜像仓库"><a href="#3-1-简化版镜像仓库" class="headerlink" title="3.1.简化版镜像仓库"></a>3.1.简化版镜像仓库</h2><p>Docker官方的Docker Registry是一个基础版本的Docker镜像仓库，具备仓库管理的完整功能，但是没有图形化界面。</p>
-<p>搭建方式比较简单，命令如下：</p>
-<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">docker run -d \</span><br><span class="line">    --restart=always \</span><br><span class="line">    --name registry	\</span><br><span class="line">    -p 5000:5000 \</span><br><span class="line">    -v registry-data:/var/lib/registry \</span><br><span class="line">    registry</span><br></pre></td></tr></table></figure>
-
-
-
-<p>命令中挂载了一个数据卷registry-data到容器内的&#x2F;var&#x2F;lib&#x2F;registry 目录，这是私有镜像库存放数据的目录。</p>
-<p>访问<a href="http://yourip:5000/v2/_catalog">http://YourIp:5000/v2/_catalog</a> 可以查看当前私有镜像服务中包含的镜像</p>
-<h2 id="3-2-带有图形化界面版本"><a href="#3-2-带有图形化界面版本" class="headerlink" title="3.2.带有图形化界面版本"></a>3.2.带有图形化界面版本</h2><p>使用DockerCompose部署带有图象界面的DockerRegistry，命令如下：</p>
-<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">version:</span> <span class="string">&#x27;3.0&#x27;</span></span><br><span class="line"><span class="attr">services:</span></span><br><span class="line">  <span class="attr">registry:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">registry</span></span><br><span class="line">    <span class="attr">volumes:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">./registry-data:/var/lib/registry</span></span><br><span class="line">  <span class="attr">ui:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">joxit/docker-registry-ui:static</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="number">8080</span><span class="string">:80</span></span><br><span class="line">    <span class="attr">environment:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">REGISTRY_TITLE=传智教育私有仓库</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">REGISTRY_URL=http://registry:5000</span></span><br><span class="line">    <span class="attr">depends_on:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">registry</span></span><br></pre></td></tr></table></figure>
-
-
-
-<h2 id="3-3-配置Docker信任地址"><a href="#3-3-配置Docker信任地址" class="headerlink" title="3.3.配置Docker信任地址"></a>3.3.配置Docker信任地址</h2><p>我们的私服采用的是http协议，默认不被Docker信任，所以需要做一个配置：</p>
-<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 打开要修改的文件</span></span><br><span class="line">vi /etc/docker/daemon.json</span><br><span class="line"><span class="comment"># 添加内容：</span></span><br><span class="line"><span class="string">&quot;insecure-registries&quot;</span>:[<span class="string">&quot;http://192.168.150.101:8080&quot;</span>]</span><br><span class="line"><span class="comment"># 重加载</span></span><br><span class="line">systemctl daemon-reload</span><br><span class="line"><span class="comment"># 重启docker</span></span><br><span class="line">systemctl restart docker</span><br></pre></td></tr></table></figure>
-
-
-
-
-
-
-
-
-
-
-
-]]></content>
-      <categories>
-        <category>软件技术</category>
-      </categories>
-      <tags>
-        <tag>docker</tag>
-        <tag>软件技术</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>JDBC：Java语言连接数据库</title>
     <url>/2024/07/06/JDBC%20%E7%AC%94%E8%AE%B0/</url>
     <content><![CDATA[<h1 id="一、-什么是JDBC"><a href="#一、-什么是JDBC" class="headerlink" title="一、 什么是JDBC"></a>一、 什么是JDBC</h1><p><em>JDBC（Java DataBase Connectivity）</em>是Java数据库连接技术的简称，提供连接和操作各种常用数据库的能力，JDBC只定义了Java应用程序访问数据库的标准接口层，而对于不同的数据库而言则由数据库厂商去实现JDBC接口层的功能 （叫做数据库驱动程序包）。</p>
@@ -748,6 +643,233 @@
       </categories>
       <tags>
         <tag>JDBC</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Java:JDK8函数式接口、lambda表达式、方法引用</title>
+    <url>/2024/07/06/Java-JDK8%E5%87%BD%E6%95%B0%E5%BC%8F%E6%8E%A5%E5%8F%A3%E3%80%81lambda%E8%A1%A8%E8%BE%BE%E5%BC%8F%E3%80%81%E6%96%B9%E6%B3%95%E5%BC%95%E7%94%A8/</url>
+    <content><![CDATA[<h1 id="一、函数式接口"><a href="#一、函数式接口" class="headerlink" title="一、函数式接口"></a>一、函数式接口</h1><p>只有一个抽象方法的接口就成为函数式接口。同时，引入了一个新的注解：@FunctionalInterface。可以把他它放在一个接口前，表示这个接口是一个函数式接口。这个注解是非必须的，只要接口只包含一个方法的接口，虚拟机会自动判断，不过最好在接口上使用注解 @FunctionalInterface 进行声明。在接口中添加了 @FunctionalInterface 的接口，只允许有一个抽象方法，否则编译器也会报错。</p>
+<p>举例几个Java常用的函数式接口：predicate断言型接口、consumer消费者接口、supplier提供者接口、Function接口等。</p>
+<p><strong>记好一句话：函数式接口可以接收匿名内部类和lambda表达式</strong></p>
+<p><strong>记好一句话：函数式接口可以接收匿名内部类和lambda表达式</strong></p>
+<p><strong>记好一句话：函数式接口可以接收匿名内部类和lambda表达式</strong></p>
+<h3 id="1-1-Predicate"><a href="#1-1-Predicate" class="headerlink" title="1.1 Predicate"></a>1.1 Predicate</h3><p><code>java.util.function.Predicate</code>为函数式接口，predicate的中文意思是“断定”，即判断的意思，判断某个东西是否满足某种条件； 因此它包含test方法，根据输入值来做逻辑判断，其结果为True或者False。</p>
+<ul>
+<li><code>Predicate</code> 是一个布尔类型的函数，该函数只有一个输入参数。</li>
+<li><code>Predicate</code>接口包含了多种默认方法，用于处理复杂的逻辑动词（<em>and, or, negate</em>）</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">Predicate</span>&lt;T&gt;&#123;</span><br><span class="line">  <span class="type">boolean</span> <span class="title function_">test</span><span class="params">(T t)</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>下面是使用<code>Predicate</code>的例子。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">Predicate&lt;Integer&gt; atLeast5 = x -&gt; x&gt;<span class="number">5</span>;</span><br><span class="line">predicate.test(<span class="number">3</span>);              <span class="comment">// false</span></span><br><span class="line"></span><br><span class="line">Predicate&lt;String&gt; predicate = (s) -&gt; s.length() &gt; <span class="number">0</span>;</span><br><span class="line">predicate.test(<span class="string">&quot;foo&quot;</span>);          <span class="comment">// true</span></span><br><span class="line">predicate.negate().test(<span class="string">&quot;foo&quot;</span>); <span class="comment">// false</span></span><br><span class="line"></span><br><span class="line">Predicate&lt;Boolean&gt; nonNull = Objects::nonNull;</span><br><span class="line">System.out.println(nonNull.test(<span class="literal">null</span>)); <span class="comment">//false</span></span><br><span class="line"></span><br><span class="line">Predicate&lt;Boolean&gt; isNull = Objects::isNull;</span><br><span class="line">System.out.println(isNull.test(<span class="literal">null</span>)); <span class="comment">//true</span></span><br><span class="line"></span><br><span class="line">Predicate&lt;String&gt; isEmpty = String::isEmpty;</span><br><span class="line">System.out.println(isEmpty.test(<span class="string">&quot;&quot;</span>)); <span class="comment">//true</span></span><br><span class="line"></span><br><span class="line">Predicate&lt;String&gt; isNotEmpty = isEmpty.negate();</span><br><span class="line">System.out.println(isNotEmpty.test(<span class="string">&quot;&quot;</span>)); <span class="comment">//false</span></span><br></pre></td></tr></table></figure>
+
+<p><em>x&gt;5</em> 是表达式的主体，返回值就是表达式主体的值。</p>
+<h3 id="1-2-Function"><a href="#1-2-Function" class="headerlink" title="1.2 Function"></a>1.2 Function</h3><p><code>java.util.function.Function</code>也是一个函数式编程接口；它代表的含义是“函数”，而函数经常是<strong>有输入输出</strong>的，因此它含有一个<em>apply方法</em>，<em>包含一个输入（一个参数）与一个输出（返回值）</em>；<br> 除apply方法外，它还有<em>compose</em> 与 <em>andThen</em>方法。</p>
+<ul>
+<li><p>**高阶函数: **</p>
+<p>接受一个函数或返回一个函数。</p>
+</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">Function&lt;Integer, Integer&gt; f = s -&gt; s + <span class="number">1</span>;</span><br><span class="line">Function&lt;Integer, Integer&gt; g = s -&gt; s * <span class="number">2</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 高阶函数: 接受一个函数或返回一个函数</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * 下面表示在执行F时，先执行G，并且执行F时使用G的结果当作输入。</span></span><br><span class="line"><span class="comment"> * 相当于以下代码：</span></span><br><span class="line"><span class="comment"> * Integer a = g.apply(1);</span></span><br><span class="line"><span class="comment"> * System.out.println(f.apply(a));</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">System.out.println(f.compose(g).apply(<span class="number">1</span>)); <span class="comment">//output: 3</span></span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 表示执行F的 apply 后使用其返回的值当作输入再执行G的Apply；</span></span><br><span class="line"><span class="comment"> * 相当于以下代码</span></span><br><span class="line"><span class="comment"> * Integer a = f.apply(1);</span></span><br><span class="line"><span class="comment"> * System.out.println(g.apply(a));</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">System.out.println(f.apply(<span class="number">1</span>));            <span class="comment">//output: 2</span></span><br><span class="line">System.out.println(f.andThen(g).apply(<span class="number">1</span>)); <span class="comment">//output: 4</span></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><strong>转换器实例</strong></li>
+</ul>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**定义一个转换的函数式接口</span></span><br><span class="line"><span class="comment"> * T：参数类型</span></span><br><span class="line"><span class="comment"> * R：返回值类型</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="meta">@FunctionalInterface</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">Converter</span>&lt;T,R&gt; &#123;</span><br><span class="line">    R <span class="title function_">convert</span><span class="params">(T t)</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ConverterTest</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        Converter&lt;String,Integer&gt; intConverter = (s) -&gt; Integer.valueOf(s);</span><br><span class="line">        <span class="type">Integer</span> <span class="variable">value</span> <span class="operator">=</span> intConverter.convert(<span class="string">&quot;123&quot;</span>);</span><br><span class="line">        System.out.println(<span class="string">&quot;String to Integer:&quot;</span> + value);</span><br><span class="line"></span><br><span class="line">        Converter&lt;String,Double&gt; doubleConverter = (s) -&gt; Double.valueOf(s);</span><br><span class="line">      	<span class="type">Double</span> <span class="variable">dblValue</span> <span class="operator">=</span> doubleConverter.convert(<span class="string">&quot;123.99&quot;</span>);</span><br><span class="line">        System.out.println(<span class="string">&quot;String to Double:&quot;</span> + dblValue);</span><br><span class="line"></span><br><span class="line">        <span class="comment">//直接使用 Function 接口</span></span><br><span class="line">        Function&lt;String,Integer&gt; function = s -&gt; Integer.valueOf(s);</span><br><span class="line">        <span class="type">Integer</span> <span class="variable">value2</span> <span class="operator">=</span> function.apply(<span class="string">&quot;123&quot;</span>);</span><br><span class="line">        System.out.println(value2);</span><br><span class="line"></span><br><span class="line">        <span class="comment">//方法引用</span></span><br><span class="line">        <span class="comment">// :: 表示引用方法</span></span><br><span class="line">        <span class="comment">//引用静态方法，类名::类方法名；如：Integer.valueOf(s)</span></span><br><span class="line">      	<span class="comment">//引用实例方法，对象::方法名</span></span><br><span class="line">        Function&lt;String,Integer&gt; function2 = Integer::valueOf;</span><br><span class="line">        <span class="type">Integer</span> <span class="variable">value3</span> <span class="operator">=</span> function2.apply(<span class="string">&quot;9999&quot;</span>);</span><br><span class="line">        System.out.println(value3);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="1-3-Consumer-消费者（重点）"><a href="#1-3-Consumer-消费者（重点）" class="headerlink" title="1.3 Consumer 消费者（重点）"></a>1.3 Consumer 消费者（重点）</h3><p>它定义了一个名为<code>accept</code>的<a href="https://so.csdn.net/so/search?q=%E6%8A%BD%E8%B1%A1%E6%96%B9%E6%B3%95&spm=1001.2101.3001.7020">抽象方法</a>，该方法接受一个参数并且不返回任何结果。换句话说，<code>Consumer</code>接口表示一个消费者，它可以对给定的对象执行某些操作，但不产生任何结果。</p>
+<p><code>accept(T) 方法</code>：是 Consumer 函数式接口的函数方法，传入一个任意类型，无返回值，可以用于 Lambda 表达式和方法引用。<br><code>andThen(Consumer) 方法</code>：可以传入一个 Consumer ，返回组合了两个 Consumer 后的 Consumer ，传入的 Consumer 不能为 null，否则会得到 NullPointerException 。</p>
+<p><strong>通俗的来说：</strong><br>Consumer 相当于一个放东西的容器，你可以在这个容器里定义一个带有入参的代码块，然后返回 T 类型，当调用 accept(T) 方法的时候才会去执行容器里的代码。</p>
+<p>例子1：使用类名引用成员方法（类名引用成员方法见本篇博客第三节3.3）</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//引用实例方法</span></span><br><span class="line">Consumer&lt;String&gt; enameConsumer = employee::setEname;</span><br><span class="line">enameConsumer.accept(<span class="string">&quot;mike&quot;</span>);</span><br><span class="line"><span class="comment">// test(enameConsumer);</span></span><br><span class="line">System.out.println(employee.getName());</span><br><span class="line"></span><br><span class="line"><span class="type">Consumer</span> <span class="variable">consumer</span> <span class="operator">=</span> System.out::println;</span><br><span class="line">Arrays.asList(<span class="string">&quot;james&quot;</span>,<span class="string">&quot;andy&quot;</span>,<span class="string">&quot;scott&quot;</span>).forEach(consumer);</span><br></pre></td></tr></table></figure>
+
+
+
+<p>例子2：使用Consumer函数式接口接受lambda表达式</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">import java.util.function.Consumer;</span><br><span class="line"></span><br><span class="line">public class MainServer &#123;</span><br><span class="line">    public static void main(String[] args) throws InterruptedException &#123;</span><br><span class="line">        Consumer&lt;String&gt; first = x -&gt; System.out.println(&quot;1.&quot;+x.toLowerCase());</span><br><span class="line">        Consumer&lt;String&gt; second = y -&gt; System.out.println(&quot;2.&quot; + y);</span><br><span class="line">        System.out.println(&quot;开始&quot;);</span><br><span class="line">        Consumer&lt;String&gt; result = first.andThen(second);</span><br><span class="line">        //调用了accept 后，会先执行 first 容器里的代码，再执行 second 容器里的代码</span><br><span class="line">        result.accept(&quot;A&quot;);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="1-4-Supplier-供应者"><a href="#1-4-Supplier-供应者" class="headerlink" title="1.4 Supplier 供应者"></a>1.4 Supplier 供应者</h3><p>代表无参数，返回一个结果。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//引用默认构造函数</span></span><br><span class="line">Supplier&lt;Employee&gt; supplier = Employee::<span class="keyword">new</span>;</span><br><span class="line"><span class="type">Employee</span> <span class="variable">employee</span> <span class="operator">=</span> supplier.get();</span><br><span class="line">System.out.println(employee);</span><br><span class="line"></span><br><span class="line"><span class="comment">//引用对象的String getName()方法</span></span><br><span class="line">Supplier&lt;String&gt; stringSupplier = employee::getEname;</span><br></pre></td></tr></table></figure>
+
+<h3 id="1-5-BinaryOperator"><a href="#1-5-BinaryOperator" class="headerlink" title="1.5 BinaryOperator"></a>1.5 BinaryOperator</h3><ul>
+<li><p><code>BinaryOperator</code><em>接口接收两个参数，返回一个值，返回值和参数的数据类型相同。</em></p>
+</li>
+<li><p><code>BinaryOperator</code>接口是<code>BiFunction</code> （接收两个参数）的子接口。</p>
+</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">BinaryOperator&lt;Long&gt; addLongs = (x,y) -&gt; x + y;</span><br><span class="line">System.out.println(addLongs.apply(<span class="number">1L</span>, <span class="number">2L</span>));</span><br></pre></td></tr></table></figure>
+
+<p>&#x3D;&#x3D;Lambda表达式是一个匿名方法，将行为像数据一样传递。&#x3D;&#x3D;</p>
+<h1 id="二、Lambda表达式"><a href="#二、Lambda表达式" class="headerlink" title="二、Lambda表达式"></a>二、Lambda表达式</h1><p><img src="%E5%87%BD%E6%95%B0%E5%BC%8F%E6%8E%A5%E5%8F%A3.png"></p>
+<p><strong>1、Lambda表达式的基本作用?</strong><br>简化函数式接口的<strong>匿名内部类</strong>的写法。</p>
+<p><strong>2、Lambda表达式有什么使用前提?</strong><br>必须是接口的匿名内部类，接口中只能有一个抽象方法</p>
+<p><strong>3、Lambda的好处?</strong><br>Lambda是一个匿名函数，我们可以把Lambda表达式理解为是一段可以传递的代码，它可以写出更简洁、更灵活的代码，作为一种更紧凑的代码风格，使Java语言表达能力得到了提升。</p>
+<p>举个例子：单列集合arraylist调用foreach方法进行遍历。</p>
+<p><img src="forEach.png"></p>
+<p>其中方法的参数是<strong>consumer接口</strong>（留意一下consumer接口）的实现类，因此需要使用匿名内部类的形式调用方法，改进后可以使用lambda表达式遍历。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">test1</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        Collection&lt;String&gt; coll = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;();</span><br><span class="line">        coll.add(<span class="string">&quot;博主你这个博客是自己写的吗&quot;</span>);</span><br><span class="line">        coll.add(<span class="string">&quot;我的天，好有水平，但是我看不懂&quot;</span>);</span><br><span class="line"></span><br><span class="line">        <span class="comment">//1.使用匿名内部类进行遍历</span></span><br><span class="line">        coll.forEach(<span class="keyword">new</span> <span class="title class_">Consumer</span>&lt;String&gt;() &#123;</span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">accept</span><span class="params">(String s)</span> &#123;</span><br><span class="line">                System.out.println(s);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;);</span><br><span class="line"></span><br><span class="line">        <span class="comment">//2.使用lambda表达式进行遍历</span></span><br><span class="line">        coll.forEach(</span><br><span class="line">           (String s)-&gt; &#123;</span><br><span class="line">               System.out.println(s);</span><br><span class="line">            &#125;</span><br><span class="line">        );</span><br><span class="line"></span><br><span class="line">        <span class="comment">//3.lambda简化版</span></span><br><span class="line">        coll.forEach(</span><br><span class="line">                (String s)-&gt; System.out.println(s)</span><br><span class="line">        );</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h1 id="三、方法引用"><a href="#三、方法引用" class="headerlink" title="三、方法引用"></a>三、方法引用</h1><p><img src="%E6%96%B9%E6%B3%95%E5%BC%95%E7%94%A8.png"></p>
+<p>只有使用匿名内部类和lambda表达式的地方才可以使用方法引用。</p>
+<p>它的基本思想是，如果一个Lambda代表的只是“直接调用这个方法”，那最好还是用名称来调用它，而不是去描述如何调用它。事实上，方法引用就是让你根据已有的方法实现来创建Lambda表达式。但是，显式地指明方法的名称，你的代码的可读性会更好。</p>
+<p><strong>方法引用的规则:</strong></p>
+<ol>
+<li>需要有函数式接口</li>
+<li>被引用的方法必须已经存在</li>
+<li>被引用方法的形参，需要跟抽象方法的第二个形参到最后一个形参保持一致， 返回值需要保持一致。</li>
+<li>被引用方法的功能需要满足当前的需求</li>
+</ol>
+<p><strong>抽象方法形参的详解:</strong><br><strong>第一个参数：</strong>表示被引用方法的调用者，决定了可以引用哪些类中的方法<br>在Stream流当中，第一个参数一般都表示流里面的每一个数据。假设流里面的数据是字符串，那么使用这种方式进行方法引用，只能引用String这个类中的方法。<br><strong>第二个参数到最后一个参数：</strong>跟被引用方法的形参保持一致，如果没有第二个参数，说明被引用的方法需要是无参的成员方法</p>
+<h2 id="3-1-静态方法引用"><a href="#3-1-静态方法引用" class="headerlink" title="3.1 静态方法引用"></a>3.1 静态方法引用</h2><img src="%E9%9D%99%E6%80%81%E5%BC%95%E7%94%A8.png" style="zoom:80%;">
+
+
+
+<p>举个例子</p>
+<p><img src="1.png"></p>
+<h2 id="3-2-对象引用成员方法"><a href="#3-2-对象引用成员方法" class="headerlink" title="3.2 对象引用成员方法"></a>3.2 对象引用成员方法</h2><img src="%E5%AF%B9%E8%B1%A1%E5%BC%95%E7%94%A8%E6%88%90%E5%91%98%E6%96%B9%E6%B3%95.png" style="zoom: 50%;">
+
+<p>this::方法名和super::方法名，这两个的被引用处不能是静态方法，因为静态方法没有this、super关键字</p>
+<p>举个例子：</p>
+<p><img src="2.png"></p>
+<h2 id="3-3-类名引用成员方法"><a href="#3-3-类名引用成员方法" class="headerlink" title="3.3 类名引用成员方法"></a>3.3 类名引用成员方法</h2><p>举个例子：我现在需要把集合中的字母全部变成大写，使用匿名内部类语法如下</p>
+<img src="3.png" style="zoom: 67%;">
+
+
+
+<p>现在使用类名引用方法的形式，首先看String类中的toUpperCase方法</p>
+<p><img src="all%E5%A4%A7%E5%86%99%E6%96%B9%E6%B3%95.png"></p>
+<p>按照抽象方法参数的详解（3.1节），匿名内部类中抽象方法apply中的参数String s是抽象方法的第一个参数，它决定能使用什么类的方法。</p>
+<p>第二个参数到末尾的参数要和成员方法的一致，如果抽象方法只有一个参数，那么应该调用这个类的无参方法。</p>
+<p>String类中的toUpperCase方法提供了两个，符合可以用空参的那个。</p>
+<img src="string%E7%B1%BBtoUpperCase.png" style="zoom:80%;">
+
+
+
+<p>因此可以把匿名内部类的写法改成使用方法引用的形式</p>
+<img src="4.png" style="zoom:80%;">
+
+
+
+
+
+
+
+
+
+]]></content>
+      <tags>
+        <tag>Java</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>CentOS7部署docker</title>
+    <url>/2024/07/06/centOS%E9%83%A8%E7%BD%B2docker/</url>
+    <content><![CDATA[<h1 id="0-安装Docker"><a href="#0-安装Docker" class="headerlink" title="0.安装Docker"></a>0.安装Docker</h1><p>Docker 分为 CE 和 EE 两大版本。CE 即社区版（免费，支持周期 7 个月），EE 即企业版，强调安全，付费使用，支持周期 24 个月。</p>
+<p>Docker CE 分为 <code>stable</code> <code>test</code> 和 <code>nightly</code> 三个更新频道。</p>
+<p>官方网站上有各种环境下的 <a href="https://docs.docker.com/install/">安装指南</a>，这里主要介绍 Docker CE 在 CentOS上的安装。</p>
+<h1 id="1-CentOS安装Docker"><a href="#1-CentOS安装Docker" class="headerlink" title="1.CentOS安装Docker"></a>1.CentOS安装Docker</h1><p>Docker CE 支持 64 位版本 CentOS 7，并且要求内核版本不低于 3.10， CentOS 7 满足最低内核的要求，所以我们在CentOS 7安装Docker。</p>
+<h2 id="1-1-卸载（可选）"><a href="#1-1-卸载（可选）" class="headerlink" title="1.1.卸载（可选）"></a>1.1.卸载（可选）</h2><p>如果之前安装过旧版本的Docker，可以使用下面命令卸载：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">yum remove docker \</span><br><span class="line">                  docker-client \</span><br><span class="line">                  docker-client-latest \</span><br><span class="line">                  docker-common \</span><br><span class="line">                  docker-latest \</span><br><span class="line">                  docker-latest-logrotate \</span><br><span class="line">                  docker-logrotate \</span><br><span class="line">                  docker-selinux \</span><br><span class="line">                  docker-engine-selinux \</span><br><span class="line">                  docker-engine \</span><br><span class="line">                  docker-ce</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="1-2-安装docker"><a href="#1-2-安装docker" class="headerlink" title="1.2.安装docker"></a>1.2.安装docker</h2><p>首先需要大家虚拟机联网，安装yum工具</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">yum install -y yum-utils \</span><br><span class="line">           device-mapper-persistent-data \</span><br><span class="line">           lvm2 --skip-broken</span><br></pre></td></tr></table></figure>
+
+
+
+<p>然后更新本地镜像源：</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">设置docker镜像源</span></span><br><span class="line">yum-config-manager \</span><br><span class="line">    --add-repo \</span><br><span class="line">    https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo</span><br><span class="line">    </span><br><span class="line">sed -i &#x27;s/download.docker.com/mirrors.aliyun.com\/docker-ce/g&#x27; /etc/yum.repos.d/docker-ce.repo</span><br><span class="line"></span><br><span class="line">yum makecache fast</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<p>然后输入命令：</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">yum install -y docker-ce</span><br></pre></td></tr></table></figure>
+
+<p>docker-ce为社区免费版本。稍等片刻，docker即可安装成功。</p>
+<h2 id="1-3-启动docker"><a href="#1-3-启动docker" class="headerlink" title="1.3.启动docker"></a>1.3.启动docker</h2><p>Docker应用需要用到各种端口，逐一去修改防火墙设置。非常麻烦，因此建议大家直接关闭防火墙！</p>
+<p>启动docker前，一定要关闭防火墙后！！</p>
+<p>启动docker前，一定要关闭防火墙后！！</p>
+<p>启动docker前，一定要关闭防火墙后！！</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 关闭</span></span><br><span class="line">systemctl stop firewalld</span><br><span class="line"><span class="comment"># 禁止开机启动防火墙</span></span><br><span class="line">systemctl <span class="built_in">disable</span> firewalld</span><br></pre></td></tr></table></figure>
+
+
+
+<p>通过命令启动docker：</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">systemctl start docker  <span class="comment"># 启动docker服务</span></span><br><span class="line"></span><br><span class="line">systemctl stop docker  <span class="comment"># 停止docker服务</span></span><br><span class="line"></span><br><span class="line">systemctl restart docker  <span class="comment"># 重启docker服务</span></span><br></pre></td></tr></table></figure>
+
+
+
+<p>然后输入命令，可以查看docker版本：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">docker -v</span><br></pre></td></tr></table></figure>
+
+<p>如图：</p>
+<p><img src="image-20210418154704436.png"></p>
+<h2 id="1-4-配置镜像加速"><a href="#1-4-配置镜像加速" class="headerlink" title="1.4.配置镜像加速"></a>1.4.配置镜像加速</h2><p>docker官方镜像仓库网速较差，我们需要设置国内镜像服务：</p>
+<p>参考阿里云的镜像加速文档：<a href="https://cr.console.aliyun.com/cn-hangzhou/instances/mirrors">https://cr.console.aliyun.com/cn-hangzhou/instances/mirrors</a></p>
+<h1 id="2-CentOS7安装DockerCompose"><a href="#2-CentOS7安装DockerCompose" class="headerlink" title="2.CentOS7安装DockerCompose"></a>2.CentOS7安装DockerCompose</h1><h2 id="2-1-下载"><a href="#2-1-下载" class="headerlink" title="2.1.下载"></a>2.1.下载</h2><p>Linux下需要通过命令下载：</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 安装</span></span><br><span class="line">curl -L https://github.com/docker/compose/releases/download/1.23.1/docker-compose-`<span class="built_in">uname</span> -s`-`<span class="built_in">uname</span> -m` &gt; /usr/local/bin/docker-compose</span><br></pre></td></tr></table></figure>
+
+<p>如果下载速度较慢，或者下载失败，联系博主给你一份</p>
+<p><img src="image-20210417133020614.png"></p>
+<p>上传到<code>/usr/local/bin/</code>目录也可以。</p>
+<h2 id="2-2-修改文件权限"><a href="#2-2-修改文件权限" class="headerlink" title="2.2.修改文件权限"></a>2.2.修改文件权限</h2><p>修改文件权限：</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 修改权限</span></span><br><span class="line"><span class="built_in">chmod</span> +x /usr/local/bin/docker-compose</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="2-3-Base自动补全命令："><a href="#2-3-Base自动补全命令：" class="headerlink" title="2.3.Base自动补全命令："></a>2.3.Base自动补全命令：</h2><figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 补全命令</span></span><br><span class="line">curl -L https://raw.githubusercontent.com/docker/compose/1.29.1/contrib/completion/bash/docker-compose &gt; /etc/bash_completion.d/docker-compose</span><br></pre></td></tr></table></figure>
+
+<p>如果这里出现错误，需要修改自己的hosts文件：</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="built_in">echo</span> <span class="string">&quot;199.232.68.133 raw.githubusercontent.com&quot;</span> &gt;&gt; /etc/hosts</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<h1 id="3-Docker镜像仓库"><a href="#3-Docker镜像仓库" class="headerlink" title="3.Docker镜像仓库"></a>3.Docker镜像仓库</h1><p>搭建镜像仓库可以基于Docker官方提供的DockerRegistry来实现。</p>
+<p>官网地址：<a href="https://hub.docker.com/_/registry">https://hub.docker.com/_/registry</a></p>
+<h2 id="3-1-简化版镜像仓库"><a href="#3-1-简化版镜像仓库" class="headerlink" title="3.1.简化版镜像仓库"></a>3.1.简化版镜像仓库</h2><p>Docker官方的Docker Registry是一个基础版本的Docker镜像仓库，具备仓库管理的完整功能，但是没有图形化界面。</p>
+<p>搭建方式比较简单，命令如下：</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">docker run -d \</span><br><span class="line">    --restart=always \</span><br><span class="line">    --name registry	\</span><br><span class="line">    -p 5000:5000 \</span><br><span class="line">    -v registry-data:/var/lib/registry \</span><br><span class="line">    registry</span><br></pre></td></tr></table></figure>
+
+
+
+<p>命令中挂载了一个数据卷registry-data到容器内的&#x2F;var&#x2F;lib&#x2F;registry 目录，这是私有镜像库存放数据的目录。</p>
+<p>访问<a href="http://yourip:5000/v2/_catalog">http://YourIp:5000/v2/_catalog</a> 可以查看当前私有镜像服务中包含的镜像</p>
+<h2 id="3-2-带有图形化界面版本"><a href="#3-2-带有图形化界面版本" class="headerlink" title="3.2.带有图形化界面版本"></a>3.2.带有图形化界面版本</h2><p>使用DockerCompose部署带有图象界面的DockerRegistry，命令如下：</p>
+<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">version:</span> <span class="string">&#x27;3.0&#x27;</span></span><br><span class="line"><span class="attr">services:</span></span><br><span class="line">  <span class="attr">registry:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">registry</span></span><br><span class="line">    <span class="attr">volumes:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">./registry-data:/var/lib/registry</span></span><br><span class="line">  <span class="attr">ui:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">joxit/docker-registry-ui:static</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="number">8080</span><span class="string">:80</span></span><br><span class="line">    <span class="attr">environment:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">REGISTRY_TITLE=传智教育私有仓库</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">REGISTRY_URL=http://registry:5000</span></span><br><span class="line">    <span class="attr">depends_on:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">registry</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="3-3-配置Docker信任地址"><a href="#3-3-配置Docker信任地址" class="headerlink" title="3.3.配置Docker信任地址"></a>3.3.配置Docker信任地址</h2><p>我们的私服采用的是http协议，默认不被Docker信任，所以需要做一个配置：</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 打开要修改的文件</span></span><br><span class="line">vi /etc/docker/daemon.json</span><br><span class="line"><span class="comment"># 添加内容：</span></span><br><span class="line"><span class="string">&quot;insecure-registries&quot;</span>:[<span class="string">&quot;http://192.168.150.101:8080&quot;</span>]</span><br><span class="line"><span class="comment"># 重加载</span></span><br><span class="line">systemctl daemon-reload</span><br><span class="line"><span class="comment"># 重启docker</span></span><br><span class="line">systemctl restart docker</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+
+
+
+
+
+
+]]></content>
+      <categories>
+        <category>软件技术</category>
+      </categories>
+      <tags>
+        <tag>docker</tag>
+        <tag>软件技术</tag>
       </tags>
   </entry>
   <entry>
@@ -1802,6 +1924,50 @@
 
 <h1 id="面试常考排序算法"><a href="#面试常考排序算法" class="headerlink" title="面试常考排序算法"></a>面试常考排序算法</h1><p><a href="https://blog.csdn.net/qq_45792749/article/details/124410972">面试常考的排序算法</a></p>
 <h1 id="acWing代码模板"><a href="#acWing代码模板" class="headerlink" title="acWing代码模板"></a>acWing代码模板</h1><p><a href="https://www.acwing.com/blog/content/31431/">【Java版本】常用代码模板1——基础算法 + 模板题参考实现 - AcWing</a></p>
+]]></content>
+      <categories>
+        <category>算法</category>
+      </categories>
+      <tags>
+        <tag>算法</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>算法：（三）数据结构-链表</title>
+    <url>/2024/07/06/%E7%AE%97%E6%B3%95%EF%BC%9A%EF%BC%88%E4%B8%89%EF%BC%89%E9%93%BE%E8%A1%A8/</url>
+    <content><![CDATA[<h1 id="一、链表的分类"><a href="#一、链表的分类" class="headerlink" title="一、链表的分类"></a>一、链表的分类</h1><p><img src="%E9%93%BE%E8%A1%A8%E5%88%86%E7%B1%BB.png"></p>
+<h2 id="1-单向链表-包含头指针"><a href="#1-单向链表-包含头指针" class="headerlink" title="1. 单向链表(包含头指针)"></a>1. 单向链表(包含头指针)</h2><h3 id="1-1-单向链表实现"><a href="#1-1-单向链表实现" class="headerlink" title="1.1 单向链表实现"></a>1.1 单向链表实现</h3><p>单向链表为一个SingleLinkedList类，里面包含Node内部类（封装，不向外暴露底层实现细节），一个节点记录下一个节点的地址值，是一个指针，在java中其实就是引用对象（一个引用数据类型记录的是地址值，所以Node类中使用Node作为变量，实际上是下一个节点的地址）</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 单向链表</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">SingleLinkedList1</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> Node head;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 节点</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">Node</span> &#123;</span><br><span class="line">        <span class="type">int</span> value;</span><br><span class="line">        Node next;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">public</span> <span class="title function_">Node</span><span class="params">(<span class="type">int</span> value, Node next)</span> &#123;</span><br><span class="line">            <span class="built_in">this</span>.value = value;</span><br><span class="line">            <span class="built_in">this</span>.next = next;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="1-2-头插法添加元素"><a href="#1-2-头插法添加元素" class="headerlink" title="1.2 头插法添加元素"></a>1.2 头插法添加元素</h3><p>链表不为空的时候，插入的节点的地址值应该指向原本链表中的第一个节点，head刚好记录的就是第一个节点的地址值，所以将head指针的值赋值给新节点node。再将创建出来的node节点赋值给head指针，代表head指向新插入的节点。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">addFirst</span><span class="params">(<span class="type">int</span> value)</span> &#123;</span><br><span class="line">      <span class="keyword">if</span> (head == <span class="literal">null</span>) &#123;</span><br><span class="line">          <span class="comment">// 1.链表为空的情况</span></span><br><span class="line">          head = <span class="keyword">new</span> <span class="title class_">Node</span>(value, <span class="literal">null</span>);</span><br><span class="line">      &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">          <span class="comment">// 2.链表不为空</span></span><br><span class="line">          <span class="type">Node</span> <span class="variable">node</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Node</span>(value, head);</span><br><span class="line">          head = node;</span><br><span class="line">      &#125;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>再将头插法简化一下，其实一行的代码就搞定了。在上面的代码的else语句中，其实两行代码是冗余的，可以放idea里面让编译器提示；另外如果head是null的情况下，下面的代码也可以同时包含if-else的逻辑。不过写上面的吧，看得懂。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">addFirst</span><span class="params">(<span class="type">int</span> value)</span> &#123;</span><br><span class="line">     head = <span class="keyword">new</span> <span class="title class_">Node</span>(value, head);</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="1-3-遍历链表"><a href="#1-3-遍历链表" class="headerlink" title="1.3 遍历链表"></a>1.3 遍历链表</h3><h4 id="1-3-1while循环实现遍历"><a href="#1-3-1while循环实现遍历" class="headerlink" title="1.3.1while循环实现遍历"></a>1.3.1while循环实现遍历</h4><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//循环链表</span></span><br><span class="line">  <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">loopList</span><span class="params">()</span> &#123;</span><br><span class="line">      <span class="type">Node</span> <span class="variable">now</span> <span class="operator">=</span> head;<span class="comment">//head头指针默认就是null（引用数据类型没有初始化就是null）,除非添加元素</span></span><br><span class="line">      <span class="keyword">while</span> (now != <span class="literal">null</span>) &#123;</span><br><span class="line">          System.out.println(<span class="string">&quot;当前链表元素的值：&quot;</span> + now.value);</span><br><span class="line">          now = now.next;</span><br><span class="line">      &#125;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<p>编写测试类</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">import</span> org.junit.Test;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">TestSingleLinkedList1</span> &#123;</span><br><span class="line">    <span class="meta">@Test</span><span class="comment">//Maven导入的测试类包</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">test1</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="type">SingleLinkedList1</span> <span class="variable">singleLinkedList1</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">SingleLinkedList1</span>();</span><br><span class="line">        singleLinkedList1.addFirst(<span class="number">1</span>);</span><br><span class="line">        singleLinkedList1.addFirst(<span class="number">2</span>);</span><br><span class="line">        singleLinkedList1.addFirst(<span class="number">3</span>);</span><br><span class="line">        singleLinkedList1.addFirst(<span class="number">4</span>);</span><br><span class="line">        singleLinkedList1.loopList();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//输出结果：</span></span><br><span class="line"><span class="comment">//当前链表元素的值：4</span></span><br><span class="line"><span class="comment">//当前链表元素的值：3</span></span><br><span class="line"><span class="comment">//当前链表元素的值：2</span></span><br><span class="line"><span class="comment">//当前链表元素的值：1</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="1-3-2-迭代器实现遍历"><a href="#1-3-2-迭代器实现遍历" class="headerlink" title="1.3.2 迭代器实现遍历"></a>1.3.2 迭代器实现遍历</h4><p>我把其他部分代码删了，只留下迭代器的部分。</p>
+<p>类实现迭代器的接口，需要重写iterator方法（神金才选择变成抽象类），接着 return new Iterator&lt;&gt;()，以匿名内部类的形式重写hasNext方法和next方法，hasNext就是判断<strong>当前元素</strong>（记好，是当前元素，不要因为有next命名以为是下一个）是否存在，next方法对当前元素进行自己的处理逻辑，<strong>并且移动迭代器指针。</strong>OK，next方法直接返回节点的值（value），直接测试类输出就行了。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">import</span> java.util.Iterator;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 单向链表</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">SingleLinkedList1</span> <span class="keyword">implements</span> <span class="title class_">Iterable</span>&lt;Integer&gt; &#123;</span><br><span class="line">    <span class="keyword">private</span> Node head;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> Iterator&lt;Integer&gt; <span class="title function_">iterator</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">Iterator</span>&lt;&gt;() &#123;</span><br><span class="line">            <span class="type">Node</span> <span class="variable">node</span> <span class="operator">=</span> head;</span><br><span class="line"></span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">hasNext</span><span class="params">()</span> &#123;</span><br><span class="line">                <span class="keyword">return</span> node != <span class="literal">null</span>;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="keyword">public</span> Integer <span class="title function_">next</span><span class="params">()</span> &#123;</span><br><span class="line">                <span class="type">int</span> <span class="variable">value</span> <span class="operator">=</span> node.value;</span><br><span class="line">                node = node.next;</span><br><span class="line">                <span class="keyword">return</span> value;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 节点</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">Node</span> &#123;</span><br><span class="line">        <span class="type">int</span> value;</span><br><span class="line">        Node next;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">public</span> <span class="title function_">Node</span><span class="params">(<span class="type">int</span> value, Node next)</span> &#123;</span><br><span class="line">            <span class="built_in">this</span>.value = value;</span><br><span class="line">            <span class="built_in">this</span>.next = next;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>测试类</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"> <span class="meta">@Test</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">test2</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="type">SingleLinkedList1</span> <span class="variable">list2</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">SingleLinkedList1</span>();</span><br><span class="line">    list2.addFirst(<span class="number">1</span>);</span><br><span class="line">    list2.addFirst(<span class="number">2</span>);</span><br><span class="line">    list2.addFirst(<span class="number">3</span>);</span><br><span class="line">    list2.addFirst(<span class="number">4</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (Integer element : list2) &#123;</span><br><span class="line">        System.out.println(element);</span><br><span class="line">    &#125;</span><br><span class="line">        </span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//输出结果</span></span><br><span class="line"><span class="comment">//4</span></span><br><span class="line"><span class="comment">//3</span></span><br><span class="line"><span class="comment">//2</span></span><br><span class="line"><span class="comment">//1</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="1-3-3-递归遍历"><a href="#1-3-3-递归遍历" class="headerlink" title="1.3.3 递归遍历"></a>1.3.3 递归遍历</h4><p>下次再写</p>
 ]]></content>
       <categories>
         <category>算法</category>
