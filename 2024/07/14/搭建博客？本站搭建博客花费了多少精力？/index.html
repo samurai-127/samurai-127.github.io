@@ -1,0 +1,353 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="utf-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><title>搭建一个博客？本站搭建博客花费了多少精力？ | 颓废市民黄先生</title><noscript>开启JavaScript才能访问本站哦~</noscript><link rel="icon" href="/img/avatar.ico"><!-- index.css--><link rel="stylesheet" href="/css/index.css?v=1.13.3"><!-- inject head--><link rel="canonical" href="https://samurai-127.github.io/2024/07/14/%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2%EF%BC%9F%E6%9C%AC%E7%AB%99%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2%E8%8A%B1%E8%B4%B9%E4%BA%86%E5%A4%9A%E5%B0%91%E7%B2%BE%E5%8A%9B%EF%BC%9F/"><link rel="stylesheet" href="https://cdn2.codesign.qq.com/icons/7pOrz0WXB5ZWJPX/latest/iconfont.css"><!-- aplayer--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aplayer/1.10.1/APlayer.min.css"><!-- swiper--><!-- fancybox ui--><!-- katex--><!-- Open Graph--><meta name="description" content="哇塞~终于费劲心思把这个博客建好了哇塞~终于费劲心思把这个博客建好了，我要写一篇博客记录这个过程以及如何实现的。 本博客基于hexo搭建起来，起因也是我专业的朋友给我推送了这个视频，晚上睡不着觉突然又刷到了，于是第二天就开始马上着手准备~ 1.hexo众所周知搭建一个博客的有hexo，以及其他我不用"><!-- pwa--><meta name="apple-mobile-web-app-capable" content="颓废市民黄先生"><meta name="theme-color" content="var(--efu-main)"><meta name="apple-mobile-web-app-status-bar-style" content="var(--efu-main)"><link rel="bookmark" href="/img/avatar.ico"><link rel="apple-touch-icon" href="/img/avatar.ico" sizes="180x180"><script>console.log(' %c Solitude %c ' + '1.13.3' + ' %c https://github.com/everfu/hexo-theme-solitude',
+    'background:#35495e ; padding: 1px; border-radius: 3px 0 0 3px;  color: #fff',
+    'background:#ff9a9a ; padding: 1px; border-radius: 0 3px 3px 0;  color: #fff',
+    'background:unset ; padding: 1px; border-radius: 0 3px 3px 0;  color: #fff')
+</script><script>(()=>{
+        const saveToLocal = {
+            set: function setWithExpiry(key, value, ttl) {
+                if (ttl === 0)
+                    return
+                const now = new Date()
+                const expiryDay = ttl * 86400000
+                const item = {
+                    value: value,
+                    expiry: now.getTime() + expiryDay
+                }
+                localStorage.setItem(key, JSON.stringify(item))
+            },
+            get: function getWithExpiry(key) {
+                const itemStr = localStorage.getItem(key)
+    
+                if (!itemStr) {
+                    return undefined
+                }
+                const item = JSON.parse(itemStr)
+                const now = new Date()
+    
+                if (now.getTime() > item.expiry) {
+                    localStorage.removeItem(key)
+                    return undefined
+                }
+                return item.value
+            }
+        };
+        window.utils = {
+            saveToLocal: saveToLocal,
+            getCSS: (url, id = false) => new Promise((resolve, reject) => {
+              const link = document.createElement('link')
+              link.rel = 'stylesheet'
+              link.href = url
+              if (id) link.id = id
+              link.onerror = reject
+              link.onload = link.onreadystatechange = function() {
+                const loadState = this.readyState
+                if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+                link.onload = link.onreadystatechange = null
+                resolve()
+              }
+              document.head.appendChild(link)
+            }),
+            getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+              const script = document.createElement('script')
+              script.src = url
+              script.async = true
+              script.onerror = reject
+              script.onload = script.onreadystatechange = function() {
+                const loadState = this.readyState
+                if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+                script.onload = script.onreadystatechange = null
+                resolve()
+              }
+    
+              Object.keys(attr).forEach(key => {
+                script.setAttribute(key, attr[key])
+              })
+    
+              document.head.appendChild(script)
+            }),
+            addGlobalFn: (key, fn, name = false, parent = window) => {
+                const globalFn = parent.globalFn || {}
+                const keyObj = globalFn[key] || {}
+        
+                if (name && keyObj[name]) return
+        
+                name = name || Object.keys(keyObj).length
+                keyObj[name] = fn
+                globalFn[key] = keyObj
+                parent.globalFn = globalFn
+            },
+        }
+    })()</script><!-- global head--><script>const GLOBAL_CONFIG = {
+    root: '/',
+    algolia: undefined,
+    localsearch: {"preload":false,"path":"/search.xml"},
+    runtime: 'false',
+    lazyload: {
+        enable: false,
+        error: '/img/error_load.avif'
+    },
+    copyright: {"limit":50,"author":"作者: 颓废市民黄先生","link":"链接: ","source":"来源: 颓废市民黄先生","info":"著作权归作者所有。 商业转载请联系作者获得授权，非商业转载请注明出处。"},
+    highlight: {"limit":200,"expand":true,"copy":true,"syntax":"highlight.js"},
+    randomlink: false,
+    lang: {"theme":{"dark":"已切换至深色模式","light":"已切换至浅色模式"},"copy":{"success":"复制成功","error":"复制失败"},"backtop":"返回顶部","time":{"day":"天前","hour":"小时前","just":"刚刚","min":"分钟前","month":"个月前"},"day":" 天","f12":"开发者模式已打开，请遵循GPL协议。","totalk":"无需删除空行，直接输入评论即可","search":{"empty":"找不到你查询的内容：${query}","hit":"找到 ${hits} 条结果，用时 ${time} 毫秒","placeholder":"输入关键词快速查找","count":"共 <b>${count}</b> 条结果。"},"barrage":{"title":"热评"}},
+    aside: {
+        sayhello: {
+            morning: '起那么早看博客？',
+            noon: '中午休息一下呗',
+            afternoon: '下午好像在犯困',
+            night: '晚上洗个澡爽一下呗',
+            goodnight: '睡个好觉，保证精力充沛',
+        },
+        sayhello2: [],
+        sayhello3: {
+            prefix: '好久不见，',
+            back: '欢迎再次回来，',
+        },
+    },
+    covercolor: {
+        enable: false
+    },
+    comment: {"avatar":"https://cravatar.cn","commentBarrage":true},
+    lightbox: 'null',
+    post_ai: {"key":"449aa72132adf73ef7084ef83c46792af1edab","talk":null,"randomPost":false},
+    right_menu: {"mode":{"dark":"深色模式","light":"浅色模式"},"img_error":"此图片无法复制与下载","music":{"start":"播放音乐","stop":"暂停音乐"},"barrage":{"open":"显示热评","close":"关闭热评"},"translate":{"translateDelay":0,"defaultEncoding":2}},
+    lure: {"jump":"404 Not Found","back":"ヾ(≧∇≦*)ゝ嘿嘿，上当了吧"},
+    expire: false,
+};</script><!-- page-config head--><script id="config-diff">var PAGE_CONFIG = {
+    is_post: true,
+    is_page: false,
+    is_home: false,
+    page: 'string',
+    toc: true,
+    comment: true,
+    ai_text: false
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body id="body" data-type="string"><!-- universe--><canvas id="universe"></canvas><!-- background img--><!-- loading--><!-- console--><!-- sidebar--><div id="sidebar" style="zoom: 1;"><div id="menu-mask" style="display: none;"></div><div id="sidebar-menus"><div class="site-data"><div class="data-item is-center"><div class="data-item-link"><a href="/archives/"><div class="headline">文章</div><div class="length-num">13</div></a></div></div><div class="data-item is-center"><div class="data-item-link"><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div></div><div class="data-item is-center"><div class="data-item-link"><a href="/tags/"><div class="headline">标签</div><div class="length-num">11</div></a></div></div></div><span class="sidebar-menu-item-title">功能</span><div class="sidebar-menu-item"><span class="darkmode_switchbutton menu-child" onclick="sco.switchDarkMode()"><i class="solitude st-moon-clear-fill"></i><span>显示模式</span></span></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><span>首页</span></a></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>文库</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="solitude  st-folder-fill"></i><span>文章列表</span></a></li><li><a class="site-page child" href="/categories/"><i class="solitude  st-checkbox-multiple-blank-fill"></i><span>全部分类</span></a></li><li><a class="site-page child" href="/tags/"><i class="solitude  st-price-tag-fill"></i><span>全部标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>我的歌单</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="solitude  st-disc-fill"></i><span>音乐馆</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>关于</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/about/"><i class="solitude  st-contacts-fill"></i><span>关于本站</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/message"><span>留言板</span></a></div></div><span class="sidebar-menu-item-title">标签</span><div class="card-widget card-tags card-archives card-webinfo card-allinfo"><div class="card-tag-cloud"><a href="/tags/docker/">docker<sup>2</sup></a><a href="/tags/%E8%BD%AF%E4%BB%B6%E6%8A%80%E6%9C%AF/">软件技术<sup>5</sup></a><a href="/tags/JDBC/">JDBC<sup>1</sup></a><a href="/tags/Java/">Java<sup>1</sup></a><a href="/tags/git/">git<sup>1</sup></a><a href="/tags/mybatis/">mybatis<sup>1</sup></a><a href="/tags/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/">操作系统<sup>1</sup></a><a href="/tags/%E9%9D%A2%E8%AF%95/">面试<sup>2</sup></a><a href="/tags/mysql/">mysql<sup>1</sup></a><a href="/tags/%E7%AE%97%E6%B3%95/">算法<sup>4</sup></a><a href="/tags/hexo/">hexo<sup>1</sup></a></div></div></div></div><!-- keyboard--><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav class="show" id="nav"><div id="nav-group"><div id="blog_name"><a id="site-name" href="/" title="返回博客主页"><span class="title">颓废市民黄先生</span></a></div><div id="page-name-mask"><div id="page-name"><a id="page-name-text" onclick="sco.toTop()">搭建一个博客？本站搭建博客花费了多少精力？</a></div></div><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><span>首页</span></a></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>文库</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="solitude  st-folder-fill"></i><span>文章列表</span></a></li><li><a class="site-page child" href="/categories/"><i class="solitude  st-checkbox-multiple-blank-fill"></i><span>全部分类</span></a></li><li><a class="site-page child" href="/tags/"><i class="solitude  st-price-tag-fill"></i><span>全部标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>我的歌单</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="solitude  st-disc-fill"></i><span>音乐馆</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>关于</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/about/"><i class="solitude  st-contacts-fill"></i><span>关于本站</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/message"><span>留言板</span></a></div></div></div><div id="nav-left"></div><div id="nav-right"><div class="nav-button" id="randomPost_button"><a class="site-page" onclick="toRandomPost()" title="随机一篇文章" href="javascript:void(0);"><i class="solitude st-dice-line"></i></a></div><div class="nav-button" id="search-button"><a class="site-page social-icon search" href="javascript:void(0);" title="搜索"><i class="solitude st-search-line"></i></a></div><div class="nav-button" id="nav-totop" onclick="sco.toTop()"><a class="totopbtn"><i class="solitude st-arrow-up-line"></i><span id="percent">0</span></a></div><div id="toggle-menu"><a class="site-page"><i class="solitude st-menu-line"></i></a></div></div></div></nav><div class="coverdiv" id="coverdiv"><img class="nolazyload" id="post-cover" src="/img/zhheo.png" alt="搭建一个博客？本站搭建博客花费了多少精力？"></div><div id="post-info"><div id="post-firstinfo"><div class="meta-firstline"><a class="post-meta-original" title="该文章为原创文章，注意版权协议">原创</a><span class="post-meta-categories"><a class="post-meta-categories" href="/categories/%E7%94%9F%E6%B4%BB%E8%AE%B0%E5%BD%95/">生活记录</a></span><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E8%BD%AF%E4%BB%B6%E6%8A%80%E6%9C%AF/"><span class="tags-name tags-punctuation">软件技术</span></a><a class="post-meta__tags" href="/tags/hexo/"><span class="tags-name tags-punctuation">hexo</span></a></div></div></div></div><h1 class="post-title">搭建一个博客？本站搭建博客花费了多少精力？</h1><div id="post-meta"><div class="meta-secondline"><span class="post-meta-date" title="发布于 2024-07-14 17:07:04"><i class="post-meta-icon solitude st-calendar-todo-fill"></i><time datetime="2024-07-14T09:07:04.000Z">2024-07-14T09:07:04.000Z</time></span><span class="post-meta-date" title="最后更新于 2024-07-14 18:56:04"><i class="post-meta-icon solitude st-refresh-line"></i><time datetime="2024-07-14T10:56:04.931Z">2024-07-14T10:56:04.931Z</time></span><span class="post-meta-position" title="作者IP归属地为广西"><i class="post-meta-icon solitude st-map-pin-fill"></i><span>广西</span></span><a class="post-meta-pv" href="/2024/07/14/%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2%EF%BC%9F%E6%9C%AC%E7%AB%99%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2%E8%8A%B1%E8%B4%B9%E4%BA%86%E5%A4%9A%E5%B0%91%E7%B2%BE%E5%8A%9B%EF%BC%9F/" title="文章热度"><i class="post-meta-icon solitude st-fire-fill"></i><span id="twikoo_visitors"><i class="solitude st-loading-line"></i></span></a><span class="post-meta-commentcount" title="评论数" onclick="sco.scrollTo('post-comment')"><i class="solitude st-chat-fill"></i><a href="/2024/07/14/%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2%EF%BC%9F%E6%9C%AC%E7%AB%99%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2%E8%8A%B1%E8%B4%B9%E4%BA%86%E5%A4%9A%E5%B0%91%E7%B2%BE%E5%8A%9B%EF%BC%9F/#post-comment"><span class="twikoo-count"><i class="solitude st-loading-line"></i></span></a></span></div></div></div><section class="main-hero-waves-area waves-area"><svg class="waves-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" viewBox="0 24 150 28" preserveAspectRatio="none" shape-rendering="auto"><defs><path id="gentle-wave" d="M -160 44 c 30 0 58 -18 88 -18 s 58 18 88 18 s 58 -18 88 -18 s 58 18 88 18 v 44 h -352 Z"></path></defs><g class="parallax"><use href="#gentle-wave" x="48" y="0"></use><use href="#gentle-wave" x="48" y="3"></use><use href="#gentle-wave" x="48" y="5"></use><use href="#gentle-wave" x="48" y="7"></use></g></svg></section></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><div class="post-ai"><div class="ai-title"><div class="ai-title-left"><i class="ai-title-icon solitude st-robot-fill"></i><div class="ai-title-text">文章摘要</div></div><div class="ai-tag" id="ai-tag">GPT 4</div></div><div class="ai-explanation" style="display: block;"></div><div class="ai-suggestions"></div><div class="ai-bottom"><div class="ai-tips">此内容根据文章生成，仅用于文章内容的解释与总结</div><a class="ai-report" title="投诉" href="https://samurai-127.github.io">投诉</a></div></div><h1 id="哇塞-终于费劲心思把这个博客建好了"><a href="#哇塞-终于费劲心思把这个博客建好了" class="headerlink" title="哇塞~终于费劲心思把这个博客建好了"></a>哇塞~终于费劲心思把这个博客建好了</h1><p>哇塞~终于费劲心思把这个博客建好了，我要写一篇博客记录这个过程以及如何实现的。</p>
+<p>本博客基于hexo搭建起来，起因也是我专业的朋友给我推送了这个视频，晚上睡不着觉突然又刷到了，于是第二天就开始马上着手准备~</p>
+<h1 id="1-hexo"><a href="#1-hexo" class="headerlink" title="1.hexo"></a>1.hexo</h1><p>众所周知搭建一个博客的有hexo，以及其他我不用的框架，使用博客框架搭建起来非常快，而不是需要真的说去写一个前后端来实现，对非计算机专业的同学要求也不是那么高（如果你需要实现主题样式那就很高了），所以hexo真的是十分的nice啊~</p>
+<p>不过需要去另外会用git，安装nodeJS，直接给它拿下</p>
+<p><img src="1.png"></p>
+<p><img src="Snipaste_2024-07-14_17-18-28.png"></p>
+<p>当初按照下来的步骤很简单，不过在git上确实有问题，有时候<code>git bash命令</code>下载失败，有时候<code>npm命令</code>查找不到，单单装hexo下来就费劲了很多脑子~</p>
+<p>仔细一想nodeJs我已经用nvm做版本管理了，才记得把hexo生成的文件夹扔到nvm下才生效，又花费了一点时间</p>
+<p><img src="Snipaste_2024-07-14_17-15-03.png"></p>
+<p>ok，咱也是直接拿下</p>
+<p><img src="Snipaste_2024-07-14_17-20-01.png"></p>
+<h1 id="2-主题样式"><a href="#2-主题样式" class="headerlink" title="2.主题样式"></a>2.主题样式</h1><p>接下来访问本地hexo成功以后就是选择主题了，hexo官方截止2024年7月14日有407个主题，每隔一段时间都会有开发者将自己的主题扔上去</p>
+<p><img src="Snipaste_2024-07-14_17-23-07.png"></p>
+<p><img src="Snipaste_2024-07-14_17-24-22.png"></p>
+<p>最终我选择了当前的solitude主题，看上去比较符合我的要求，就这个了</p>
+<p><img src="Snipaste_2024-07-14_17-25-15.png"></p>
+<p>接下来也就是用git把代码拉到本地就行了</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">npm i hexo-theme-solitude</span><br></pre></td></tr></table></figure>
+
+<p><img src="Snipaste_2024-07-14_17-26-00.png"></p>
+<p>下载下来了以后其实和你现在看到的我的博客大差不差了，主要是需要逐步的添加功能</p>
+<h1 id="3-评论区如何实现"><a href="#3-评论区如何实现" class="headerlink" title="3.评论区如何实现"></a>3.评论区如何实现</h1><p>博客的留言板是需要配置界面的，可以看文档手册；最主要的是如何实现帖子的评论区，实现以后留言板用同一个就好</p>
+<p><img src="Snipaste_2024-07-14_17-29-48.png"></p>
+<p><img src="Snipaste_2024-07-14_17-32-24.png"></p>
+<p>在文档中，提供了多个实现评论区的方式</p>
+<p><img src="Snipaste_2024-07-14_17-33-31.png"></p>
+<p>我用的是vercel + twikoo。twikoo有个很优秀的地方，就是输入qq邮箱可以获取到本人的qq信息，也可以评论后有回复的信息通过qq邮箱发送，就和B站抖音一样，也可以配置反垃圾处理等等功能十分优秀；vercel作为云部署的后端部分，加上<strong>MongoDB</strong>存储数据即可。</p>
+<p><img src="Snipaste_2024-07-14_17-36-14.png"></p>
+<p>不过缺点就是vercel和MongoDB的网站确实很难进，取决于你科学上网的实力了，不好的魔法开了也很费时间</p>
+<p><img src="Snipaste_2024-07-14_17-38-27.png"></p>
+<p><img src="Snipaste_2024-07-14_17-39-17.png"></p>
+<p>此时还有一个最大的问题就是vercel是被墙了的，需要科学上网，不然进去非常慢，此时教程有说使用一个个人域名替换他就快很多，就是图中domains的地方</p>
+<h1 id="4-购买域名"><a href="#4-购买域名" class="headerlink" title="4.购买域名"></a>4.购买域名</h1><p>这个就比较简单，华为云，腾讯云，阿里云都提供了购买域名的途径，而且一年下来10+块钱就可以了，比如说本站的域名在阿里云已经被我注册了。</p>
+<p><strong>不过购买域名需要实名等等个人信息核查，最长需要一天，</strong>其他没什么问题。</p>
+<p><img src="Snipaste_2024-07-14_17-43-58.png"></p>
+<p>随便挑一个，然后把vercel里面的域名换掉就行了</p>
+<p><img src="Snipaste_2024-07-14_17-45-08.png"></p>
+<p>OK，在主题的yaml文件打开评论区就实现了</p>
+<h1 id="5-博客ai"><a href="#5-博客ai" class="headerlink" title="5.博客ai"></a>5.博客ai</h1><p>这个主题可以使用的ai有两个，这个弄起来也比较简单，跟着弄就可以了，没啥难度</p>
+<p><img src="Snipaste_2024-07-14_17-46-15.png"></p>
+<p>postai一个月18！！！！！！！钱包好痛</p>
+<p><img src="Snipaste_2024-07-14_17-50-52.png"></p>
+<p>博客的聊天机器人和摘要ai都可以用了</p>
+<p><img src="Snipaste_2024-07-14_17-51-45.png"></p>
+<p><img src="Snipaste_2024-07-14_17-52-02.png"></p>
+<h1 id="6-页面图片"><a href="#6-页面图片" class="headerlink" title="6.页面图片"></a>6.页面图片</h1><p>一开始我是打算用阿里云OSS的，不过免费的容量很小，果断放弃；</p>
+<p><img src="Snipaste_2024-07-14_17-54-24.png"></p>
+<p>再来打算使用图床，麻烦，放弃，反正我不用</p>
+<p><img src="Snipaste_2024-07-14_17-57-00.png"></p>
+<p>存本地，简单实用（其实一开始不确定可不可以存本地）</p>
+<p><img src="Snipaste_2024-07-14_17-56-26.png"></p>
+<p>有些图片也不是存本地的，其实可以去网页偷一下，比如mbti的那个，仔细一看连接是16人格官网的，看了他们的源代码也是部署到公网上，那么自然也可以直接引用他们的</p>
+<p><img src="Snipaste_2024-07-14_18-00-01.png"></p>
+<p>偷，都可以偷</p>
+<p><img src="Snipaste_2024-07-14_18-02-18.png"></p>
+<h1 id="7-矢量图标库"><a href="#7-矢量图标库" class="headerlink" title="7.矢量图标库"></a>7.矢量图标库</h1><p>你不得不说阿里巴巴矢量图标库很好用，这些都是从里面下的。下载得到的图片可以是svg格式的，你也可以换jpg&#x2F;png</p>
+<p><img src="Snipaste_2024-07-14_18-05-26.png"></p>
+<p>我特别喜欢影视飓风，干脆把他们公司的口号搜一下也有</p>
+<p><img src="Snipaste_2024-07-14_18-06-01.png"></p>
+<p>svg格式的图片有一个效果，就是图片的背景可以跟随主题背景变化</p>
+<p><img src="Snipaste_2024-07-14_18-11-31.png"></p>
+<p><img src="Snipaste_2024-07-14_18-11-51.png"></p>
+<p><img src="2.png"></p>
+<h1 id="8-公网访问"><a href="#8-公网访问" class="headerlink" title="8.公网访问"></a>8.公网访问</h1><p>在hexo下载到本地后，只能部署到本地，但是为了让大家都能访问得到需要放到公网上，因此围绕这个的实践就此展开….</p>
+<h2 id="8-1-云服务器"><a href="#8-1-云服务器" class="headerlink" title="8.1 云服务器"></a>8.1 云服务器</h2><p>云服务器就是一台云端的服务器，可以在华为云、腾讯云、阿里云中购买，这个服务器具备公网ip，大家是可以访问到的。</p>
+<p>以我的为例，我在阿里云免费试用了三个月，什么都好，就是我用不惯，部署一个博客有种大炮打蚊子的感觉</p>
+<p><img src="Snipaste_2024-07-14_18-16-49.png"></p>
+<p>而且，当时公网ip我还没有配置域名，泄露了一下就DDoS了（俗称恶意访问ip，访问量超过限制）</p>
+<p><img src="mmexport1719336517203.jpg"></p>
+<p>在finalshell里面配置nginx等也非常麻烦，改一次就弄一次，上传文件也要挺久的，不推荐</p>
+<p><img src="Snipaste_2024-07-14_18-20-59.png"></p>
+<h2 id="8-2-githubpage"><a href="#8-2-githubpage" class="headerlink" title="8.2 githubpage"></a>8.2 githubpage</h2><p>这个真福音，但是也是真的慢。githubpage面向静态页面的功能，专门为部署博客这种静态页面而设计。但是众所周知，github是被墙的，所以部署到github上直接访问io文件特别慢，我自己进都半天，但是我的好朋友，gitee本来给的这个功能封了，另选方法。</p>
+<p><img src="Snipaste_2024-07-14_18-23-57.png"></p>
+<h2 id="8-3-改用vercel部署"><a href="#8-3-改用vercel部署" class="headerlink" title="8.3 改用vercel部署"></a>8.3 改用vercel部署</h2><p>这个可行度取决于科学上网的实力。</p>
+<p><img src="Snipaste_2024-07-14_18-27-26.png"></p>
+<p>不过我用这个的时候版本问题搞得我头大，有时候我都推送上来了但是都不更新这个版本。</p>
+<p><img src="Cache_7fd171c3712b5284.jpg" alt="版本问题"></p>
+<p>无所谓了，我现在也没用这个了，我把域名映射关掉了</p>
+<p><img src="Snipaste_2024-07-14_18-30-43.png" alt="取消vercel对域名的映射"></p>
+<h2 id="8-4-cdn加速"><a href="#8-4-cdn加速" class="headerlink" title="8.4 cdn加速"></a>8.4 cdn加速</h2><p>cdn，context distributed network，内容分发网络，说白了就是就近访问dns服务器，不需要跨一系列的计算机网络到达提供服务的服务器，理论上可行的</p>
+<p>但是阿里云这个需要icp备案，要求云产品下面需要有实例（比如买了一个云服务器），劝退我了</p>
+<p><img src="Snipaste_2024-07-14_18-35-09.png" alt="ICP备案"></p>
+<p>第二个就是用cloudflare给的dns服务器，亲测只能说拉了依托大的。免费的那个扔进我的服务器测速两天慢的要命，可能也是阿里云换过去特别慢</p>
+<p><img src="Snipaste_2024-07-14_18-38-06.png"></p>
+<h2 id="8-5-4everland"><a href="#8-5-4everland" class="headerlink" title="8.5 4everland"></a>8.5 4everland</h2><p>在掘金看到的一篇博客：<a target="_blank" rel="noopener" href="https://juejin.cn/post/7009209925024874526?enable_transcoding_confirm=true">忘了缓慢的GithubPage，免费加速你的Hexo静态博客吧 - 掘金 (juejin.cn)</a></p>
+<p>动手尝试真的可以，现在进来都不那么慢了。甚至不需要再推仓库，正常的推送静态资源到github以后这里也会更新，所以只需要把4everland的映射绑定到域名上就可以了</p>
+<p><img src="Snipaste_2024-07-14_18-42-54.png"></p>
+<p>至此，基本没什么问题了</p>
+<h1 id="9-来访者api"><a href="#9-来访者api" class="headerlink" title="9.来访者api"></a>9.来访者api</h1><p>这个定位的功能用一个博主的，可以直接定位所在地或者ip，不知道准不准确。不过不需要害怕暴露ip，真正定位的是物理地址而非是你的ip，下次切个网啥的就换掉了~</p>
+<p><img src="Snipaste_2024-07-14_18-43-49.png"></p>
+<h1 id="至最后"><a href="#至最后" class="headerlink" title="至最后"></a>至最后</h1><p>搭建出来确实累，不过可以有一个记录的地方啦，就当做个人的qq空间或者朋友圈吧~博客的最后至看到这里的每位朋友，正如本站的介绍：</p>
+<p><strong>这里与大多数垂直类的技术博客不同，这里的种类会非常的繁杂，有技能的教程干货、有生活上的吐槽和妙招、有话题上的思考和想法。一般我研究什么、发现了什么都会分享在这里。</strong><br><strong>这些就是创造这个小站的本意，也是我分享生活的方式。有幸能和你相遇在这里，相信我们能共同留下一段美好记忆~</strong></p>
+</article><div class="post-copyright"><div class="post-copyright__author_group"><a class="post-copyright__author_img" href="/about/"><img class="post-copyright__author_img_front" src="/img/avatar.ico"></a><div class="post-copyright__author_name">颓废市民黄先生</div><div class="post-copyright__author_desc">welcome 艾瑞巴蒂</div></div><div class="post-tools" id="post-tools"><div class="post-tools-left"><div id="quit-box" onclick="RemoveRewardMask()"></div></div></div><div class="social-share"><a class="social-share-ico icon-qq" target="_blank" rel="noopener" href="https://connect.qq.com/widget/shareqq/index.html?url=https%3A%2F%2Fsamurai-127.github.io%2F2024%2F07%2F14%2F%25E6%2590%25AD%25E5%25BB%25BA%25E5%258D%259A%25E5%25AE%25A2%25EF%25BC%259F%25E6%259C%25AC%25E7%25AB%2599%25E6%2590%25AD%25E5%25BB%25BA%25E5%258D%259A%25E5%25AE%25A2%25E8%258A%25B1%25E8%25B4%25B9%25E4%25BA%2586%25E5%25A4%259A%25E5%25B0%2591%25E7%25B2%25BE%25E5%258A%259B%25EF%25BC%259F%2F&amp;title=%E6%90%AD%E5%BB%BA%E4%B8%80%E4%B8%AA%E5%8D%9A%E5%AE%A2%EF%BC%9F%E6%9C%AC%E7%AB%99%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2%E8%8A%B1%E8%B4%B9%E4%BA%86%E5%A4%9A%E5%B0%91%E7%B2%BE%E5%8A%9B%EF%BC%9F&amp;desc=undefined&amp;summary=undefined&amp;site=%E6%90%AD%E5%BB%BA%E4%B8%80%E4%B8%AA%E5%8D%9A%E5%AE%A2%EF%BC%9F%E6%9C%AC%E7%AB%99%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2%E8%8A%B1%E8%B4%B9%E4%BA%86%E5%A4%9A%E5%B0%91%E7%B2%BE%E5%8A%9B%EF%BC%9F&amp;pics=%2Fimg%2Fzhheo.png" title="分享到QQ"><i class="solitude st-qq-fill"></i></a></div><div class="post-copyright__notice"><span class="post-copyright-info">本文是原创文章，采用<a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh">CC BY-NC-SA 4.0</a>协议，完整转载请注明来自<a href="/">颓废市民黄先生</a></span></div></div><div class="post-tools-right"><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E8%BD%AF%E4%BB%B6%E6%8A%80%E6%9C%AF/"><span class="tags-punctuation"></span>软件技术<span class="tagsPageCount">5</span></a><a class="post-meta__tags" href="/tags/hexo/"><span class="tags-punctuation"></span>hexo<span class="tagsPageCount">1</span></a></div></div></div><nav class="needEndHide pagination-post" id="pagination"><div class="next-post pull-full"><a href="/2024/07/09/%E7%AE%97%E6%B3%95%EF%BC%9A%EF%BC%88%E5%9B%9B%EF%BC%89%E9%80%92%E5%BD%92/"><div class="pagination-info"><div class="label">下一篇</div><div class="next_info">算法：（四）递归</div></div></a></div></nav><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="solitude st-chat-fill"></i><span> 评论</span><span class="count"> (<span class="twikoo-count"><i class="solitude st-loading-line"></i></span>)</span></div></div><div class="comment-wrap"><div id="twikoo-wrap"></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="card-content"><div class="card-info-avatar is-center"><div class="author-info__top-group"><div class="author-info__sayhi" id="author-info__sayhi" onclick="sco.changeSayHelloText()">sayhello.morning</div></div></div><div class="avatar-img-group"><img class="avatar-img" alt="头像" src="/img/avatar.jpg"><div class="avatar-sticker"><img class="avatar-sticker-img" src="https://7.isyangs.cn/34/65f2e4e0423cc-34.png" alt="心情贴纸"></div></div><div class="author-info__description_group"><div class="author-info__description">大郞，你来看我的博客啦~</div><div class="author-info__description2">看看有没有对你有帮助的内容呗</div></div><div class="author-info__bottom-group"><a class="author-info__bottom-group-left" href="/about/"><div class="author-info__name">颓废市民黄先生</div><div class="author-info__desc">welcome 艾瑞巴蒂</div></a><div class="card-info-social-icons is-center"><a class="social-icon" target="_blank" rel="noopener" href="https://space.bilibili.com/314882691" title="Bilibili"><i class="solitude  st-bilibili-line"></i></a><a class="social-icon" target="_blank" rel="noopener" href="https://www.douyin.com/user/MS4wLjABAAAAy1FJN9CK4loLwbU-ngonlCdhB5ZT99fq4_Jdg3qJS7w" title="douyin"><i class="solitude  st-douyin-fill"></i></a></div></div></div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="solitude st-menu-line"></i><span>文章目录</span></div><div class="toc-content" id="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%93%87%E5%A1%9E-%E7%BB%88%E4%BA%8E%E8%B4%B9%E5%8A%B2%E5%BF%83%E6%80%9D%E6%8A%8A%E8%BF%99%E4%B8%AA%E5%8D%9A%E5%AE%A2%E5%BB%BA%E5%A5%BD%E4%BA%86"><span class="toc-text">哇塞~终于费劲心思把这个博客建好了</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#1-hexo"><span class="toc-text">1.hexo</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#2-%E4%B8%BB%E9%A2%98%E6%A0%B7%E5%BC%8F"><span class="toc-text">2.主题样式</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#3-%E8%AF%84%E8%AE%BA%E5%8C%BA%E5%A6%82%E4%BD%95%E5%AE%9E%E7%8E%B0"><span class="toc-text">3.评论区如何实现</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#4-%E8%B4%AD%E4%B9%B0%E5%9F%9F%E5%90%8D"><span class="toc-text">4.购买域名</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#5-%E5%8D%9A%E5%AE%A2ai"><span class="toc-text">5.博客ai</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#6-%E9%A1%B5%E9%9D%A2%E5%9B%BE%E7%89%87"><span class="toc-text">6.页面图片</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#7-%E7%9F%A2%E9%87%8F%E5%9B%BE%E6%A0%87%E5%BA%93"><span class="toc-text">7.矢量图标库</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#8-%E5%85%AC%E7%BD%91%E8%AE%BF%E9%97%AE"><span class="toc-text">8.公网访问</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#8-1-%E4%BA%91%E6%9C%8D%E5%8A%A1%E5%99%A8"><span class="toc-text">8.1 云服务器</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#8-2-githubpage"><span class="toc-text">8.2 githubpage</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#8-3-%E6%94%B9%E7%94%A8vercel%E9%83%A8%E7%BD%B2"><span class="toc-text">8.3 改用vercel部署</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#8-4-cdn%E5%8A%A0%E9%80%9F"><span class="toc-text">8.4 cdn加速</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#8-5-4everland"><span class="toc-text">8.5 4everland</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#9-%E6%9D%A5%E8%AE%BF%E8%80%85api"><span class="toc-text">9.来访者api</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%87%B3%E6%9C%80%E5%90%8E"><span class="toc-text">至最后</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="solitude st-map-line"></i><span>最近发布</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2024/07/14/%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2%EF%BC%9F%E6%9C%AC%E7%AB%99%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2%E8%8A%B1%E8%B4%B9%E4%BA%86%E5%A4%9A%E5%B0%91%E7%B2%BE%E5%8A%9B%EF%BC%9F/" title="搭建一个博客？本站搭建博客花费了多少精力？"><img alt="搭建一个博客？本站搭建博客花费了多少精力？" src="/img/zhheo.png"></a><div class="content"><a class="title" href="/2024/07/14/%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2%EF%BC%9F%E6%9C%AC%E7%AB%99%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2%E8%8A%B1%E8%B4%B9%E4%BA%86%E5%A4%9A%E5%B0%91%E7%B2%BE%E5%8A%9B%EF%BC%9F/" title="搭建一个博客？本站搭建博客花费了多少精力？">搭建一个博客？本站搭建博客花费了多少精力？</a><a class="article-recent_post_categories" href="/2024/07/14/%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2%EF%BC%9F%E6%9C%AC%E7%AB%99%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2%E8%8A%B1%E8%B4%B9%E4%BA%86%E5%A4%9A%E5%B0%91%E7%B2%BE%E5%8A%9B%EF%BC%9F/">生活记录</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/07/09/%E7%AE%97%E6%B3%95%EF%BC%9A%EF%BC%88%E5%9B%9B%EF%BC%89%E9%80%92%E5%BD%92/" title="算法：（四）递归"><img alt="算法：（四）递归" src="/img/javacalu.jpg"></a><div class="content"><a class="title" href="/2024/07/09/%E7%AE%97%E6%B3%95%EF%BC%9A%EF%BC%88%E5%9B%9B%EF%BC%89%E9%80%92%E5%BD%92/" title="算法：（四）递归">算法：（四）递归</a><a class="article-recent_post_categories" href="/2024/07/09/%E7%AE%97%E6%B3%95%EF%BC%9A%EF%BC%88%E5%9B%9B%EF%BC%89%E9%80%92%E5%BD%92/">算法</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/07/06/Java-JDK8%E5%87%BD%E6%95%B0%E5%BC%8F%E6%8E%A5%E5%8F%A3%E3%80%81lambda%E8%A1%A8%E8%BE%BE%E5%BC%8F%E3%80%81%E6%96%B9%E6%B3%95%E5%BC%95%E7%94%A8/" title="Java：JDK8函数式接口、lambda表达式、方法引用"><img alt="Java：JDK8函数式接口、lambda表达式、方法引用" src="/img/javacover.png"></a><div class="content"><a class="title" href="/2024/07/06/Java-JDK8%E5%87%BD%E6%95%B0%E5%BC%8F%E6%8E%A5%E5%8F%A3%E3%80%81lambda%E8%A1%A8%E8%BE%BE%E5%BC%8F%E3%80%81%E6%96%B9%E6%B3%95%E5%BC%95%E7%94%A8/" title="Java：JDK8函数式接口、lambda表达式、方法引用">Java：JDK8函数式接口、lambda表达式、方法引用</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/07/06/%E7%AE%97%E6%B3%95%EF%BC%9A%EF%BC%88%E4%B8%89%EF%BC%89%E9%93%BE%E8%A1%A8/" title="算法：（三）数据结构——链表"><img alt="算法：（三）数据结构——链表" src="/img/javacalu.jpg"></a><div class="content"><a class="title" href="/2024/07/06/%E7%AE%97%E6%B3%95%EF%BC%9A%EF%BC%88%E4%B8%89%EF%BC%89%E9%93%BE%E8%A1%A8/" title="算法：（三）数据结构——链表">算法：（三）数据结构——链表</a><a class="article-recent_post_categories" href="/2024/07/06/%E7%AE%97%E6%B3%95%EF%BC%9A%EF%BC%88%E4%B8%89%EF%BC%89%E9%93%BE%E8%A1%A8/">算法</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/07/06/Docker%E5%AE%9E%E6%93%8D/" title="docker：速速上手docker部署镜像"><img alt="docker：速速上手docker部署镜像" src="/img/dockercover.png"></a><div class="content"><a class="title" href="/2024/07/06/Docker%E5%AE%9E%E6%93%8D/" title="docker：速速上手docker部署镜像">docker：速速上手docker部署镜像</a><a class="article-recent_post_categories" href="/2024/07/06/Docker%E5%AE%9E%E6%93%8D/">软件技术</a></div></div></div></div></div></div></main><footer id="footer"><div id="st-footer-bar"><div class="footer-logo"><span>颓废市民黄先生</span></div><div class="footer-bar-description">来自 颓废市民黄先生 的文章</div><a class="footer-bar-link" href="/about/">了解更多</a></div><div id="footer_deal"></div><div id="st-footer"></div><div id="footer-bar"><div class="footer-bar-links"><div class="footer-bar-left"><div class="copyright">© 2024 By&nbsp;<a class="footer-bar-link" href="/">颓废市民黄先生</a></div></div><div class="footer-bar-right"><a class="footer-bar-link" target="_blank" rel="noopener" href="https://github.com/everfu/hexo-theme-solitude" alt="主题">主题</a><a class="footer-bar-link cc" href="/null" aria-label="copyright"><i class="solitude st-copyright-line"></i><i class="solitude st-creative-commons-by-line"></i><i class="solitude st-creative-commons-nc-line"></i><i class="solitude st-creative-commons-nd-line"></i></a></div></div></div><div class="comment-barrage needEndHide"></div></footer></div><!-- right_menu--><div id="rightMenu"><div class="rightMenu-group rightMenu-small"><div class="rightMenu-item" id="menu-backward"><i class="solitude st-arrow-left-line"></i></div><div class="rightMenu-item" id="menu-forward"><i class="solitude st-arrow-right-line"></i></div><div class="rightMenu-item" id="menu-refresh"><i class="solitude st-restart-line"></i></div><div class="rightMenu-item" id="menu-top"><i class="solitude st-arrow-up-line"></i></div></div><div class="rightMenu-group rightMenu-line rightMenuPlugin"><div class="rightMenu-item" id="menu-copytext"><i class="solitude st-copy-fill"></i><span>复制选中文本</span></div><div class="rightMenu-item" id="menu-pastetext"><i class="solitude st-clipboard-fill"></i><span>粘贴文本</span></div><div class="rightMenu-item" id="menu-commenttext"><i class="solitude st-chat-new-fill"></i><span>引用到评论</span></div><div class="rightMenu-item" id="menu-newwindow"><i class="solitude st-window-fill"></i><span>新窗口打开</span></div><div class="rightMenu-item" id="menu-copylink"><i class="solitude st-link-line"></i><span>复制链接地址</span></div><div class="rightMenu-item" id="menu-copyimg"><i class="solitude st-copy-fill"></i><span>复制此图片</span></div><div class="rightMenu-item" id="menu-downloadimg"><i class="solitude st-download-cloud-fill"></i><span>下载此图片</span></div><div class="rightMenu-item" id="menu-search"><i class="solitude st-search-line"></i><span>站内搜索</span></div><div class="rightMenu-item" id="menu-music-toggle"><i class="solitude st-play-fill"></i><span>播放音乐</span></div><div class="rightMenu-item" id="menu-music-back"><i class="solitude st-skip-back-fill"></i><span>切换到上一首</span></div><div class="rightMenu-item" id="menu-music-forward"><i class="solitude st-skip-forward-fill"></i><span>切换到下一首</span></div><div class="rightMenu-item" id="menu-music-copyMusicName"><i class="solitude st-copy-fill"></i><span>复制歌名</span></div></div><div class="rightMenu-group rightMenu-line rightMenuOther"><div class="rightMenu-item" id="menu-randomPost" onclick="toRandomPost()||rm.hideRightMenu()"><i class="solitude st-signal-tower-fill"></i><span>随机短文</span></div><div class="rightMenu-item" onclick="pjax.loadUrl('/categories/')||rm.hideRightMenu()"><i class="solitude st-checkbox-multiple-blank-fill"></i><span>全部分类</span></div><div class="rightMenu-item" onclick="pjax.loadUrl('/tags/')||rm.hideRightMenu()"><i class="solitude st-price-tag-fill"></i><span>全部标签</span></div></div><div class="rightMenu-group rightMenu-line rightMenuOther"><div class="rightMenu-item" id="menu-commentBarrage" onclick="sco.switchCommentBarrage()"><i class="solitude st-chat-fill"></i><span class="menu-commentBarrage-text">关闭热评</span></div><div class="rightMenu-item" id="menu-darkmode" onclick="sco.switchDarkMode()"><i class="solitude st-moon-clear-fill"></i><span class="menu-darkmode-text">深色模式</span></div><div class="rightMenu-item" id="menu-translate"><i class="solitude st-panben-line"></i><span>轉為繁體</span></div></div></div><div id="rightmenu-mask"></div><!-- inject body--><div><script src="/js/utils.js?v=1.13.3"></script><script src="/js/main.js?v=1.13.3"></script><script src="/js/third_party/waterfall.min.js?v=1.13.3"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/pjax/0.2.8/pjax.min.js"></script><script src="/js/third_party/universe.min.js?v=1.13.3"></script><script>dark()
+</script><script src="/js/tw_cn.js?v=1.13.3"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/node-snackbar/0.1.16/snackbar.min.js"></script><script src="/js/third_party/efu_ai.min.js?v=1.13.3"></script><script>var meting_api = 'https://meting.qjqq.cn/?server=:server&type=:type&id=:id&auth=:auth&r=:r';</script><script src="https://cdnjs.cloudflare.com/ajax/libs/aplayer/1.10.1/APlayer.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/meting/2.0.1/Meting.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/pace/1.2.4/pace.min.js"></script><script src="/js/right_menu.js?v=1.13.3"></script><script src="/js/custom.js"></script><div class="js-pjax"><script>(() => {
+    const getCount = () => {
+        const ele = document.querySelectorAll('.twikoo-count')
+        if (!ele) return
+        twikoo.getCommentsCount({
+            envId: 'https://samurai127.cn',
+            region: '',
+            urls: [window.location.pathname],
+            includeReply: false
+        }).then(res => {
+            ele.forEach(item => item.textContent = res[0].count)
+        }).catch(err => {
+            console.error(err)
+        })
+    }
+    const init = () => {
+        twikoo.init(Object.assign({
+            el: '#twikoo-wrap',
+            envId: 'https://samurai127.cn',
+            region: '',
+            path: window.location.pathname,
+            onCommentLoaded: () => {
+                GLOBAL_CONFIG.lightbox && utils.lightbox(document.querySelectorAll('#twikoo .tk-content img:not(.tk-owo-emotion)'))
+            }
+        }, null))
+
+         && getCount()
+        sco.owoBig({
+            body: '.OwO-body',
+            item: '.OwO-items li'
+        })
+
+        true && barrageTwikoo()
+    }
+
+    const loadTwikoo = () => {
+        if (typeof twikoo === 'object') setTimeout(init,0)
+        else utils.getScript('https://cdnjs.cloudflare.com/ajax/libs/twikoo/1.6.36/twikoo.all.min.js').then(init)
+    }
+
+    if ('Twikoo' === 'Twikoo' || false) {
+        if (false) utils.loadComment(document.getElementById('twikoo-wrap'), loadTwikoo)
+        else loadTwikoo()
+    } else {
+        window.loadTwoComment = loadTwikoo
+    }
+})()
+</script><script>async function barrageTwikoo() {
+    await fetch("https://samurai127.cn", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            event: "COMMENT_GET",
+            accessToken: "",
+            url: window.location.pathname
+        })
+    }).then(async res => {
+        if (!res.ok) throw new Error("HTTP error! status: " + res.status)
+        const data = await res.json();
+        const init = () => {
+            initializeCommentBarrage((data.data).map(item => Object.assign({
+                content: item.comment,
+                nick: item.nick,
+                mailMd5: item.mailMd5,
+                id: item.id
+            })))
+        }
+        if (typeof initializeCommentBarrage === "undefined") await utils.getScript('/js/third_party/barrage.min.js?v=1.13.3').then(init)
+        else init()
+    }).catch(error => console.error("An error occurred while fetching comments: ", error))
+}</script><script defer pjax src="https://cdnjs.cloudflare.com/ajax/libs/busuanzi/2.3.0/bsz.pure.mini.min.js"></script></div></div><!-- pjax--><script>const pjax = new Pjax({
+    elements: 'a:not([target="_blank"])',
+    selectors: ['title','#body-wrap','#site-config','meta[name="description"]','.js-pjax','meta[property^="og:"]','#config-diff'],
+    cacheBust: false,
+    analytics: false,
+    scrollRestoration: false
+})
+
+document.querySelectorAll('script[data-pjax]').forEach(item => {
+    const newScript = document.createElement('script')
+    const content = item.text || item.textContent || item.innerHTML || ""
+    Array.from(item.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value))
+    newScript.appendChild(document.createTextNode(content))
+    item.parentNode.replaceChild(newScript, item)
+})
+
+document.addEventListener('pjax:complete', () => {
+    window.refreshFn()
+
+    document.querySelectorAll('script[data-pjax]').forEach(item => {
+        const newScript = document.createElement('script')
+        const content = item.text || item.textContent || item.innerHTML || ""
+        Array.from(item.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value))
+        newScript.appendChild(document.createTextNode(content))
+        item.parentNode.replaceChild(newScript, item)
+    })
+
+    GLOBAL_CONFIG.islazyload && window.lazyLoadInstance.update()
+
+})
+
+document.addEventListener('pjax:error', (e) => {
+    if (e.request.status === 404) {
+        pjax.loadUrl('/404.html')
+    }
+})</script><!-- theme--><script>initTheme = () => {
+    let isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const cachedMode = utils.saveToLocal.get('theme');
+    if (cachedMode === undefined) {
+        const nowMode =
+            isDarkMode ? 'dark' : 'light'
+        document.documentElement.setAttribute('data-theme', nowMode);
+    } else {
+        document.documentElement.setAttribute('data-theme', cachedMode);
+    }
+    typeof rm === 'object' && rm.mode(cachedMode === 'dark' && isDarkMode)
+}
+initTheme()</script><!-- google adsense--><!-- search--><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><button class="search-close-button"><i class="solitude st-close-fill"></i></button></nav><div class="search-wrap"><div class="search-box"><input class="search-box-input" id="search-input" type="text" autocomplete="off" spellcheck="false" autocorrect="off" autocapitalize="off" placeholder="输入关键词快速查找"></div><div id="search-results"><div id="search-hits"></div></div><div id="search-pagination"></div><div id="search-tips"></div></div></div><div id="search-mask"></div></div><script src="/js/search/local.js?v=1.13.3"></script><!-- Tianli-Talk--><span class="needEndHide" id="efuTalk" onclick="togglePostChatContainer(); return false;" title="问答ai"><i class="solitude st-robot-fill"></i><span class="efuTalkTitle">问答ai</span></span><script>var postChatConfig = {
+backgroundColor: "var(--efu-main)",
+bottom: "60px",
+...{"defaultInput":false,"upLoadWeb":true,"userTitle":"小黄同学来也","userDesc":"有什么可以帮助你的？","showInviteLink":"https://ai.tianli0.top/?InviteID=OZ3Z0V2R","blackDom":[".aplayer"]}
+};
+
+let b = true;
+
+document.getElementById('efuTalk').addEventListener('click', function () {
+    this.classList.toggle('on');
+    let efu = this
+    b && setTimeout(() => {
+        document.getElementById('close-button').addEventListener('click', function () {
+            efu.classList.remove('on');
+        })
+    }, 0);
+    b = false
+});</script><script pjax data-postChat_key="449aa72132adf73ef7084ef83c46792af1edab" src="https://ai.tianli0.top/static/public/postChatUser.min.js"></script><!-- music--><div class="needEndHide" id="nav-music" onclick="sco.musicToggle()"><div id="nav-music-hoverTips">音乐已暂停</div><meting-js id="994057368" server="netease" type="playlist" mutex="true" preload="none" data-lrctype="0" order="random" theme="var(--efu-main)"></meting-js></div></body></html><script>const posts=["2024/07/14/搭建博客？本站搭建博客花费了多少精力？/","2024/07/09/算法：（四）递归/","2024/07/06/Java-JDK8函数式接口、lambda表达式、方法引用/","2024/07/06/算法：（三）链表/","2024/07/06/Docker实操/","2024/07/06/centOS部署docker/","2024/07/06/mybatis/","2024/07/06/JDBC 笔记/","2024/07/03/算法：（二）二分查找/","2024/07/03/操作系统：（一）快速学习存储器/","2024/07/03/算法：（一）排序算法/","2024/06/29/数据库-索引/","2024/06/26/git速查/"];function toRandomPost(){ pjax.loadUrl(GLOBAL_CONFIG.root+posts[Math.floor(Math.random()*posts.length)]); }</script>
