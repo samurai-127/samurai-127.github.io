@@ -137,6 +137,9 @@ function showWelcome() {
                 case "广西壮族自治区":
                     e = "桂林山水甲天下";
                     break;
+                case "广西":
+                    e = "带我去青秀山看看";
+                    break;
                 case "海南":
                     e = "朝观日出逐白浪，夕看云起收霞光";
                     break;
@@ -186,7 +189,7 @@ function showWelcome() {
     let c = new Date;
     a = c.getHours() >= 5 && c.getHours() < 11 ? "<span>🌤️ 早上好，一日之计在于晨</span>" : c.getHours() >= 11 && c.getHours() < 13 ? "<span>☀️ 中午好，记得午休喔~</span>" : c.getHours() >= 13 && c.getHours() < 17 ? "<span>🕞 下午好，饮茶先啦！</span>" : c.getHours() >= 17 && c.getHours() < 19 ? "<span>🚶‍♂️ 即将下班，记得按时吃饭~</span>" : c.getHours() >= 19 && c.getHours() < 24 ? "<span>🌙 晚上好，夜生活嗨起来！</span>" : "夜深了，早点休息，少熬夜";
     try {
-        document.getElementById("welcome-info").innerHTML = `hi~欢迎我<b><span style="color: var(--efu-color);font-size: var(--efu-gl-size)">${s}</span></b>的好厚米🍂<br>你是不是还在努力的<b>工作or学习</b>？<br>放下手上的工作<b>休息一下</b>吧~<br>您的IP地址为：<b><span style="font-size: 15px;">${o}</span></b><br>${a} <br>`
+        document.getElementById("welcome-info").innerHTML = `hi~欢迎我<b><span style="color: var(--efu-color);font-size: var(--efu-gl-size)">${s}</span></b>的好厚米🍂<br>你还在努力的<b>工作或者学习</b>吗？<br>放下手上的工作<b>休息一下</b>吧~<br>您的IP地址为：<b><span style="font-size: 15px;">${o}</span></b><br>${a} <br>`
     } catch (e) {
         console.log("Pjax无法获取元素")
     }
