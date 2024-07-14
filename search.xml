@@ -1521,6 +1521,110 @@
       </tags>
   </entry>
   <entry>
+    <title>搭建一个博客？本站搭建博客花费了多少精力？</title>
+    <url>/2024/07/14/%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2%EF%BC%9F%E6%9C%AC%E7%AB%99%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2%E8%8A%B1%E8%B4%B9%E4%BA%86%E5%A4%9A%E5%B0%91%E7%B2%BE%E5%8A%9B%EF%BC%9F/</url>
+    <content><![CDATA[<h1 id="哇塞-终于费劲心思把这个博客建好了"><a href="#哇塞-终于费劲心思把这个博客建好了" class="headerlink" title="哇塞~终于费劲心思把这个博客建好了"></a>哇塞~终于费劲心思把这个博客建好了</h1><p>哇塞~终于费劲心思把这个博客建好了，我要写一篇博客记录这个过程以及如何实现的。</p>
+<p>本博客基于hexo搭建起来，起因也是我专业的朋友给我推送了这个视频，晚上睡不着觉突然又刷到了，于是第二天就开始马上着手准备~</p>
+<h1 id="1-hexo"><a href="#1-hexo" class="headerlink" title="1.hexo"></a>1.hexo</h1><p>众所周知搭建一个博客的有hexo，以及其他我不用的框架，使用博客框架搭建起来非常快，而不是需要真的说去写一个前后端来实现，对非计算机专业的同学要求也不是那么高（如果你需要实现主题样式那就很高了），所以hexo真的是十分的nice啊~</p>
+<p>不过需要去另外会用git，安装nodeJS，直接给它拿下</p>
+<p><img src="1.png"></p>
+<p><img src="Snipaste_2024-07-14_17-18-28.png"></p>
+<p>当初按照下来的步骤很简单，不过在git上确实有问题，有时候<code>git bash命令</code>下载失败，有时候<code>npm命令</code>查找不到，单单装hexo下来就费劲了很多脑子~</p>
+<p>仔细一想nodeJs我已经用nvm做版本管理了，才记得把hexo生成的文件夹扔到nvm下才生效，又花费了一点时间</p>
+<p><img src="Snipaste_2024-07-14_17-15-03.png"></p>
+<p>ok，咱也是直接拿下</p>
+<p><img src="Snipaste_2024-07-14_17-20-01.png"></p>
+<h1 id="2-主题样式"><a href="#2-主题样式" class="headerlink" title="2.主题样式"></a>2.主题样式</h1><p>接下来访问本地hexo成功以后就是选择主题了，hexo官方截止2024年7月14日有407个主题，每隔一段时间都会有开发者将自己的主题扔上去</p>
+<p><img src="Snipaste_2024-07-14_17-23-07.png"></p>
+<p><img src="Snipaste_2024-07-14_17-24-22.png"></p>
+<p>最终我选择了当前的solitude主题，看上去比较符合我的要求，就这个了</p>
+<p><img src="Snipaste_2024-07-14_17-25-15.png"></p>
+<p>接下来也就是用git把代码拉到本地就行了</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">npm i hexo-theme-solitude</span><br></pre></td></tr></table></figure>
+
+<p><img src="Snipaste_2024-07-14_17-26-00.png"></p>
+<p>下载下来了以后其实和你现在看到的我的博客大差不差了，主要是需要逐步的添加功能</p>
+<h1 id="3-评论区如何实现"><a href="#3-评论区如何实现" class="headerlink" title="3.评论区如何实现"></a>3.评论区如何实现</h1><p>博客的留言板是需要配置界面的，可以看文档手册；最主要的是如何实现帖子的评论区，实现以后留言板用同一个就好</p>
+<p><img src="Snipaste_2024-07-14_17-29-48.png"></p>
+<p><img src="Snipaste_2024-07-14_17-32-24.png"></p>
+<p>在文档中，提供了多个实现评论区的方式</p>
+<p><img src="Snipaste_2024-07-14_17-33-31.png"></p>
+<p>我用的是vercel + twikoo。twikoo有个很优秀的地方，就是输入qq邮箱可以获取到本人的qq信息，也可以评论后有回复的信息通过qq邮箱发送，就和B站抖音一样，也可以配置反垃圾处理等等功能十分优秀；vercel作为云部署的后端部分，加上<strong>MongoDB</strong>存储数据即可。</p>
+<p><img src="Snipaste_2024-07-14_17-36-14.png"></p>
+<p>不过缺点就是vercel和MongoDB的网站确实很难进，取决于你科学上网的实力了，不好的魔法开了也很费时间</p>
+<p><img src="Snipaste_2024-07-14_17-38-27.png"></p>
+<p><img src="Snipaste_2024-07-14_17-39-17.png"></p>
+<p>此时还有一个最大的问题就是vercel是被墙了的，需要科学上网，不然进去非常慢，此时教程有说使用一个个人域名替换他就快很多，就是图中domains的地方</p>
+<h1 id="4-购买域名"><a href="#4-购买域名" class="headerlink" title="4.购买域名"></a>4.购买域名</h1><p>这个就比较简单，华为云，腾讯云，阿里云都提供了购买域名的途径，而且一年下来10+块钱就可以了，比如说本站的域名在阿里云已经被我注册了。</p>
+<p><strong>不过购买域名需要实名等等个人信息核查，最长需要一天，</strong>其他没什么问题。</p>
+<p><img src="Snipaste_2024-07-14_17-43-58.png"></p>
+<p>随便挑一个，然后把vercel里面的域名换掉就行了</p>
+<p><img src="Snipaste_2024-07-14_17-45-08.png"></p>
+<p>OK，在主题的yaml文件打开评论区就实现了</p>
+<h1 id="5-博客ai"><a href="#5-博客ai" class="headerlink" title="5.博客ai"></a>5.博客ai</h1><p>这个主题可以使用的ai有两个，这个弄起来也比较简单，跟着弄就可以了，没啥难度</p>
+<p><img src="Snipaste_2024-07-14_17-46-15.png"></p>
+<p>postai一个月18！！！！！！！钱包好痛</p>
+<p><img src="Snipaste_2024-07-14_17-50-52.png"></p>
+<p>博客的聊天机器人和摘要ai都可以用了</p>
+<p><img src="Snipaste_2024-07-14_17-51-45.png"></p>
+<p><img src="Snipaste_2024-07-14_17-52-02.png"></p>
+<h1 id="6-页面图片"><a href="#6-页面图片" class="headerlink" title="6.页面图片"></a>6.页面图片</h1><p>一开始我是打算用阿里云OSS的，不过免费的容量很小，果断放弃；</p>
+<p><img src="Snipaste_2024-07-14_17-54-24.png"></p>
+<p>再来打算使用图床，麻烦，放弃，反正我不用</p>
+<p><img src="Snipaste_2024-07-14_17-57-00.png"></p>
+<p>存本地，简单实用（其实一开始不确定可不可以存本地）</p>
+<p><img src="Snipaste_2024-07-14_17-56-26.png"></p>
+<p>有些图片也不是存本地的，其实可以去网页偷一下，比如mbti的那个，仔细一看连接是16人格官网的，看了他们的源代码也是部署到公网上，那么自然也可以直接引用他们的</p>
+<p><img src="Snipaste_2024-07-14_18-00-01.png"></p>
+<p>偷，都可以偷</p>
+<p><img src="Snipaste_2024-07-14_18-02-18.png"></p>
+<h1 id="7-矢量图标库"><a href="#7-矢量图标库" class="headerlink" title="7.矢量图标库"></a>7.矢量图标库</h1><p>你不得不说阿里巴巴矢量图标库很好用，这些都是从里面下的。下载得到的图片可以是svg格式的，你也可以换jpg&#x2F;png</p>
+<p><img src="Snipaste_2024-07-14_18-05-26.png"></p>
+<p>我特别喜欢影视飓风，干脆把他们公司的口号搜一下也有</p>
+<p><img src="Snipaste_2024-07-14_18-06-01.png"></p>
+<p>svg格式的图片有一个效果，就是图片的背景可以跟随主题背景变化</p>
+<p><img src="Snipaste_2024-07-14_18-11-31.png"></p>
+<p><img src="Snipaste_2024-07-14_18-11-51.png"></p>
+<p><img src="2.png"></p>
+<h1 id="8-公网访问"><a href="#8-公网访问" class="headerlink" title="8.公网访问"></a>8.公网访问</h1><p>在hexo下载到本地后，只能部署到本地，但是为了让大家都能访问得到需要放到公网上，因此围绕这个的实践就此展开….</p>
+<h2 id="8-1-云服务器"><a href="#8-1-云服务器" class="headerlink" title="8.1 云服务器"></a>8.1 云服务器</h2><p>云服务器就是一台云端的服务器，可以在华为云、腾讯云、阿里云中购买，这个服务器具备公网ip，大家是可以访问到的。</p>
+<p>以我的为例，我在阿里云免费试用了三个月，什么都好，就是我用不惯，部署一个博客有种大炮打蚊子的感觉</p>
+<p><img src="Snipaste_2024-07-14_18-16-49.png"></p>
+<p>而且，当时公网ip我还没有配置域名，泄露了一下就DDoS了（俗称恶意访问ip，访问量超过限制）</p>
+<p><img src="mmexport1719336517203.jpg"></p>
+<p>在finalshell里面配置nginx等也非常麻烦，改一次就弄一次，上传文件也要挺久的，不推荐</p>
+<p><img src="Snipaste_2024-07-14_18-20-59.png"></p>
+<h2 id="8-2-githubpage"><a href="#8-2-githubpage" class="headerlink" title="8.2 githubpage"></a>8.2 githubpage</h2><p>这个真福音，但是也是真的慢。githubpage面向静态页面的功能，专门为部署博客这种静态页面而设计。但是众所周知，github是被墙的，所以部署到github上直接访问io文件特别慢，我自己进都半天，但是我的好朋友，gitee本来给的这个功能封了，另选方法。</p>
+<p><img src="Snipaste_2024-07-14_18-23-57.png"></p>
+<h2 id="8-3-改用vercel部署"><a href="#8-3-改用vercel部署" class="headerlink" title="8.3 改用vercel部署"></a>8.3 改用vercel部署</h2><p>这个可行度取决于科学上网的实力。</p>
+<p><img src="Snipaste_2024-07-14_18-27-26.png"></p>
+<p>不过我用这个的时候版本问题搞得我头大，有时候我都推送上来了但是都不更新这个版本。</p>
+<p><img src="Cache_7fd171c3712b5284.jpg" alt="版本问题"></p>
+<p>无所谓了，我现在也没用这个了，我把域名映射关掉了</p>
+<p><img src="Snipaste_2024-07-14_18-30-43.png" alt="取消vercel对域名的映射"></p>
+<h2 id="8-4-cdn加速"><a href="#8-4-cdn加速" class="headerlink" title="8.4 cdn加速"></a>8.4 cdn加速</h2><p>cdn，context distributed network，内容分发网络，说白了就是就近访问dns服务器，不需要跨一系列的计算机网络到达提供服务的服务器，理论上可行的</p>
+<p>但是阿里云这个需要icp备案，要求云产品下面需要有实例（比如买了一个云服务器），劝退我了</p>
+<p><img src="Snipaste_2024-07-14_18-35-09.png" alt="ICP备案"></p>
+<p>第二个就是用cloudflare给的dns服务器，亲测只能说拉了依托大的。免费的那个扔进我的服务器测速两天慢的要命，可能也是阿里云换过去特别慢</p>
+<p><img src="Snipaste_2024-07-14_18-38-06.png"></p>
+<h2 id="8-5-4everland"><a href="#8-5-4everland" class="headerlink" title="8.5 4everland"></a>8.5 4everland</h2><p>在掘金看到的一篇博客：<a href="https://juejin.cn/post/7009209925024874526?enable_transcoding_confirm=true">忘了缓慢的GithubPage，免费加速你的Hexo静态博客吧 - 掘金 (juejin.cn)</a></p>
+<p>动手尝试真的可以，现在进来都不那么慢了。甚至不需要再推仓库，正常的推送静态资源到github以后这里也会更新，所以只需要把4everland的映射绑定到域名上就可以了</p>
+<p><img src="Snipaste_2024-07-14_18-42-54.png"></p>
+<p>至此，基本没什么问题了</p>
+<h1 id="9-来访者api"><a href="#9-来访者api" class="headerlink" title="9.来访者api"></a>9.来访者api</h1><p>这个定位的功能用一个博主的，可以直接定位所在地或者ip，不知道准不准确。不过不需要害怕暴露ip，真正定位的是物理地址而非是你的ip，下次切个网啥的就换掉了~</p>
+<p><img src="Snipaste_2024-07-14_18-43-49.png"></p>
+<h1 id="至最后"><a href="#至最后" class="headerlink" title="至最后"></a>至最后</h1><p>搭建出来确实累，不过可以有一个记录的地方啦，就当做个人的qq空间或者朋友圈吧~博客的最后至看到这里的每位朋友，正如本站的介绍：</p>
+<p><strong>这里与大多数垂直类的技术博客不同，这里的种类会非常的繁杂，有技能的教程干货、有生活上的吐槽和妙招、有话题上的思考和想法。一般我研究什么、发现了什么都会分享在这里。</strong><br><strong>这些就是创造这个小站的本意，也是我分享生活的方式。有幸能和你相遇在这里，相信我们能共同留下一段美好记忆~</strong></p>
+]]></content>
+      <categories>
+        <category>生活记录</category>
+      </categories>
+      <tags>
+        <tag>软件技术</tag>
+        <tag>hexo</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>操作系统：（一）快速学习存储器</title>
     <url>/2024/07/03/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F%EF%BC%9A%EF%BC%88%E4%B8%80%EF%BC%89%E5%BF%AB%E9%80%9F%E5%AD%A6%E4%B9%A0%E5%AD%98%E5%82%A8%E5%99%A8/</url>
     <content><![CDATA[<h2 id="一、CPU"><a href="#一、CPU" class="headerlink" title="一、CPU"></a>一、CPU</h2><h3 id="1、冯诺依曼模型"><a href="#1、冯诺依曼模型" class="headerlink" title="1、冯诺依曼模型"></a>1、冯诺依曼模型</h3><p>在 1945 年冯诺依曼和其他计算机科学家们提出了计算机具体实现的报告，其遵循了图灵机的设计，而且还提出用电子元件构造计算机，并约定了用二进制进行计算和存储。</p>
@@ -2267,110 +2371,6 @@
       </categories>
       <tags>
         <tag>算法</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>搭建一个博客？本站搭建博客花费了多少精力？</title>
-    <url>/2024/07/14/%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2%EF%BC%9F%E6%9C%AC%E7%AB%99%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2%E8%8A%B1%E8%B4%B9%E4%BA%86%E5%A4%9A%E5%B0%91%E7%B2%BE%E5%8A%9B%EF%BC%9F/</url>
-    <content><![CDATA[<h1 id="哇塞-终于费劲心思把这个博客建好了"><a href="#哇塞-终于费劲心思把这个博客建好了" class="headerlink" title="哇塞~终于费劲心思把这个博客建好了"></a>哇塞~终于费劲心思把这个博客建好了</h1><p>哇塞~终于费劲心思把这个博客建好了，我要写一篇博客记录这个过程以及如何实现的。</p>
-<p>本博客基于hexo搭建起来，起因也是我专业的朋友给我推送了这个视频，晚上睡不着觉突然又刷到了，于是第二天就开始马上着手准备~</p>
-<h1 id="1-hexo"><a href="#1-hexo" class="headerlink" title="1.hexo"></a>1.hexo</h1><p>众所周知搭建一个博客的有hexo，以及其他我不用的框架，使用博客框架搭建起来非常快，而不是需要真的说去写一个前后端来实现，对非计算机专业的同学要求也不是那么高（如果你需要实现主题样式那就很高了），所以hexo真的是十分的nice啊~</p>
-<p>不过需要去另外会用git，安装nodeJS，直接给它拿下</p>
-<p><img src="1.png"></p>
-<p><img src="Snipaste_2024-07-14_17-18-28.png"></p>
-<p>当初按照下来的步骤很简单，不过在git上确实有问题，有时候<code>git bash命令</code>下载失败，有时候<code>npm命令</code>查找不到，单单装hexo下来就费劲了很多脑子~</p>
-<p>仔细一想nodeJs我已经用nvm做版本管理了，才记得把hexo生成的文件夹扔到nvm下才生效，又花费了一点时间</p>
-<p><img src="Snipaste_2024-07-14_17-15-03.png"></p>
-<p>ok，咱也是直接拿下</p>
-<p><img src="Snipaste_2024-07-14_17-20-01.png"></p>
-<h1 id="2-主题样式"><a href="#2-主题样式" class="headerlink" title="2.主题样式"></a>2.主题样式</h1><p>接下来访问本地hexo成功以后就是选择主题了，hexo官方截止2024年7月14日有407个主题，每隔一段时间都会有开发者将自己的主题扔上去</p>
-<p><img src="Snipaste_2024-07-14_17-23-07.png"></p>
-<p><img src="Snipaste_2024-07-14_17-24-22.png"></p>
-<p>最终我选择了当前的solitude主题，看上去比较符合我的要求，就这个了</p>
-<p><img src="Snipaste_2024-07-14_17-25-15.png"></p>
-<p>接下来也就是用git把代码拉到本地就行了</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">npm i hexo-theme-solitude</span><br></pre></td></tr></table></figure>
-
-<p><img src="Snipaste_2024-07-14_17-26-00.png"></p>
-<p>下载下来了以后其实和你现在看到的我的博客大差不差了，主要是需要逐步的添加功能</p>
-<h1 id="3-评论区如何实现"><a href="#3-评论区如何实现" class="headerlink" title="3.评论区如何实现"></a>3.评论区如何实现</h1><p>博客的留言板是需要配置界面的，可以看文档手册；最主要的是如何实现帖子的评论区，实现以后留言板用同一个就好</p>
-<p><img src="Snipaste_2024-07-14_17-29-48.png"></p>
-<p><img src="Snipaste_2024-07-14_17-32-24.png"></p>
-<p>在文档中，提供了多个实现评论区的方式</p>
-<p><img src="Snipaste_2024-07-14_17-33-31.png"></p>
-<p>我用的是vercel + twikoo。twikoo有个很优秀的地方，就是输入qq邮箱可以获取到本人的qq信息，也可以评论后有回复的信息通过qq邮箱发送，就和B站抖音一样，也可以配置反垃圾处理等等功能十分优秀；vercel作为云部署的后端部分，加上<strong>MongoDB</strong>存储数据即可。</p>
-<p><img src="Snipaste_2024-07-14_17-36-14.png"></p>
-<p>不过缺点就是vercel和MongoDB的网站确实很难进，取决于你科学上网的实力了，不好的魔法开了也很费时间</p>
-<p><img src="Snipaste_2024-07-14_17-38-27.png"></p>
-<p><img src="Snipaste_2024-07-14_17-39-17.png"></p>
-<p>此时还有一个最大的问题就是vercel是被墙了的，需要科学上网，不然进去非常慢，此时教程有说使用一个个人域名替换他就快很多，就是图中domains的地方</p>
-<h1 id="4-购买域名"><a href="#4-购买域名" class="headerlink" title="4.购买域名"></a>4.购买域名</h1><p>这个就比较简单，华为云，腾讯云，阿里云都提供了购买域名的途径，而且一年下来10+块钱就可以了，比如说本站的域名在阿里云已经被我注册了。</p>
-<p><strong>不过购买域名需要实名等等个人信息核查，最长需要一天，</strong>其他没什么问题。</p>
-<p><img src="Snipaste_2024-07-14_17-43-58.png"></p>
-<p>随便挑一个，然后把vercel里面的域名换掉就行了</p>
-<p><img src="Snipaste_2024-07-14_17-45-08.png"></p>
-<p>OK，在主题的yaml文件打开评论区就实现了</p>
-<h1 id="5-博客ai"><a href="#5-博客ai" class="headerlink" title="5.博客ai"></a>5.博客ai</h1><p>这个主题可以使用的ai有两个，这个弄起来也比较简单，跟着弄就可以了，没啥难度</p>
-<p><img src="Snipaste_2024-07-14_17-46-15.png"></p>
-<p>postai一个月18！！！！！！！钱包好痛</p>
-<p><img src="Snipaste_2024-07-14_17-50-52.png"></p>
-<p>博客的聊天机器人和摘要ai都可以用了</p>
-<p><img src="Snipaste_2024-07-14_17-51-45.png"></p>
-<p><img src="Snipaste_2024-07-14_17-52-02.png"></p>
-<h1 id="6-页面图片"><a href="#6-页面图片" class="headerlink" title="6.页面图片"></a>6.页面图片</h1><p>一开始我是打算用阿里云OSS的，不过免费的容量很小，果断放弃；</p>
-<p><img src="Snipaste_2024-07-14_17-54-24.png"></p>
-<p>再来打算使用图床，麻烦，放弃，反正我不用</p>
-<p><img src="Snipaste_2024-07-14_17-57-00.png"></p>
-<p>存本地，简单实用（其实一开始不确定可不可以存本地）</p>
-<p><img src="Snipaste_2024-07-14_17-56-26.png"></p>
-<p>有些图片也不是存本地的，其实可以去网页偷一下，比如mbti的那个，仔细一看连接是16人格官网的，看了他们的源代码也是部署到公网上，那么自然也可以直接引用他们的</p>
-<p><img src="Snipaste_2024-07-14_18-00-01.png"></p>
-<p>偷，都可以偷</p>
-<p><img src="Snipaste_2024-07-14_18-02-18.png"></p>
-<h1 id="7-矢量图标库"><a href="#7-矢量图标库" class="headerlink" title="7.矢量图标库"></a>7.矢量图标库</h1><p>你不得不说阿里巴巴矢量图标库很好用，这些都是从里面下的。下载得到的图片可以是svg格式的，你也可以换jpg&#x2F;png</p>
-<p><img src="Snipaste_2024-07-14_18-05-26.png"></p>
-<p>我特别喜欢影视飓风，干脆把他们公司的口号搜一下也有</p>
-<p><img src="Snipaste_2024-07-14_18-06-01.png"></p>
-<p>svg格式的图片有一个效果，就是图片的背景可以跟随主题背景变化</p>
-<p><img src="Snipaste_2024-07-14_18-11-31.png"></p>
-<p><img src="Snipaste_2024-07-14_18-11-51.png"></p>
-<p><img src="2.png"></p>
-<h1 id="8-公网访问"><a href="#8-公网访问" class="headerlink" title="8.公网访问"></a>8.公网访问</h1><p>在hexo下载到本地后，只能部署到本地，但是为了让大家都能访问得到需要放到公网上，因此围绕这个的实践就此展开….</p>
-<h2 id="8-1-云服务器"><a href="#8-1-云服务器" class="headerlink" title="8.1 云服务器"></a>8.1 云服务器</h2><p>云服务器就是一台云端的服务器，可以在华为云、腾讯云、阿里云中购买，这个服务器具备公网ip，大家是可以访问到的。</p>
-<p>以我的为例，我在阿里云免费试用了三个月，什么都好，就是我用不惯，部署一个博客有种大炮打蚊子的感觉</p>
-<p><img src="Snipaste_2024-07-14_18-16-49.png"></p>
-<p>而且，当时公网ip我还没有配置域名，泄露了一下就DDoS了（俗称恶意访问ip，访问量超过限制）</p>
-<p><img src="mmexport1719336517203.jpg"></p>
-<p>在finalshell里面配置nginx等也非常麻烦，改一次就弄一次，上传文件也要挺久的，不推荐</p>
-<p><img src="Snipaste_2024-07-14_18-20-59.png"></p>
-<h2 id="8-2-githubpage"><a href="#8-2-githubpage" class="headerlink" title="8.2 githubpage"></a>8.2 githubpage</h2><p>这个真福音，但是也是真的慢。githubpage面向静态页面的功能，专门为部署博客这种静态页面而设计。但是众所周知，github是被墙的，所以部署到github上直接访问io文件特别慢，我自己进都半天，但是我的好朋友，gitee本来给的这个功能封了，另选方法。</p>
-<p><img src="Snipaste_2024-07-14_18-23-57.png"></p>
-<h2 id="8-3-改用vercel部署"><a href="#8-3-改用vercel部署" class="headerlink" title="8.3 改用vercel部署"></a>8.3 改用vercel部署</h2><p>这个可行度取决于科学上网的实力。</p>
-<p><img src="Snipaste_2024-07-14_18-27-26.png"></p>
-<p>不过我用这个的时候版本问题搞得我头大，有时候我都推送上来了但是都不更新这个版本。</p>
-<p><img src="Cache_7fd171c3712b5284.jpg" alt="版本问题"></p>
-<p>无所谓了，我现在也没用这个了，我把域名映射关掉了</p>
-<p><img src="Snipaste_2024-07-14_18-30-43.png" alt="取消vercel对域名的映射"></p>
-<h2 id="8-4-cdn加速"><a href="#8-4-cdn加速" class="headerlink" title="8.4 cdn加速"></a>8.4 cdn加速</h2><p>cdn，context distributed network，内容分发网络，说白了就是就近访问dns服务器，不需要跨一系列的计算机网络到达提供服务的服务器，理论上可行的</p>
-<p>但是阿里云这个需要icp备案，要求云产品下面需要有实例（比如买了一个云服务器），劝退我了</p>
-<p><img src="Snipaste_2024-07-14_18-35-09.png" alt="ICP备案"></p>
-<p>第二个就是用cloudflare给的dns服务器，亲测只能说拉了依托大的。免费的那个扔进我的服务器测速两天慢的要命，可能也是阿里云换过去特别慢</p>
-<p><img src="Snipaste_2024-07-14_18-38-06.png"></p>
-<h2 id="8-5-4everland"><a href="#8-5-4everland" class="headerlink" title="8.5 4everland"></a>8.5 4everland</h2><p>在掘金看到的一篇博客：<a href="https://juejin.cn/post/7009209925024874526?enable_transcoding_confirm=true">忘了缓慢的GithubPage，免费加速你的Hexo静态博客吧 - 掘金 (juejin.cn)</a></p>
-<p>动手尝试真的可以，现在进来都不那么慢了。甚至不需要再推仓库，正常的推送静态资源到github以后这里也会更新，所以只需要把4everland的映射绑定到域名上就可以了</p>
-<p><img src="Snipaste_2024-07-14_18-42-54.png"></p>
-<p>至此，基本没什么问题了</p>
-<h1 id="9-来访者api"><a href="#9-来访者api" class="headerlink" title="9.来访者api"></a>9.来访者api</h1><p>这个定位的功能用一个博主的，可以直接定位所在地或者ip，不知道准不准确。不过不需要害怕暴露ip，真正定位的是物理地址而非是你的ip，下次切个网啥的就换掉了~</p>
-<p><img src="Snipaste_2024-07-14_18-43-49.png"></p>
-<h1 id="至最后"><a href="#至最后" class="headerlink" title="至最后"></a>至最后</h1><p>搭建出来确实累，不过可以有一个记录的地方啦，就当做个人的qq空间或者朋友圈吧~博客的最后至看到这里的每位朋友，正如本站的介绍：</p>
-<p><strong>这里与大多数垂直类的技术博客不同，这里的种类会非常的繁杂，有技能的教程干货、有生活上的吐槽和妙招、有话题上的思考和想法。一般我研究什么、发现了什么都会分享在这里。</strong><br><strong>这些就是创造这个小站的本意，也是我分享生活的方式。有幸能和你相遇在这里，相信我们能共同留下一段美好记忆~</strong></p>
-]]></content>
-      <categories>
-        <category>生活记录</category>
-      </categories>
-      <tags>
-        <tag>软件技术</tag>
-        <tag>hexo</tag>
       </tags>
   </entry>
 </search>
