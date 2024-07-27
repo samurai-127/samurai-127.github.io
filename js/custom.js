@@ -138,7 +138,9 @@ function showWelcome() {
                     e = "桂林山水甲天下";
                     break;
                 case "广西":
-                    e = "带我去青秀山看看";
+                    // e = "带我去青秀山看看";
+                    // break;
+                    if ("南宁" === ipLocation.data.city) e = "南宁是我家，卫生靠大家"; else e = "桂林山水甲天下";
                     break;
                 case "海南":
                     e = "朝观日出逐白浪，夕看云起收霞光";
