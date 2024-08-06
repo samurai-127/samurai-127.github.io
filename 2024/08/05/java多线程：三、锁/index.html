@@ -1,0 +1,617 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="utf-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Java多线程：三、多线程锁、java锁的实现 | 颓废市民黄先生</title><noscript>开启JavaScript才能访问本站哦~</noscript><link rel="icon" href="/img/avatar.ico"><!-- index.css--><link rel="stylesheet" href="/css/index.css?v=1.13.3"><!-- inject head--><link rel="canonical" href="https://samurai-127.github.io/2024/08/05/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E9%94%81/"><link rel="stylesheet" href="https://cdn2.codesign.qq.com/icons/7pOrz0WXB5ZWJPX/latest/iconfont.css"><!-- aplayer--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aplayer/1.10.1/APlayer.min.css"><!-- swiper--><!-- fancybox ui--><!-- katex--><!-- Open Graph--><meta name="description" content="前言大部分内容由网上搜索，有直接复制粘贴的内容，本篇博客整理我查找的内容，且加入我个人的理解和个人需要了解的知识进行搜索得到的内容，有错误请在评论区留言 一、首先介绍一下锁操作系统层面的锁： 操作系统通过锁机制来管理进程（或线程）对共享资源的访问，以防止数据竞争和保证数据一致性。 常见的操作系统锁包"><!-- pwa--><meta name="apple-mobile-web-app-capable" content="颓废市民黄先生"><meta name="theme-color" content="var(--efu-main)"><meta name="apple-mobile-web-app-status-bar-style" content="var(--efu-main)"><link rel="bookmark" href="/img/avatar.ico"><link rel="apple-touch-icon" href="/img/avatar.ico" sizes="180x180"><script>console.log(' %c Solitude %c ' + '1.13.3' + ' %c https://github.com/everfu/hexo-theme-solitude',
+    'background:#35495e ; padding: 1px; border-radius: 3px 0 0 3px;  color: #fff',
+    'background:#ff9a9a ; padding: 1px; border-radius: 0 3px 3px 0;  color: #fff',
+    'background:unset ; padding: 1px; border-radius: 0 3px 3px 0;  color: #fff')
+</script><script>(()=>{
+        const saveToLocal = {
+            set: function setWithExpiry(key, value, ttl) {
+                if (ttl === 0)
+                    return
+                const now = new Date()
+                const expiryDay = ttl * 86400000
+                const item = {
+                    value: value,
+                    expiry: now.getTime() + expiryDay
+                }
+                localStorage.setItem(key, JSON.stringify(item))
+            },
+            get: function getWithExpiry(key) {
+                const itemStr = localStorage.getItem(key)
+    
+                if (!itemStr) {
+                    return undefined
+                }
+                const item = JSON.parse(itemStr)
+                const now = new Date()
+    
+                if (now.getTime() > item.expiry) {
+                    localStorage.removeItem(key)
+                    return undefined
+                }
+                return item.value
+            }
+        };
+        window.utils = {
+            saveToLocal: saveToLocal,
+            getCSS: (url, id = false) => new Promise((resolve, reject) => {
+              const link = document.createElement('link')
+              link.rel = 'stylesheet'
+              link.href = url
+              if (id) link.id = id
+              link.onerror = reject
+              link.onload = link.onreadystatechange = function() {
+                const loadState = this.readyState
+                if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+                link.onload = link.onreadystatechange = null
+                resolve()
+              }
+              document.head.appendChild(link)
+            }),
+            getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+              const script = document.createElement('script')
+              script.src = url
+              script.async = true
+              script.onerror = reject
+              script.onload = script.onreadystatechange = function() {
+                const loadState = this.readyState
+                if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+                script.onload = script.onreadystatechange = null
+                resolve()
+              }
+    
+              Object.keys(attr).forEach(key => {
+                script.setAttribute(key, attr[key])
+              })
+    
+              document.head.appendChild(script)
+            }),
+            addGlobalFn: (key, fn, name = false, parent = window) => {
+                const globalFn = parent.globalFn || {}
+                const keyObj = globalFn[key] || {}
+        
+                if (name && keyObj[name]) return
+        
+                name = name || Object.keys(keyObj).length
+                keyObj[name] = fn
+                globalFn[key] = keyObj
+                parent.globalFn = globalFn
+            },
+        }
+    })()</script><!-- global head--><script>const GLOBAL_CONFIG = {
+    root: '/',
+    algolia: undefined,
+    localsearch: {"preload":false,"path":"/search.xml"},
+    runtime: 'false',
+    lazyload: {
+        enable: false,
+        error: '/img/error_load.avif'
+    },
+    copyright: {"limit":50,"author":"作者: 颓废市民黄先生","link":"链接: ","source":"来源: 颓废市民黄先生","info":"著作权归作者所有。 商业转载请联系作者获得授权，非商业转载请注明出处。"},
+    highlight: {"limit":200,"expand":true,"copy":true,"syntax":"highlight.js"},
+    randomlink: false,
+    lang: {"theme":{"dark":"已切换至深色模式","light":"已切换至浅色模式"},"copy":{"success":"复制成功","error":"复制失败"},"backtop":"返回顶部","time":{"day":"天前","hour":"小时前","just":"刚刚","min":"分钟前","month":"个月前"},"day":" 天","f12":"开发者模式已打开，请遵循GPL协议。","totalk":"无需删除空行，直接输入评论即可","search":{"empty":"找不到你查询的内容：${query}","hit":"找到 ${hits} 条结果，用时 ${time} 毫秒","placeholder":"输入关键词快速查找","count":"共 <b>${count}</b> 条结果。"},"barrage":{"title":"热评"}},
+    aside: {
+        sayhello: {
+            morning: '起那么早看博客？',
+            noon: '中午休息一下呗',
+            afternoon: '下午好像在犯困',
+            night: '晚上洗个澡爽一下呗',
+            goodnight: '睡个好觉，保证精力充沛',
+        },
+        sayhello2: [],
+        sayhello3: {
+            prefix: '好久不见，',
+            back: '欢迎再次回来，',
+        },
+    },
+    covercolor: {
+        enable: false
+    },
+    comment: {"avatar":"https://cravatar.cn","commentBarrage":true},
+    lightbox: 'null',
+    post_ai: {"key":"449aa72132adf73ef7084ef83c46792af1edab","talk":null,"randomPost":false},
+    right_menu: {"mode":{"dark":"深色模式","light":"浅色模式"},"img_error":"此图片无法复制与下载","music":{"start":"播放音乐","stop":"暂停音乐"},"barrage":{"open":"显示热评","close":"关闭热评"},"translate":{"translateDelay":0,"defaultEncoding":2}},
+    lure: {"jump":"404 Not Found","back":"被骗了吧（），网页没有404"},
+    expire: false,
+};</script><!-- page-config head--><script id="config-diff">var PAGE_CONFIG = {
+    is_post: true,
+    is_page: false,
+    is_home: false,
+    page: 'string',
+    toc: true,
+    comment: true,
+    ai_text: false
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body id="body" data-type="string"><!-- universe--><canvas id="universe"></canvas><!-- background img--><!-- loading--><!-- console--><!-- sidebar--><div id="sidebar" style="zoom: 1;"><div id="menu-mask" style="display: none;"></div><div id="sidebar-menus"><div class="site-data"><div class="data-item is-center"><div class="data-item-link"><a href="/archives/"><div class="headline">文章</div><div class="length-num">18</div></a></div></div><div class="data-item is-center"><div class="data-item-link"><a href="/categories/"><div class="headline">分类</div><div class="length-num">7</div></a></div></div><div class="data-item is-center"><div class="data-item-link"><a href="/tags/"><div class="headline">标签</div><div class="length-num">12</div></a></div></div></div><span class="sidebar-menu-item-title">功能</span><div class="sidebar-menu-item"><span class="darkmode_switchbutton menu-child" onclick="sco.switchDarkMode()"><i class="solitude st-moon-clear-fill"></i><span>显示模式</span></span></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><span>首页</span></a></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>文库</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="solitude  st-folder-fill"></i><span>文章列表</span></a></li><li><a class="site-page child" href="/categories/"><i class="solitude  st-checkbox-multiple-blank-fill"></i><span>全部分类</span></a></li><li><a class="site-page child" href="/tags/"><i class="solitude  st-price-tag-fill"></i><span>全部标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>我的歌单</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="solitude  st-disc-fill"></i><span>音乐馆</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>关于</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/about/"><i class="solitude  st-contacts-fill"></i><span>关于本站</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/message"><span>留言板</span></a></div></div><span class="sidebar-menu-item-title">标签</span><div class="card-widget card-tags card-archives card-webinfo card-allinfo"><div class="card-tag-cloud"><a href="/tags/docker/">docker<sup>2</sup></a><a href="/tags/%E8%BD%AF%E4%BB%B6%E6%8A%80%E6%9C%AF/">软件技术<sup>5</sup></a><a href="/tags/JDBC/">JDBC<sup>1</sup></a><a href="/tags/Java/">Java<sup>1</sup></a><a href="/tags/git/">git<sup>1</sup></a><a href="/tags/%E5%A4%9A%E7%BA%BF%E7%A8%8B/">多线程<sup>4</sup></a><a href="/tags/%E9%9D%A2%E8%AF%95/">面试<sup>7</sup></a><a href="/tags/mybatis/">mybatis<sup>1</sup></a><a href="/tags/hexo/">hexo<sup>1</sup></a><a href="/tags/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/">操作系统<sup>2</sup></a><a href="/tags/mysql/">mysql<sup>1</sup></a><a href="/tags/%E7%AE%97%E6%B3%95/">算法<sup>4</sup></a></div></div></div></div><!-- keyboard--><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav class="show" id="nav"><div id="nav-group"><div id="blog_name"><a id="site-name" href="/" title="返回博客主页"><span class="title">颓废市民黄先生</span></a></div><div id="page-name-mask"><div id="page-name"><a id="page-name-text" onclick="sco.toTop()">Java多线程：三、多线程锁、java锁的实现</a></div></div><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><span>首页</span></a></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>文库</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="solitude  st-folder-fill"></i><span>文章列表</span></a></li><li><a class="site-page child" href="/categories/"><i class="solitude  st-checkbox-multiple-blank-fill"></i><span>全部分类</span></a></li><li><a class="site-page child" href="/tags/"><i class="solitude  st-price-tag-fill"></i><span>全部标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>我的歌单</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="solitude  st-disc-fill"></i><span>音乐馆</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>关于</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/about/"><i class="solitude  st-contacts-fill"></i><span>关于本站</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/message"><span>留言板</span></a></div></div></div><div id="nav-left"></div><div id="nav-right"><div class="nav-button" id="randomPost_button"><a class="site-page" onclick="toRandomPost()" title="随机一篇文章" href="javascript:void(0);"><i class="solitude st-dice-line"></i></a></div><div class="nav-button" id="search-button"><a class="site-page social-icon search" href="javascript:void(0);" title="搜索"><i class="solitude st-search-line"></i></a></div><div class="nav-button" id="nav-totop" onclick="sco.toTop()"><a class="totopbtn"><i class="solitude st-arrow-up-line"></i><span id="percent">0</span></a></div><div id="toggle-menu"><a class="site-page"><i class="solitude st-menu-line"></i></a></div></div></div></nav><div class="coverdiv" id="coverdiv"><img class="nolazyload" id="post-cover" src="/img/Lock.png" alt="Java多线程：三、多线程锁、java锁的实现"></div><div id="post-info"><div id="post-firstinfo"><div class="meta-firstline"><a class="post-meta-original" title="该文章为转载或翻译文章，注意版权协议">转载或翻译</a><span class="post-meta-categories"><a class="post-meta-categories" href="/categories/Java/">Java</a></span><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E5%A4%9A%E7%BA%BF%E7%A8%8B/"><span class="tags-name tags-punctuation">多线程</span></a><a class="post-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/"><span class="tags-name tags-punctuation">面试</span></a></div></div></div></div><h1 class="post-title">Java多线程：三、多线程锁、java锁的实现</h1><div id="post-meta"><div class="meta-secondline"><span class="post-meta-date" title="发布于 2024-08-05 10:52:51"><i class="post-meta-icon solitude st-calendar-todo-fill"></i><time datetime="2024-08-05T02:52:51.000Z">2024-08-05T02:52:51.000Z</time></span><span class="post-meta-date" title="最后更新于 2024-08-07 01:47:32"><i class="post-meta-icon solitude st-refresh-line"></i><time datetime="2024-08-06T17:47:32.879Z">2024-08-06T17:47:32.879Z</time></span><span class="post-meta-position" title="作者IP归属地为广西"><i class="post-meta-icon solitude st-map-pin-fill"></i><span>广西</span></span><a class="post-meta-pv" href="/2024/08/05/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E9%94%81/" title="文章热度"><i class="post-meta-icon solitude st-fire-fill"></i><span id="twikoo_visitors"><i class="solitude st-loading-line"></i></span></a><span class="post-meta-commentcount" title="评论数" onclick="sco.scrollTo('post-comment')"><i class="solitude st-chat-fill"></i><a href="/2024/08/05/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E9%94%81/#post-comment"><span class="twikoo-count"><i class="solitude st-loading-line"></i></span></a></span></div></div></div><section class="main-hero-waves-area waves-area"><svg class="waves-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" viewBox="0 24 150 28" preserveAspectRatio="none" shape-rendering="auto"><defs><path id="gentle-wave" d="M -160 44 c 30 0 58 -18 88 -18 s 58 18 88 18 s 58 -18 88 -18 s 58 18 88 18 v 44 h -352 Z"></path></defs><g class="parallax"><use href="#gentle-wave" x="48" y="0"></use><use href="#gentle-wave" x="48" y="3"></use><use href="#gentle-wave" x="48" y="5"></use><use href="#gentle-wave" x="48" y="7"></use></g></svg></section></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><div class="post-ai"><div class="ai-title"><div class="ai-title-left"><i class="ai-title-icon solitude st-robot-fill"></i><div class="ai-title-text">文章摘要</div></div><div class="ai-tag" id="ai-tag">GPT 4</div></div><div class="ai-explanation" style="display: block;"></div><div class="ai-suggestions"></div><div class="ai-bottom"><div class="ai-tips">此内容根据文章生成，仅用于文章内容的解释与总结</div><a class="ai-report" title="投诉" href="https://samurai-127.github.io">投诉</a></div></div><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>大部分内容由网上搜索，有直接复制粘贴的内容，本篇博客整理我查找的内容，且加入我个人的理解和个人需要了解的知识进行搜索得到的内容，有错误请在评论区留言</p>
+<h1 id="一、首先介绍一下锁"><a href="#一、首先介绍一下锁" class="headerlink" title="一、首先介绍一下锁"></a>一、首先介绍一下锁</h1><p>操作系统层面的锁： 操作系统通过锁机制来管理进程（或线程）对共享资源的访问，以防止数据竞争和保证数据一致性。 常见的操作系统锁包括互斥锁（Mutex）、读写锁（Read-Write Lock）、自旋锁（Spinlock）等，它们用于控制对临界区（Critical Section）的访问。 </p>
+<blockquote>
+<p>这里介绍一下“临界区”的概念。所谓“临界区”，指的是某一块代码区域，它同一时刻只能由一个线程执行。</p>
+</blockquote>
+<p>Java多线程的锁： Java中的锁是Java编程语言中用于实现多线程同步和互斥的机制。 Java提供了多种类型的锁，如synchronized关键字、ReentrantLock类、ReadWriteLock等，用于控制多线程对共享资源的并发访问。</p>
+<p>首先需要明确的一点是：<strong>Java 多线程的锁都是基于对象的</strong>，Java 中的每一个对象都可以作为一个锁。在<a target="_blank" rel="noopener" href="https://localhost:4000/">上一节</a>最后一点讲synchronized的时候有提到，synchronized可以修饰静态方法和实例方法，<strong>synchronized在这里其实就是加上了一个类锁。</strong></p>
+<p>Class 对象是一种特殊的 Java 对象，代表了程序中的类和接口。Java 中的每个类型（包括类、接口、数组以及基础类型）在 JVM 中都有一个唯一的 Class 对象与之对应。这个 Class 对象被创建的时机是在 JVM 加载类时，由 JVM 自动完成。</p>
+<p>Class 对象中包含了与类相关的很多信息，如类的名称、类的父类、类实现的接口、类的构造方法、类的方法、类的字段等等。这些信息通常被称为元数据（metadata）。</p>
+<p>可以通过 Class 对象来获取类的元数据，甚至动态地创建类的实例、调用类的方法、访问类的字段等。这就是Java 的反射（Reflection）机制</p>
+<p>所以我们常说的类锁，其实就是 Class 对象的锁。</p>
+<p><strong>多线程锁的类型</strong></p>
+<p>Java中常用的多线程锁类型有以下几种:</p>
+<ol>
+<li>synchronized关键字</li>
+<li>ReentrantLock类</li>
+<li>ReadWriteLock接口</li>
+<li>StampedLock类</li>
+<li>Atomic类</li>
+</ol>
+<p>这几个我会在第三大节里面介绍，首先先看基本锁的类型</p>
+<h1 id="二、锁的分类"><a href="#二、锁的分类" class="headerlink" title="二、锁的分类"></a>二、锁的分类</h1><p>直接上一个图</p>
+<p><img src="other-bukfsdjavassmtjstd-b2ded433-defd-4535-b767-fd2e5be0b5b9.png"></p>
+<h2 id="1、乐观锁-VS-悲观锁"><a href="#1、乐观锁-VS-悲观锁" class="headerlink" title="1、乐观锁 VS 悲观锁"></a>1、乐观锁 VS 悲观锁</h2><h3 id="八股：乐观锁-VS-悲观锁"><a href="#八股：乐观锁-VS-悲观锁" class="headerlink" title="八股：乐观锁 VS 悲观锁"></a>八股：乐观锁 VS 悲观锁</h3><p>乐观锁与悲观锁是一种广义上的概念，体现了看待线程同步的不同角度。</p>
+<p>先说概念。对于同一个数据的并发操作，悲观锁认为自己在使用数据的时候一定有别的线程来修改数据，因此在获取数据的时候会先加锁，确保数据不会被别的线程修改。<strong>Java 中，synchronized 关键字 是最典型的悲观锁。</strong></p>
+<p>而乐观锁认为自己在使用数据时不会有别的线程修改数据，所以不会加锁，只是在更新数据的时候会去判断之前有没有别的线程更新了这个数据。如果这个数据没有被更新，当前线程将自己修改的数据写入。如果数据已经被其他线程更新，则根据不同的实现方式执行不同的操作（例如报错或者自动重试）。</p>
+<p>乐观锁在 Java 中是通过无锁编程来实现的，最常采用的是<strong>CAS 算法</strong>，<strong>Java 原子类</strong>的递增操作就通过 CAS 自旋实现的。</p>
+<p><img src="other-bukfsdjavassmtjstd-840de182-83e2-4639-868a-bd5cc984575f.png"></p>
+<p>根据上面的概念描述我们可以发现：</p>
+<ul>
+<li>悲观锁适合写操作多的场景，先加锁可以保证写操作时数据正确。</li>
+<li>乐观锁适合读操作多的场景，不加锁的特点能够使其读操作的性能大幅提升。</li>
+</ul>
+<h3 id="八股：CAS算法"><a href="#八股：CAS算法" class="headerlink" title="八股：CAS算法"></a>八股：CAS算法</h3><p>在2.1中提到，<strong>乐观锁采用的是无锁编程，底层有采用CAS算法，</strong>那么什么是CAS算法？</p>
+<p>CAS（Compare-and-Swap）是一种乐观锁的实现方式，全称为“比较并交换”，是一种无锁的原子操作。</p>
+<p>在并发编程中，我们都知道<code>i++</code>操作是非线程安全的，这是因为 <code>i++</code>操作不是原子操作，这个在volatile关键字里讲过，可以去翻一下</p>
+<p>在 CAS 中，有这样三个值：</p>
+<ul>
+<li>V：要更新的变量(var)</li>
+<li>E：预期值(expected)</li>
+<li>N：新值(new)</li>
+</ul>
+<p>比较并交换的过程如下：</p>
+<p>判断 V 是否等于 E，如果等于，将 V 的值设置为 N；如果不等，说明已经有其它线程更新了 V，于是当前线程放弃更新，什么都不做。</p>
+<p>这里的<strong>预期值 E 本质上指的是“旧值”</strong>。</p>
+<p>我们以一个简单的例子来解释这个过程：</p>
+<ol>
+<li>如果有一个多个线程共享的变量<code>i</code>原本等于 5，我现在在线程 A 中，想把它设置为新的值 6;</li>
+<li>我们使用 CAS 来做这个事情；</li>
+<li>首先我们用 i 去与 5 对比，发现它等于 5，说明没有被其它线程改过，那我就把它设置为新的值 6，此次 CAS 成功，<code>i</code>的值被设置成了 6；</li>
+<li>如果不等于 5，说明<code>i</code>被其它线程改过了（比如现在<code>i</code>的值为 2），那么我就什么也不做，此次 CAS 失败，<code>i</code>的值仍然为 2。</li>
+</ol>
+<p>在这个例子中，<code>i</code>就是 V，5 就是 E，6 就是 N。</p>
+<p>那有没有可能我在判断了<code>i</code>为 5 之后，正准备更新它的新值的时候，被其它线程更改了<code>i</code>的值呢？</p>
+<p>不会的。因为 CAS 是一种原子操作，它是一种系统原语，是一条 CPU 的原子指令，从 CPU 层面已经保证它的原子性。</p>
+<p><strong>当多个线程同时使用 CAS 操作一个变量时，只有一个会胜出，并成功更新，其余均会失败，但失败的线程并不会被挂起，仅是被告知失败，并且允许再次尝试，当然也允许失败的线程放弃操作。</strong></p>
+<h3 id="了解：CAS算法如何实现原子操作？"><a href="#了解：CAS算法如何实现原子操作？" class="headerlink" title="了解：CAS算法如何实现原子操作？"></a>了解：CAS算法如何实现原子操作？</h3><h4 id="（1）实现原理"><a href="#（1）实现原理" class="headerlink" title="（1）实现原理"></a>（1）实现原理</h4><p>java底层实现CAS操作是使用native关键字调用c++的接口</p>
+<p>在 Java 中，有一个<code>Unsafe</code>类（下文介绍什么是unsafe类），它在<code>sun.misc</code>包中。它里面都是一些<code>native</code>方法（下文也会介绍什么是native方法），其中就有几个是关于 CAS 的：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">boolean</span> <span class="title function_">compareAndSwapObject</span><span class="params">(Object o, <span class="type">long</span> offset,Object expected, Object x)</span>;</span><br><span class="line"><span class="type">boolean</span> <span class="title function_">compareAndSwapInt</span><span class="params">(Object o, <span class="type">long</span> offset,<span class="type">int</span> expected,<span class="type">int</span> x)</span>;</span><br><span class="line"><span class="type">boolean</span> <span class="title function_">compareAndSwapLong</span><span class="params">(Object o, <span class="type">long</span> offset,<span class="type">long</span> expected,<span class="type">long</span> x)</span>;</span><br></pre></td></tr></table></figure>
+
+<p>Unsafe 对 CAS 的实现是通过 C++ 实现的，它的具体实现和操作系统、CPU 都有关系。</p>
+<blockquote>
+<p>Unsafe 是 Java 中一个非常特殊的类，它为 Java 提供了一种底层、”不安全”的机制来直接访问和操作内存、线程和对象。正如其名字所暗示的，Unsafe 提供了许多不安全的操作，因此它的使用应该非常小心，并限于那些确实需要使用这些底层操作的场景。我们在这里涉及到这个类基本上是需要native方法。</p>
+</blockquote>
+<blockquote>
+<p><code>native</code>方法，简单的说就是由 Java 调用非 Java 代码的接口，被调用的方法是由非 Java 语言实现的，例如它可以由 C 或 C++语言来实现，并编译成 DLL，然后直接供 Java 进行调用。<code>native</code>方法是通过 JNI（<code>Java Native Interface</code>）实现调用的，从 Java 1.1 开始 JNI 标准就是 Java 平台的一部分，它允许 Java 代码和其他语言的代码进行交互。</p>
+</blockquote>
+<h4 id="（2）实现原子操作"><a href="#（2）实现原子操作" class="headerlink" title="（2）实现原子操作"></a>（2）实现原子操作</h4><p>JDK 提供了一些用于原子操作的类，在<code>java.util.concurrent.atomic</code>包下面。在 JDK 8 中，有以下这些类：</p>
+<p>这里就做部分了解，需要深入了解可自行搜相关内容</p>
+<p><img src="cas-20230731195315.png"></p>
+<h3 id="八股：CAS-的三大问题"><a href="#八股：CAS-的三大问题" class="headerlink" title="八股：CAS 的三大问题"></a>八股：CAS 的三大问题</h3><p>尽管 CAS 提供了一种有效的同步手段，但也存在一些问题，主要有以下三个：ABA 问题、长时间自旋、多个共享变量的原子操作。</p>
+<h4 id="（1）ABA-问题"><a href="#（1）ABA-问题" class="headerlink" title="（1）ABA 问题"></a>（1）ABA 问题</h4><p>所谓的 ABA 问题，就是一个值原来是 A，变成了 B，又变回了 A。<strong>而当前线程在CAS操作中错误地认为该变量没有被其他线程修改过，从而可能导致数据不一致或错误。</strong>这个时候使用 CAS 是检查不出变化的，但实际上却被更新了两次。</p>
+<p>ABA 问题的解决思路是在变量前面追加上<strong>版本号或者时间戳</strong>。从 JDK 1.5 开始，JDK 的 atomic 包里提供了一个类<code>AtomicStampedReference</code>类来解决 ABA 问题。</p>
+<p>这个类的<code>compareAndSet</code>方法的作用是首先检查当前引用是否等于预期引用，并且检查当前标志是否等于预期标志，如果二者都相等，才使用 CAS 设置为新的值和标志。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">compareAndSet</span><span class="params">(V   expectedReference,</span></span><br><span class="line"><span class="params">                              V   newReference,</span></span><br><span class="line"><span class="params">                              <span class="type">int</span> expectedStamp,</span></span><br><span class="line"><span class="params">                              <span class="type">int</span> newStamp)</span> &#123;</span><br><span class="line">    Pair&lt;V&gt; current = pair;</span><br><span class="line">    <span class="keyword">return</span></span><br><span class="line">        expectedReference == current.reference &amp;&amp;</span><br><span class="line">        expectedStamp == current.stamp &amp;&amp;</span><br><span class="line">        ((newReference == current.reference &amp;&amp;</span><br><span class="line">          newStamp == current.stamp) ||</span><br><span class="line">          casPair(current, Pair.of(newReference, newStamp)));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>先来看参数：</p>
+<ul>
+<li>expectedReference：预期引用，也就是你认为原本应该在那个位置的引用。</li>
+<li>newReference：新引用，如果预期引用正确，将被设置到该位置的新引用。</li>
+<li>expectedStamp：预期标记，这是你认为原本应该在那个位置的标记。</li>
+<li>newStamp：新标记，如果预期标记正确，将被设置到该位置的新标记。</li>
+</ul>
+<p>执行流程：</p>
+<p>①、<code>Pair&lt;V&gt; current = pair;</code> 这行代码获取当前的 pair 对象，其中包含了引用和标记。</p>
+<p>②、接下来的 return 语句做了几个检查：</p>
+<ul>
+<li><code>expectedReference == current.reference &amp;&amp; expectedStamp == current.stamp</code>：首先检查当前的引用和标记是否和预期的引用和标记相同。如果二者中有任何一个不同，这个方法就会返回 false。</li>
+<li>如果上述检查通过，也就是说当前的引用和标记与预期的相同，那么接下来就会检查新的引用和标记是否也与当前的相同。如果相同，那么实际上没有必要做任何改变，这个方法就会返回 true。</li>
+<li>如果新的引用或者标记与当前的不同，那么就会调用 casPair 方法来尝试更新 pair 对象。casPair 方法会尝试用 newReference 和 newStamp 创建的新的 Pair 对象替换当前的 pair 对象。如果替换成功，casPair 方法会返回 true；如果替换失败（也就是说在尝试替换的过程中，pair 对象已经被其他线程改变了），casPair 方法会返回 false。</li>
+</ul>
+<h4 id="（2）长时间自旋"><a href="#（2）长时间自旋" class="headerlink" title="（2）长时间自旋"></a>（2）长时间自旋</h4><p>CAS 多与自旋结合。如果自旋 CAS 长时间不成功，会占用大量的 CPU 资源（存在一直自旋到最大次数后停止的情况，但是占用很多cpu资源）。</p>
+<p>解决思路是让 JVM 支持处理器提供的<strong>pause 指令</strong>（还有其他的，可以再去搜一些内容）。</p>
+<p>pause 指令能让自旋失败时 cpu 睡眠一小段时间再继续自旋，从而使得读操作的频率降低很多，为解决内存顺序冲突而导致的 CPU 流水线重排的代价也会小很多。</p>
+<h4 id="（3）多个共享变量的原子操作"><a href="#（3）多个共享变量的原子操作" class="headerlink" title="（3）多个共享变量的原子操作"></a>（3）多个共享变量的原子操作</h4><p>当对一个共享变量执行操作时，CAS 能够保证该变量的原子性。但是对于多个共享变量，CAS 就无法保证操作的原子性，这时通常有两种做法：</p>
+<ol>
+<li>使用<code>AtomicReference</code>类保证对象之间的原子性，把多个变量放到一个对象里面进行 CAS 操作；</li>
+<li>使用锁。锁内的临界区代码可以保证只有当前线程能操作。</li>
+</ol>
+<h2 id="2、自旋锁-VS-自适应自旋锁"><a href="#2、自旋锁-VS-自适应自旋锁" class="headerlink" title="2、自旋锁 VS 自适应自旋锁"></a>2、自旋锁 VS 自适应自旋锁</h2><h4 id="自旋锁"><a href="#自旋锁" class="headerlink" title="自旋锁"></a>自旋锁</h4><p>先了解一下临界资源：</p>
+<p><strong>临界资源指的是多个进程&#x2F;线程共同访问的某类资源，如打印机、数据表格或变量等。由于这些资源同时只能被一个进程&#x2F;线程安全地使用，因此在并发编程中需要对它们的访问进行控制，以避免数据不一致或竞态条件的发生。</strong></p>
+<p>突发提问，临界区是什么？不记得了看第一节介绍锁的地方吧</p>
+<p><strong>自旋锁（Spinlock）</strong>是一种对<strong>临界资源</strong>进行互斥访问的手段，自旋锁的定义和工作原理如下：</p>
+<p><strong>定义：</strong></p>
+<p>自旋锁是一种锁机制，当一个线程尝试去获取某一把锁的时候，如果这个锁已经被另外一个线程占有了，那么此线程就无法获取这把锁，该线程会等待，间隔一段时间后再次尝试获取。这种采用循环加锁，等待锁释放的机制就称为自旋锁。</p>
+<p><strong>工作原理：</strong></p>
+<ul>
+<li><strong>等待与重试</strong>：当线程发现锁被占用时，不是进入睡眠或阻塞状态，而是采用忙等待（busy waiting）的方式，即不断循环检查锁的状态，直到锁被释放。</li>
+<li><strong>原子操作</strong>：在自旋锁的实现中，对锁状态的检查和修改必须是原子操作，以避免竞态条件。</li>
+</ul>
+<p><strong>自旋锁通过等待和不断重试的操作，避免了线程的cpu来回切换，减少开销。</strong>仔细一想，如果锁里面的代码一下子就执行完成，甚至比切换线程，切换CPU的状态还要快，不使用自旋锁是不是有点得不偿失了呢？</p>
+<p><img src="other-bukfsdjavassmtjstd-be0964a8-856a-45c9-ab75-ce9505c2e237.png"></p>
+<p>自旋锁本身是有缺点的，它不能代替阻塞。自旋等待虽然避免了线程切换的开销，但它要占用处理器时间。如果锁被占用的时间很短，自旋等待的效果就会非常好。反之，如果锁被占用的时间很长，那么自旋的线程只会白白浪费处理器资源。所以，自旋等待的时间必须要有一定的限度，如果自旋超过了限定次数（默认是 10 次，可以使用<code>-XX:PreBlockSpin</code> 来更改）没有成功获得锁，就应当挂起线程。</p>
+<p><strong>自旋锁的实现原理同样也是 CAS</strong>，AtomicInteger 中调用 unsafe 进行自增操作的源码中的 do-while 循环就是一个自旋操作，如果修改数值失败则通过循环来执行自旋，直至修改成功。</p>
+<p><img src="other-bukfsdjavassmtjstd-0756521c-becf-4657-ab42-1973d74e9c73.png"></p>
+<h4 id="自适应自旋锁"><a href="#自适应自旋锁" class="headerlink" title="自适应自旋锁"></a>自适应自旋锁</h4><p><strong>自适应意味着自旋的时间（次数）不再固定，而是由前一次在同一个锁上的自旋时间及锁的拥有者的状态来决定。</strong>如果在同一个锁对象上，自旋刚刚成功获得过锁，并且持有锁的线程正在运行中，那么虚拟机就会认为这次自旋也是很有可能再次成功的，进而它将允许自旋等待更长的时间。如果对于某个锁，自旋很少成功获得过，那在以后尝试获取这个锁时将可能省略掉自旋过程，直接阻塞线程，避免浪费处理器资源。</p>
+<h2 id="3、无锁偏、向锁、轻量级锁、重量级锁"><a href="#3、无锁偏、向锁、轻量级锁、重量级锁" class="headerlink" title="3、无锁偏、向锁、轻量级锁、重量级锁"></a>3、无锁偏、向锁、轻量级锁、重量级锁</h2><p>这四种锁是专门针对 synchronized 的，我们在第三大节：JUC包下的锁中去介绍。</p>
+<h2 id="4、可重入锁-VS-不可重入锁"><a href="#4、可重入锁-VS-不可重入锁" class="headerlink" title="4、可重入锁 VS 不可重入锁"></a>4、可重入锁 VS 不可重入锁</h2><p>可重入锁又名递归锁，是指同一个线程在外层方法获取锁的时候，再进入该线程的内层方法会自动获取锁（前提：锁的是同一个对象或者 class），不会因为之前已经获取过还没释放而阻塞。Java 中<code>ReentrantLock</code>和<code>synchronized</code>都是可重入锁，可重入锁的一个优点就是可以一定程度避免死锁。</p>
+<p><strong>为什么可重入锁就可以在嵌套调用时自动获得锁呢？</strong></p>
+<h3 id="（1）实现机制"><a href="#（1）实现机制" class="headerlink" title="（1）实现机制"></a>（1）实现机制</h3><p>可重入锁的实现通常依赖于以下几个关键点：</p>
+<ol>
+<li>锁计数器（Lock Counter）<ul>
+<li>每个锁对象都维护一个计数器，用于记录该锁被当前线程持有的次数。</li>
+<li>当线程首次获取锁时，计数器被初始化为1。</li>
+<li>如果线程在持有锁的情况下再次尝试获取同一个锁，计数器将递增。</li>
+</ul>
+</li>
+<li>锁的持有者（Lock Owner）<ul>
+<li>锁对象还记录着当前持有该锁的线程。</li>
+<li>只有锁的当前持有者线程才能增加锁的计数器（即重复获取锁）。</li>
+</ul>
+</li>
+<li>锁释放（Lock Release）<ul>
+<li>当线程退出被锁保护的代码区域时，它会释放锁。</li>
+<li>释放锁时，锁的计数器会递减。</li>
+<li>如果计数器减至0，则表示当前线程已经完全释放了锁，其他线程可以尝试获取该锁。</li>
+</ul>
+</li>
+</ol>
+<h3 id="（2）嵌套调用的自动加锁"><a href="#（2）嵌套调用的自动加锁" class="headerlink" title="（2）嵌套调用的自动加锁"></a>（2）嵌套调用的自动加锁</h3><p>之前我们说过 ReentrantLock 和 synchronized 都是重入锁，那么我们通过重入锁 ReentrantLock 以及非可重入锁 NonReentrantLock 的源码来对比分析一下为什么非可重入锁在重复调用同步资源时会出现死锁。</p>
+<p>首先<code>ReentrantLock</code>和<code> NonReentrantLock</code> 都继承了父类<code>AQS</code>（第三大节），其父类 AQS 中维护了一个同步状态 status 来计数重入次数，status 初始值为 0。</p>
+<p>当线程在持有可重入锁的情况下进入嵌套调用（即一个被锁保护的方法或代码块内部调用了另一个被相同锁保护的方法或代码块）时，由于当前线程已经是锁的持有者，因此它可以自动增加锁的计数器，而无需等待锁的释放。这样，线程就可以无缝地进入内层被锁保护的区域，而不会导致死锁或阻塞。</p>
+<p>非可重入锁则是在确定当前线程是持有锁的线程之后，直接将 status 置为 0，将锁释放。</p>
+<p><img src="other-bukfsdjavassmtjstd-d6e12a34-c889-45e1-83bf-a4d7e36eedde.png"></p>
+<h2 id="5、公平锁和非公平锁"><a href="#5、公平锁和非公平锁" class="headerlink" title="5、公平锁和非公平锁"></a>5、公平锁和非公平锁</h2><p>这里的“公平”，其实通俗意义来说就是“先来后到”，也就是 FIFO。如果对一个锁来说，先对锁获取请求的线程一定会先被满足，后对锁获取请求的线程后被满足，那这个锁就是公平的。反之，那就是不公平的。</p>
+<p>一般情况下，<strong>非公平锁能提升一定的效率。但是非公平锁可能会发生线程饥饿（有一些线程长时间得不到锁）的情况</strong>。所以要根据实际的需求来选择非公平锁和公平锁。</p>
+<p><code>ReentrantLock</code> 支持非公平锁和公平锁两种。</p>
+<h2 id="6、读写锁和排它锁"><a href="#6、读写锁和排它锁" class="headerlink" title="6、读写锁和排它锁"></a>6、读写锁和排它锁</h2><p> <code>synchronized</code>和<code>ReentrantLock</code>，其实都是“排它锁”。也就是说，这些锁在同一时刻只允许一个线程进行访问。</p>
+<p>而读写锁可以在同一时刻允许多个读线程访问。Java 提供了 <code>ReentrantReadWriteLock</code>类作为读写锁的默认实现，内部维护了两个锁：一个读锁，一个写锁。通过分离读锁和写锁，使得在“读多写少”的环境下，大大地提高了性能。</p>
+<h3 id="（1）介绍一下ReentrantReadWriteLock："><a href="#（1）介绍一下ReentrantReadWriteLock：" class="headerlink" title="（1）介绍一下ReentrantReadWriteLock："></a>（1）介绍一下<strong>ReentrantReadWriteLock</strong>：</h3><p><strong>ReentrantReadWriteLock</strong>：是Java中的一个读写锁实现，它允许多个线程同时读取共享资源（读读可以并发），但在写入时只允许一个线程独占（读写、写读、写写互斥）。这个锁支持重入，即同一个线程可以多次获取相同类型的锁。它提高了读操作的并发性，同时保证了写操作的独占性。</p>
+<p><strong>我相信没学过ReentrantReadWriteLock的人肯定认为和ReentrantLock有什么关系。</strong></p>
+<p>实际上什么关系都没有，ReentrantReadWriteLock和ReentrantLock之间并没有继承关系。它们各自独立实现，服务于不同的锁需求。ReentrantReadWriteLock实现了<code>ReadWriteLock</code>接口。这个接口提供了两个锁对象：读锁（ReadLock）和写锁（WriteLock），分别通过<code>readLock()</code>和<code>writeLock()</code>方法获取。</p>
+<p>好了到这里，又有人想，<code>ReentrantReadWriteLock</code>实现了<code>ReadWriteLock</code>接口，而<code>ReentrantLock</code>实现了<code>Lock</code>接口，那么<code>ReadWriteLock</code>接口和<code>Lock</code>接口是不是继承关系？<strong>实际上也不是，都是JUC包下独立的接口。</strong></p>
+<h3 id="（2）回归正题："><a href="#（2）回归正题：" class="headerlink" title="（2）回归正题："></a><strong>（2）回归正题：</strong></h3><p>排它锁也叫独享锁，如果线程 T 对数据 A 加上排它锁后，则其他线程不能再对 A 加任何类型的锁。获得排它锁的线程既能读数据又能修改数据。</p>
+<p>与之对应的，就是共享锁，指该锁可被多个线程所持有。如果线程 T 对数据 A 加上共享锁后，则其他线程只能对 A 再加共享锁，不能加排它锁。获得共享锁的线程只能读数据，不能修改数据。</p>
+<p>独享锁与共享锁也是通过<code>AQS</code>（第三大节介绍）来实现的，通过实现不同的方法，来实现独享或者共享。</p>
+<p>下图为 <code>ReentrantReadWriteLock</code> 的部分源码：</p>
+<p><img src="other-bukfsdjavassmtjstd-baa93e76-ac90-4955-8955-50dabc6efbdd.png"></p>
+<p>我们看到ReentrantReadWriteLock有两把锁：ReadLock 和 WriteLock，由词知意，一个读锁一个写锁，合称“读写锁”。再进一步观察可以发现 ReadLock 和 WriteLock 是靠内部类 Sync 实现的锁。Sync 是 AQS（第三大节介绍） 的一个子类。</p>
+<p>在 ReentrantReadWriteLock 里面，读锁和写锁的锁主体都是 Sync，但读锁和写锁的加锁方式不一样。读锁是共享锁，写锁是独享锁。读锁的共享锁可保证并发读非常高效，而读写、写读、写写的过程互斥，因为读锁和写锁是分离的。所以 ReentrantReadWriteLock 的并发性相比一般的互斥锁有了很大提升。</p>
+<p><strong>那读锁和写锁的具体加锁方式有什么区别呢？</strong></p>
+<p>AQS中的存储status字段，该字段用来描述有多少线程持有锁。</p>
+<p>在独享锁中，这个值通常是 0 或者 1（如果是重入锁的话 state 值就是重入的次数），在共享锁中 state 就是持有锁的数量。但是ReentrantReadWriteLock 中有读、写两把锁，所以需要在一个整型变量 state 上分别描述读锁和写锁的数量（或者也可以叫状态）。</p>
+<p>关于深入去探究status字段的切割等底层原理就不写了，可以自行参考，我相信你准备面试也看不完这个</p>
+<h1 id="三、JUC包下的锁"><a href="#三、JUC包下的锁" class="headerlink" title="三、JUC包下的锁"></a>三、JUC包下的锁</h1><h2 id="1、抽象类AQS-AQLS-AOS"><a href="#1、抽象类AQS-AQLS-AOS" class="headerlink" title="1、抽象类AQS&#x2F;AQLS&#x2F;AOS"></a>1、抽象类AQS&#x2F;AQLS&#x2F;AOS</h2><h3 id="什么是AQS？"><a href="#什么是AQS？" class="headerlink" title="什么是AQS？"></a>什么是AQS？</h3><p>重要的事情说三遍</p>
+<p><strong>AQS的全称为（AbstractQueuedSynchronizer）抽象的队列式的同步器</strong>，是并发编程中实现同步器的一个框架，用来存储<strong>同步状态（State）和线程队列（CLH队列的变体）</strong>。</p>
+<p><strong>AQS的全称为（AbstractQueuedSynchronizer）抽象的队列式的同步器</strong>，是并发编程中实现同步器的一个框架，用来存储<strong>同步状态（State）和线程队列（CLH队列的变体）</strong>。</p>
+<p><strong>AQS的全称为（AbstractQueuedSynchronizer）抽象的队列式的同步器</strong>，是并发编程中实现同步器的一个框架，用来存储<strong>同步状态（State）和线程队列（CLH队列的变体）</strong>。</p>
+<p>我们需要特别记住<strong>同步状态（State）和线程队列（CLH队列的变体）。</strong></p>
+<p>字面意思理解：</p>
+<ol>
+<li><p>是一个抽象类，也就是它定义了一些基础功能，会有很多子类去扩展他的功能。</p>
+</li>
+<li><p>是一个队列式的，也就是会用来协调多个线程的。</p>
+</li>
+<li><p>是一个同步器，那么是用来给多个线程同步某个数据或者某个状态的。</p>
+</li>
+</ol>
+<p>AQS 是一个用来构建锁和同步器的框架，使用 AQS 能简单且高效地构造出应用广泛的同步器，比如 <strong>ReentrantLock、ReentrantReadWriteLock</strong>等等，都是基于 AQS 的。</p>
+<p>AQS 里面的“资源”是用一个<code>int</code>类型的数据来表示的，有时候业务需求的资源数超出了<code>int</code>的范围，所以在 JDK 1.6 中，多了一个<strong>AQLS</strong>（AbstractQueuedLongSynchronizer）。它的代码跟 AQS 几乎一样，只是把资源的类型变成了<code>long</code>类型。AQS 和 AQLS 都继承了一个类叫<strong>AOS</strong>（AbstractOwnableSynchronizer）。这个类也是在 JDK 1.6 中出现的。</p>
+<h3 id="数据结构"><a href="#数据结构" class="headerlink" title="数据结构"></a>数据结构</h3><h4 id="同步状态status"><a href="#同步状态status" class="headerlink" title="同步状态status"></a>同步状态status</h4><p>AQS 内部使用了一个volatile的变量 state 来作为资源的标识。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * The synchronization state.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">volatile</span> <span class="type">int</span> state;</span><br></pre></td></tr></table></figure>
+
+<p>同时定义了几个获取和改变 state 的 protected 方法，子类可以覆盖这些方法来实现自己的逻辑：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">getState()</span><br><span class="line">setState()</span><br><span class="line">compareAndSetState()</span><br></pre></td></tr></table></figure>
+
+<p>这三种操作均是原子操作，其中 compareAndSetState 的实现依赖于 Unsafe类 的 <code>compareAndSwapInt()</code> 方法。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"> <span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 同步状态值</span></span><br><span class="line"><span class="comment"> * 使用volatile修饰，保证多线程修改的可见性</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">volatile</span> <span class="type">int</span> state;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 获取同步状态值</span></span><br><span class="line"><span class="comment"> * 使用final修饰，子类不能覆盖，只能调用</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">protected</span> <span class="keyword">final</span> <span class="type">int</span> <span class="title function_">getState</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> state;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 修改同步状态值</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">protected</span> <span class="keyword">final</span> <span class="keyword">void</span> <span class="title function_">setState</span><span class="params">(<span class="type">int</span> newState)</span> &#123;</span><br><span class="line">    state = newState;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * CAS修改state值</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">protected</span> <span class="keyword">final</span> <span class="type">boolean</span> <span class="title function_">compareAndSetState</span><span class="params">(<span class="type">int</span> expect, <span class="type">int</span> update)</span> &#123;</span><br><span class="line">        <span class="comment">// See below for intrinsics setup to support this</span></span><br><span class="line">        <span class="keyword">return</span> unsafe.compareAndSwapInt(<span class="built_in">this</span>, stateOffset, expect, update);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h4 id="Node节点"><a href="#Node节点" class="headerlink" title="Node节点"></a>Node节点</h4><p>AQS 内部使用了一个先进先出（FIFO）的双端队列，并使用了两个引用 head 和 tail 用于标识队列的头部和尾部。</p>
+<p>但它并不直接储存线程，而是储存拥有线程的 Node 节点。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">class</span> <span class="title class_">Node</span> &#123;</span><br><span class="line">    <span class="comment">/**共享模式*/</span></span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">Node</span> <span class="variable">SHARED</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Node</span>();</span><br><span class="line">    <span class="comment">/**独占模式*/</span></span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">Node</span> <span class="variable">EXCLUSIVE</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**标记线程由于中断或超时，需要被取消，即踢出队列*/</span></span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">CANCELLED</span> <span class="operator">=</span>  <span class="number">1</span>;</span><br><span class="line">    <span class="comment">/**线程需要被唤醒*/</span></span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">SIGNAL</span> <span class="operator">=</span> -<span class="number">1</span>;</span><br><span class="line">    <span class="comment">/**线程正在等待一个条件*/</span></span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">CONDITION</span> <span class="operator">=</span> -<span class="number">2</span>;</span><br><span class="line">    <span class="comment">/**传播 当前节点执行释放release操作后，需要通知到其他线程*/</span></span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">PROPAGATE</span> <span class="operator">=</span> -<span class="number">3</span>;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// waitStatus只取上面CANCELLED、SIGNAL、CONDITION、PROPAGATE四种取值之一</span></span><br><span class="line">    <span class="keyword">volatile</span> <span class="type">int</span> waitStatus;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 表示前驱节点</span></span><br><span class="line">    <span class="keyword">volatile</span> Node prev;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 表示后继节点</span></span><br><span class="line">    <span class="keyword">volatile</span> Node next;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 队列元素需要关联一个线程对象</span></span><br><span class="line">    <span class="keyword">volatile</span> Thread thread;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 表示下一个waitStatus值为CONDITION的节点</span></span><br><span class="line">    Node nextWaiter;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 是否当前结点是处于共享模式</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">final</span> <span class="type">boolean</span> <span class="title function_">isShared</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> nextWaiter == SHARED;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 返回前一个节点，如果没有前一个节点，则抛出空指针异常</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">final</span> Node <span class="title function_">predecessor</span><span class="params">()</span> <span class="keyword">throws</span> NullPointerException &#123;</span><br><span class="line">        <span class="comment">// 获取前一个节点的指针</span></span><br><span class="line">        <span class="type">Node</span> <span class="variable">p</span> <span class="operator">=</span> prev;</span><br><span class="line">        <span class="comment">// 如果前一个节点不存在</span></span><br><span class="line">        <span class="keyword">if</span> (p == <span class="literal">null</span>)</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">NullPointerException</span>();</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">        <span class="comment">// 否则返回</span></span><br><span class="line">            <span class="keyword">return</span> p;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 初始化头节点使用</span></span><br><span class="line">    Node() &#123;&#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     *  当有线程需要入队时，那么就创建一个新节点，然后关联该线程对象，由addWaiter()方法调用</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    Node(Thread thread, Node mode) &#123;     <span class="comment">// Used by addWaiter</span></span><br><span class="line">        <span class="built_in">this</span>.nextWaiter = mode;</span><br><span class="line">        <span class="built_in">this</span>.thread = thread;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 一个线程需要等待一个条件阻塞了，那么就创建一个新节点，关联线程对象</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    Node(Thread thread, <span class="type">int</span> waitStatus) &#123; <span class="comment">// Used by Condition</span></span><br><span class="line">        <span class="built_in">this</span>.waitStatus = waitStatus;</span><br><span class="line">        <span class="built_in">this</span>.thread = thread;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>通过 Node 我们可以实现两种队列：</p>
+<p>1）一是通过 prev 和 next 实现 CLH（Craig, Landin, and Hagersten）队列（线程同步队列、双向队列）。</p>
+<p>在 CLH 锁中，每个等待的线程都会有一个关联的 Node，每个 Node 有一个 prev 和 next 指针。当一个线程尝试获取锁并失败时，它会将自己添加到队列的尾部并自旋，等待前一个节点的线程释放锁。类似下面这样。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">public class CLHLock &#123;</span><br><span class="line">    private volatile Node tail;</span><br><span class="line">    private ThreadLocal&lt;Node&gt; myNode = ThreadLocal.withInitial(Node::new);</span><br><span class="line">    private ThreadLocal&lt;Node&gt; myPred = new ThreadLocal&lt;&gt;();</span><br><span class="line"></span><br><span class="line">    public void lock() &#123;</span><br><span class="line">        Node node = myNode.get();</span><br><span class="line">        node.locked = true;</span><br><span class="line">        // 把自己放到队尾，并取出前面的节点</span><br><span class="line">        Node pred = tail;</span><br><span class="line">        myPred.set(pred);</span><br><span class="line">        while (pred.locked) &#123;</span><br><span class="line">            // 自旋等待</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    public void unlock() &#123;</span><br><span class="line">        Node node = myNode.get();</span><br><span class="line">        node.locked = false;</span><br><span class="line">        myNode.set(myPred.get());</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    private static class Node &#123;</span><br><span class="line">        private volatile boolean locked;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>2）二是通过 nextWaiter 实现 <code>Condition</code>上的等待线程队列（单向队列），这个 Condition 主要用在 <code>ReentrantLock</code>类中。</p>
+<h2 id="2、接口-Condition-Lock-ReadWriteLock"><a href="#2、接口-Condition-Lock-ReadWriteLock" class="headerlink" title="2、接口 Condition&#x2F;Lock&#x2F;ReadWriteLock"></a>2、接口 Condition&#x2F;Lock&#x2F;ReadWriteLock</h2><p>locks 包下共有三个接口：<code>Condition</code>、<code>Lock</code>、<code>ReadWriteLock</code>。</p>
+<p>其中，Lock 和 ReadWriteLock 从名字就可以看得出来，分别是锁和读写锁的意思。Lock 接口里面有一些获取锁和释放锁的方法声明，而 ReadWriteLock 里面只有两个方法，分别返回“读锁”和“写锁”：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">ReadWriteLock</span> &#123;</span><br><span class="line">    Lock <span class="title function_">readLock</span><span class="params">()</span>;</span><br><span class="line">    Lock <span class="title function_">writeLock</span><span class="params">()</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Lock 接口中有一个方法可以获得一个Condition：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Condition <span class="title function_">newCondition</span><span class="params">()</span>;</span><br></pre></td></tr></table></figure>
+
+<p>之前我们提到过每个对象都可以用<code>Object</code>的<strong>wait&#x2F;notify</strong>方法来实现<strong>等待&#x2F;通知机制</strong>。而 Condition 接口也提供了类似 Object 的方法，可以配合<strong>Lock</strong>来实现等待&#x2F;通知模式。使用Condition监视器的理由可以认为线程等待队列可以是多个，而object只能是一个。</p>
+<h2 id="3、ReentrantLock类"><a href="#3、ReentrantLock类" class="headerlink" title="3、ReentrantLock类"></a>3、ReentrantLock类</h2><p>ReentrantLock 是 Lock 接口的默认实现，实现了锁的基本功能。</p>
+<p>从名字上看，它是一个“可重入”锁，从源码上看，它内部有一个抽象类<code>Sync</code>，继承了 <code>AQS</code>，自己实现了一个同步器。</p>
+<p>同时，ReentrantLock 内部有两个非抽象类<code>NonfairSync</code>和<code>FairSync</code>，它们都继承了 Sync。从名字上可以看得出，分别是”非公平同步器“和”公平同步器“的意思。这意味着 ReentrantLock 可以支持”公平锁“和”非公平锁“。</p>
+<p>通过看这两个同步器的源码可以发现，它们的实现都是”独占“的。都调用了 AOS 的<code>setExclusiveOwnerThread</code>方法，所以 ReentrantLock 的锁是”独占“的，也就是说，它的锁都是”排他锁“，不能共享。</p>
+<p>在 ReentrantLock 的构造方法里，可以传入一个<code>boolean</code>类型的参数，来指定它是否是一个公平锁，默认情况下是非公平的。这个参数一旦实例化后就不能修改，只能通过<code>isFair()</code>方法来查看。</p>
+<p><strong>根据第二大节中的内容，ReentrantLock 是可重入锁、公平锁和非公平锁、排它锁。</strong></p>
+<h2 id="4、synchronized关键字"><a href="#4、synchronized关键字" class="headerlink" title="4、synchronized关键字"></a>4、synchronized关键字</h2><p>在Java中，<code>synchronized</code> 关键字用于控制多个线程对共享资源的访问，其底层实现涉及多种锁状态，这些状态根据竞争情况逐步升级，以提高锁的获取与释放效率。我查到的资料说，在jdk1.6之前所有锁都是操作系统提供的重量级锁，后续对synchronized进行优化，直到现在出现了<strong>四个锁状态</strong>，<strong>由低到高</strong>（即锁的要求越来越高）分别是<strong>无锁状态、偏向锁、轻量级锁状态、重量级锁状态。</strong></p>
+<h3 id="无锁状态"><a href="#无锁状态" class="headerlink" title="无锁状态"></a>无锁状态</h3><p><strong>定义</strong>：<br>无锁状态是指没有对资源进行锁定，所有的线程都能访问并尝试修改同一个资源，但同时只有一个线程能修改成功。无锁的特点是修改操作会在循环内进行，线程会不断地尝试修改共享资源。如果没有冲突就修改成功并退出，否则就会继续循环尝试。</p>
+<p><strong>特点</strong>：</p>
+<ul>
+<li>无需使用锁机制，适用于线程冲突较少的场景。</li>
+<li>线程通过自旋（CAS）来尝试访问资源，直至成功。</li>
+</ul>
+<h3 id="偏向锁状态"><a href="#偏向锁状态" class="headerlink" title="偏向锁状态"></a>偏向锁状态</h3><p><strong>定义</strong>：<br>偏向锁是指当一段同步代码一直被同一个线程所访问时，即不存在多个线程的竞争时，那么该线程在后续访问时便会自动获得锁，从而降低获取锁带来的消耗，即提高性能。</p>
+<p><strong>特点</strong>：</p>
+<ul>
+<li>偏向锁的目标是减少无竞争且只有一个线程使用锁的情况下的性能消耗。</li>
+<li>JVM使用CAS操作把线程ID记录到对象的Mark Word（等下介绍）当中，并修改标识位，当前线程就拥有了这把锁。</li>
+<li>偏向锁只有遇到其他线程尝试竞争偏向锁时，持有偏向锁的线程才会释放锁。</li>
+</ul>
+<h3 id="轻量级锁状态"><a href="#轻量级锁状态" class="headerlink" title="轻量级锁状态"></a>轻量级锁状态</h3><p><strong>定义</strong>：<br>轻量级锁是指当锁是偏向锁的时候，却被另外的线程所访问，此时偏向锁就会升级为轻量级锁。其他线程会通过自旋的形式尝试获取锁，线程不会阻塞，从而提高性能。</p>
+<p><strong>特点</strong>：</p>
+<ul>
+<li>轻量级锁是介于偏向锁和重量级锁之间的锁实现。</li>
+<li>通过CAS操作尝试将对象的Mark Word更新为指向Lock Record的指针，如果成功，则线程拥有锁。</li>
+<li>适用于线程竞争不激烈且同步块执行时间较短的场景。</li>
+<li>如果多个线程竞争锁，轻量级锁可能会升级为重量级锁。</li>
+</ul>
+<h3 id="重量级锁状态"><a href="#重量级锁状态" class="headerlink" title="重量级锁状态"></a>重量级锁状态</h3><p><strong>定义</strong>：<br>重量级锁是指当多个线程竞争同一个锁时，锁的状态会升级为重量级锁。此时，除了锁的拥有者外，其余线程都会处于阻塞状态。</p>
+<p><strong>特点</strong>：</p>
+<ul>
+<li>重量级锁通过对象内部的监视器锁（monitor）实现，依赖于操作系统的Mutex Lock。</li>
+<li>线程阻塞和唤醒的开销较大，适用于线程竞争激烈的场景。</li>
+<li>当轻量级锁的自旋次数达到一定阈值时，如果仍未获得锁，则会升级为重量级锁。</li>
+</ul>
+<p>好，现在看到这里大部分的无锁偏、向锁、轻量级锁、重量级锁内容就可以解释清楚了，但是博客写到这里的时候，我就在思考，<strong>synchronized的锁底层并没有使用AQS这样的抽象队列同步器，为什么synchronized可以实现可重入锁，排它锁的功能？</strong></p>
+<p>首先我们需要了解，java中的锁存放在哪里，上面的提到的Mark Word是什么？</p>
+<h3 id="Java锁的位置、什么是Mark-Word？"><a href="#Java锁的位置、什么是Mark-Word？" class="headerlink" title="Java锁的位置、什么是Mark Word？"></a>Java锁的位置、什么是Mark Word？</h3><p>首先我们来看看一个对象的“锁”是存放在什么地方的。</p>
+<p>每个 Java 对象都有一个对象头。如果是非数组类型，则用 2 个字宽来存储对象头，如果是数组，则会用 3 个字宽来存储对象头。在 32 位处理器中，一个字宽是 32 位；在 64 位虚拟机中，一个字宽是 64 位。对象头的内容如下表所示：</p>
+<table>
+<thead>
+<tr>
+<th>长度</th>
+<th>内容</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>32&#x2F;64bit</td>
+<td>Mark Word</td>
+<td>存储对象的 hashCode 或锁信息等</td>
+</tr>
+<tr>
+<td>32&#x2F;64bit</td>
+<td>Class Metadata Address</td>
+<td>存储到对象类型数据的指针</td>
+</tr>
+<tr>
+<td>32&#x2F;64bit</td>
+<td>Array length</td>
+<td>数组的长度（如果是数组）</td>
+</tr>
+</tbody></table>
+<p>我们主要来看看 Mark Word 的格式：</p>
+<table>
+<thead>
+<tr>
+<th>锁状态</th>
+<th>29 bit 或 61 bit</th>
+<th>1 bit 是否是偏向锁？</th>
+<th>2 bit 锁标志位</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>无锁</td>
+<td></td>
+<td>0</td>
+<td>01</td>
+</tr>
+<tr>
+<td>偏向锁</td>
+<td>线程 ID</td>
+<td>1</td>
+<td>01</td>
+</tr>
+<tr>
+<td>轻量级锁</td>
+<td>指向栈中锁记录的指针</td>
+<td>此时这一位不用于标识偏向锁</td>
+<td>00</td>
+</tr>
+<tr>
+<td>重量级锁</td>
+<td>指向互斥量（重量级锁）的指针</td>
+<td>此时这一位不用于标识偏向锁</td>
+<td>10</td>
+</tr>
+<tr>
+<td>GC 标记</td>
+<td></td>
+<td>此时这一位不用于标识偏向锁</td>
+<td>11</td>
+</tr>
+</tbody></table>
+<p>可以看到，当对象状态为偏向锁时，<code>Mark Word</code>存储的是偏向的线程 ID；当状态为轻量级锁时，<code>Mark Word</code>存储的是指向线程栈中<code>Lock Record</code>的指针；当状态为重量级锁时，<code>Mark Word</code>为指向堆中的 monitor（监视器）对象的指针。</p>
+<blockquote>
+<p>在 Java 中，监视器（monitor）是一种同步工具，用于保护共享数据，避免多线程并发访问导致数据不一致。在 Java 中，每个对象都有一个内置的监视器。</p>
+</blockquote>
+<p>监视器包括两个重要部分，一个是锁，一个是等待&#x2F;通知机制，后者是通过 Object 类中的<code>wait()</code>, <code>notify()</code>, <code>notifyAll()</code>等方法实现的。</p>
+<blockquote>
+<p>我在下文会提到 Object 类中的<code>wait()</code>, <code>notify()</code>, <code>notifyAll()</code>等方法，可以看下我学习多线程碰到的问题。</p>
+</blockquote>
+<p>好了，现在可以回答为什么synchronized可以实现可重入锁，排它锁的功能？</p>
+<h3 id="可重入锁的实现"><a href="#可重入锁的实现" class="headerlink" title="可重入锁的实现"></a>可重入锁的实现</h3><p>synchronized是可重入锁，这意味着同一个线程可以多次获取同一个对象锁，而不会导致死锁。synchronized实现可重入锁的机制主要依赖于对象头中的锁计数器（或称为锁记录器、锁状态等，具体实现可能因JVM版本和平台而异）：</p>
+<blockquote>
+<p>根据我查到的资料，锁计数器是一个抽象的概念，在对象头中并非是以一个单独的字段出现，而是在Mark Word中以锁信息的方式存储在内，并且这些信息具体实现可能因JVM版本和平台而异。</p>
+</blockquote>
+<ol>
+<li><strong>锁计数器</strong>：每个对象都有一个与之关联的锁计数器，用于记录当前持有该对象锁的线程重入的次数。</li>
+<li><strong>加锁</strong>：当一个线程首次获取锁时，JVM会将锁计数器的值设置为1，并将锁的持有者设置为当前线程。如果同一个线程再次尝试获取该锁，锁计数器会递增，而不是阻塞线程。</li>
+<li><strong>解锁</strong>：当线程退出同步代码块时，锁计数器会递减。只有当锁计数器的值减为0时，锁才会被完全释放，此时其他线程才能获取该锁。</li>
+</ol>
+<p>通过这种机制，synchronized确保了同一个线程可以多次进入同步代码块而不会导致死锁，同时也保证了在锁被完全释放之前，其他线程无法进入该同步代码块。</p>
+<h3 id="排他锁的实现"><a href="#排他锁的实现" class="headerlink" title="排他锁的实现"></a>排他锁的实现</h3><p>synchronized实现的锁本质上是排他锁（互斥锁），即在同一时刻，只有一个线程能够持有锁并访问被保护的资源。这是通过JVM的监视器锁（monitor lock）机制实现的：</p>
+<ol>
+<li><strong>监视器锁</strong>：每个Java对象都可以关联一个监视器锁（monitor）。当线程进入同步代码块时，它会尝试获取与同步代码块对象相关联的监视器锁。</li>
+<li><strong>加锁与解锁</strong>：如果监视器锁未被其他线程持有，则当前线程将获取锁并继续执行同步代码块。如果锁已被其他线程持有，则当前线程将被阻塞，直到锁被释放。线程退出同步代码块时，会释放锁，允许其他线程获取锁并执行同步代码块。</li>
+</ol>
+<h3 id="讲一个我学习多线程时碰到的问题"><a href="#讲一个我学习多线程时碰到的问题" class="headerlink" title="讲一个我学习多线程时碰到的问题"></a>讲一个我学习多线程时碰到的问题</h3><p>这个问题是关于重量级锁的内容。当时我学习Object类的wait方法、notify方法（包括notifyAll，下文可能会省略）这些关于线程的方法的时候，我没有使用synchronized关键字包裹代码，类似的结构像这样：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Test</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> InterruptedException &#123;</span><br><span class="line">        <span class="type">Object</span> <span class="variable">obj</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Object</span>();</span><br><span class="line">        System.out.println(<span class="string">&quot;wait之前: &quot;</span>);</span><br><span class="line">        obj.wait(); <span class="comment">//所有可能会引起线程阻塞等到的方法都会拋出InterruptedException受查异常</span></span><br><span class="line">        System.out.println(<span class="string">&quot;wait之后: &quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我相信大家学习的时候一定学到了<strong>Object类的wait方法、notify方法是为了让线程中出让锁，或是唤醒等待状态下的线程</strong>，但是前提条件都是加了锁，否则哪里来的出让锁和抢夺cpu一说？</p>
+<p>我们再把这三个方法说得细致一些：当一个线程调用了一个对象的 <code>wait()</code> 方法时，它会释放该对象的监视器锁，并进入该对象的等待集合中等待。直到其他线程调用了该对象的 <code>notify()</code> 或 <code>notifyAll()</code> 方法，并且当前线程重新获得了该对象的监视器锁之后，它才会从 <code>wait()</code> 方法返回，并继续执行。这也就是<strong>重量级锁</strong>中我们说到的内容。</p>
+<p>由于 <code>notify()</code> 和 <code>notifyAll()</code> 是用来唤醒等待在该对象监视器上的线程的，因此它们必须在持有该对象监视器锁的同步代码块或同步方法中调用。否则，编译器会报错，因为如果没有持有监视器锁，那么线程就没有权限调用这些方法。</p>
+<p><img src="Snipaste_2024-08-07_01-22-20.png"></p>
+<p>如果还没有获取到锁就尝试解锁，运行后就会抛出非法的锁状态异常。这里的代码抛出该异常正是这个原因：wait（）方法内部有一步重要的操作：先解锁，再阻塞等待。</p>
+<p>因此，在使用wait（） 前，必须先加锁，把wait（）写到synchronized代码块内部。 同时，Java也规定调用notify（）也必须在synchronized代码块中。</p>
+<p>并且，加锁的锁对象必须要与调用wait（）的锁对象是同一个。如果加锁对象与调用wait（）的对象不是同一个，也会抛出<code>IllgalMonitorStateException</code> 异常。</p>
+<h2 id="5、ReentrantReadWriteLock"><a href="#5、ReentrantReadWriteLock" class="headerlink" title="5、ReentrantReadWriteLock"></a>5、ReentrantReadWriteLock</h2><p><code>ReentrantReadWriteLock</code>是 <code>ReadWriteLock</code> 接口的默认实现。它与 ReentrantLock 的功能类似，同样是可重入的，支持非公平锁和公平锁。不同的是，它还支持”读写锁“。</p>
+<blockquote>
+<p>在这里只介绍内部结构，可重入锁、非公平锁和公平锁看第二大节</p>
+</blockquote>
+<p>ReentrantReadWriteLock 内部的结构大概是这样：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 内部结构</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> ReentrantReadWriteLock.ReadLock readerLock;</span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> ReentrantReadWriteLock.WriteLock writerLock;</span><br><span class="line"><span class="keyword">final</span> Sync sync;</span><br><span class="line"><span class="keyword">abstract</span> <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">Sync</span> <span class="keyword">extends</span> <span class="title class_">AbstractQueuedSynchronizer</span> &#123;</span><br><span class="line">    <span class="comment">// 具体实现</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">class</span> <span class="title class_">NonfairSync</span> <span class="keyword">extends</span> <span class="title class_">Sync</span> &#123;</span><br><span class="line">    <span class="comment">// 具体实现</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">class</span> <span class="title class_">FairSync</span> <span class="keyword">extends</span> <span class="title class_">Sync</span> &#123;</span><br><span class="line">    <span class="comment">// 具体实现</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">ReadLock</span> <span class="keyword">implements</span> <span class="title class_">Lock</span>, java.io.Serializable &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> Sync sync;</span><br><span class="line">    <span class="keyword">protected</span> <span class="title function_">ReadLock</span><span class="params">(ReentrantReadWriteLock lock)</span> &#123;</span><br><span class="line">            sync = lock.sync;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 具体实现</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">WriteLock</span> <span class="keyword">implements</span> <span class="title class_">Lock</span>, java.io.Serializable &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> Sync sync;</span><br><span class="line">    <span class="keyword">protected</span> <span class="title function_">WriteLock</span><span class="params">(ReentrantReadWriteLock lock)</span> &#123;</span><br><span class="line">            sync = lock.sync;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 具体实现</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 构造方法，初始化两个锁</span></span><br><span class="line"><span class="keyword">public</span> <span class="title function_">ReentrantReadWriteLock</span><span class="params">(<span class="type">boolean</span> fair)</span> &#123;</span><br><span class="line">    sync = fair ? <span class="keyword">new</span> <span class="title class_">FairSync</span>() : <span class="keyword">new</span> <span class="title class_">NonfairSync</span>();</span><br><span class="line">    readerLock = <span class="keyword">new</span> <span class="title class_">ReadLock</span>(<span class="built_in">this</span>);</span><br><span class="line">    writerLock = <span class="keyword">new</span> <span class="title class_">WriteLock</span>(<span class="built_in">this</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 获取读锁和写锁的方法</span></span><br><span class="line"><span class="keyword">public</span> ReentrantReadWriteLock.WriteLock <span class="title function_">writeLock</span><span class="params">()</span> &#123; <span class="keyword">return</span> writerLock; &#125;</span><br><span class="line"><span class="keyword">public</span> ReentrantReadWriteLock.ReadLock  <span class="title function_">readLock</span><span class="params">()</span>  &#123; <span class="keyword">return</span> readerLock; &#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到，它同样是内部维护了两个同步器。且维护了两个 Lock 的实现类 ReadLock 和 WriteLock。从源码可以发现，这两个内部类用的是外部类的同步器。</p>
+<h2 id="6、拓展：StampedLock"><a href="#6、拓展：StampedLock" class="headerlink" title="6、拓展：StampedLock"></a>6、拓展：StampedLock</h2><p><code>StampedLock</code> 类是 Java 8 才发布的，也是 Doug Lea 大神所写，有人称它为锁的性能之王。</p>
+<p>StampedLock 没有实现 Lock 接口和 ReadWriteLock 接口，但它实现了“读写锁”的功能，并且性能比 ReentrantReadWriteLock 更高。StampedLock 还把读锁分为了“乐观读锁”和“悲观读锁”两种。</p>
+<p>感兴趣可以自行搜索，博客面向八股介绍比较常见的锁。</p>
+</article><div class="post-copyright"><div class="post-copyright__author_group"><a class="post-copyright__author_img" href="/about/"><img class="post-copyright__author_img_front" src="/img/avatar.ico"></a><div class="post-copyright__author_name">颓废市民黄先生</div><div class="post-copyright__author_desc">welcome 艾瑞巴蒂</div></div><div class="post-tools" id="post-tools"><div class="post-tools-left"><div id="quit-box" onclick="RemoveRewardMask()"></div></div></div><div class="social-share"><a class="social-share-ico icon-qq" target="_blank" rel="noopener" href="https://connect.qq.com/widget/shareqq/index.html?url=https%3A%2F%2Fsamurai-127.github.io%2F2024%2F08%2F05%2Fjava%25E5%25A4%259A%25E7%25BA%25BF%25E7%25A8%258B%25EF%25BC%259A%25E4%25B8%2589%25E3%2580%2581%25E9%2594%2581%2F&amp;title=Java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E5%A4%9A%E7%BA%BF%E7%A8%8B%E9%94%81%E3%80%81java%E9%94%81%E7%9A%84%E5%AE%9E%E7%8E%B0&amp;desc=undefined&amp;summary=undefined&amp;site=Java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E5%A4%9A%E7%BA%BF%E7%A8%8B%E9%94%81%E3%80%81java%E9%94%81%E7%9A%84%E5%AE%9E%E7%8E%B0&amp;pics=%2Fimg%2FLock.png" title="分享到QQ"><i class="solitude st-qq-fill"></i></a></div><div class="post-copyright__notice"><span class="post-copyright-info">本文是转载或翻译文章，版权归原作者所有。转载本文请联系原作者。</span></div></div><div class="post-tools-right"><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E5%A4%9A%E7%BA%BF%E7%A8%8B/"><span class="tags-punctuation"></span>多线程<span class="tagsPageCount">4</span></a><a class="post-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/"><span class="tags-punctuation"></span>面试<span class="tagsPageCount">7</span></a></div></div></div><nav class="needEndHide pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2024/08/06/java%EF%BC%9A%E8%AF%A6%E8%A7%A3ConcurrentHashMap/"><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info">Java多线程：四、详解ConcurrentHashMap构成</div></div></a></div><div class="next-post pull-right"><a href="/2024/08/04/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9AJMM/"><div class="pagination-info"><div class="label">下一篇</div><div class="next_info">Java多线程：二、JMM、happens-before、volatile</div></div></a></div></nav><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="solitude st-chat-fill"></i><span> 评论</span><span class="count"> (<span class="twikoo-count"><i class="solitude st-loading-line"></i></span>)</span></div></div><div class="comment-wrap"><div id="twikoo-wrap"></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="card-content"><div class="card-info-avatar is-center"><div class="author-info__top-group"><div class="author-info__sayhi" id="author-info__sayhi" onclick="sco.changeSayHelloText()">sayhello.morning</div></div></div><div class="avatar-img-group"><img class="avatar-img" alt="头像" src="/img/avatar.jpg"><div class="avatar-sticker"><img class="avatar-sticker-img" src="https://7.isyangs.cn/34/65f2e4e0423cc-34.png" alt="心情贴纸"></div></div><div class="author-info__description_group"><div class="author-info__description">大郞，你来看我的博客啦~</div><div class="author-info__description2">看看有没有对你有帮助的内容呗</div></div><div class="author-info__bottom-group"><a class="author-info__bottom-group-left" href="/about/"><div class="author-info__name">颓废市民黄先生</div><div class="author-info__desc">welcome 艾瑞巴蒂</div></a><div class="card-info-social-icons is-center"><a class="social-icon" target="_blank" rel="noopener" href="https://space.bilibili.com/314882691" title="Bilibili"><i class="solitude  st-bilibili-line"></i></a><a class="social-icon" target="_blank" rel="noopener" href="https://www.douyin.com/user/MS4wLjABAAAAy1FJN9CK4loLwbU-ngonlCdhB5ZT99fq4_Jdg3qJS7w" title="douyin"><i class="solitude  st-douyin-fill"></i></a></div></div></div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="solitude st-menu-line"></i><span>文章目录</span></div><div class="toc-content" id="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-text">前言</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E9%A6%96%E5%85%88%E4%BB%8B%E7%BB%8D%E4%B8%80%E4%B8%8B%E9%94%81"><span class="toc-text">一、首先介绍一下锁</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E9%94%81%E7%9A%84%E5%88%86%E7%B1%BB"><span class="toc-text">二、锁的分类</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#1%E3%80%81%E4%B9%90%E8%A7%82%E9%94%81-VS-%E6%82%B2%E8%A7%82%E9%94%81"><span class="toc-text">1、乐观锁 VS 悲观锁</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%85%AB%E8%82%A1%EF%BC%9A%E4%B9%90%E8%A7%82%E9%94%81-VS-%E6%82%B2%E8%A7%82%E9%94%81"><span class="toc-text">八股：乐观锁 VS 悲观锁</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%85%AB%E8%82%A1%EF%BC%9ACAS%E7%AE%97%E6%B3%95"><span class="toc-text">八股：CAS算法</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BA%86%E8%A7%A3%EF%BC%9ACAS%E7%AE%97%E6%B3%95%E5%A6%82%E4%BD%95%E5%AE%9E%E7%8E%B0%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C%EF%BC%9F"><span class="toc-text">了解：CAS算法如何实现原子操作？</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%EF%BC%881%EF%BC%89%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86"><span class="toc-text">（1）实现原理</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%EF%BC%882%EF%BC%89%E5%AE%9E%E7%8E%B0%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C"><span class="toc-text">（2）实现原子操作</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%85%AB%E8%82%A1%EF%BC%9ACAS-%E7%9A%84%E4%B8%89%E5%A4%A7%E9%97%AE%E9%A2%98"><span class="toc-text">八股：CAS 的三大问题</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%EF%BC%881%EF%BC%89ABA-%E9%97%AE%E9%A2%98"><span class="toc-text">（1）ABA 问题</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%EF%BC%882%EF%BC%89%E9%95%BF%E6%97%B6%E9%97%B4%E8%87%AA%E6%97%8B"><span class="toc-text">（2）长时间自旋</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%EF%BC%883%EF%BC%89%E5%A4%9A%E4%B8%AA%E5%85%B1%E4%BA%AB%E5%8F%98%E9%87%8F%E7%9A%84%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C"><span class="toc-text">（3）多个共享变量的原子操作</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2%E3%80%81%E8%87%AA%E6%97%8B%E9%94%81-VS-%E8%87%AA%E9%80%82%E5%BA%94%E8%87%AA%E6%97%8B%E9%94%81"><span class="toc-text">2、自旋锁 VS 自适应自旋锁</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%87%AA%E6%97%8B%E9%94%81"><span class="toc-text">自旋锁</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%87%AA%E9%80%82%E5%BA%94%E8%87%AA%E6%97%8B%E9%94%81"><span class="toc-text">自适应自旋锁</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#3%E3%80%81%E6%97%A0%E9%94%81%E5%81%8F%E3%80%81%E5%90%91%E9%94%81%E3%80%81%E8%BD%BB%E9%87%8F%E7%BA%A7%E9%94%81%E3%80%81%E9%87%8D%E9%87%8F%E7%BA%A7%E9%94%81"><span class="toc-text">3、无锁偏、向锁、轻量级锁、重量级锁</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#4%E3%80%81%E5%8F%AF%E9%87%8D%E5%85%A5%E9%94%81-VS-%E4%B8%8D%E5%8F%AF%E9%87%8D%E5%85%A5%E9%94%81"><span class="toc-text">4、可重入锁 VS 不可重入锁</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%EF%BC%881%EF%BC%89%E5%AE%9E%E7%8E%B0%E6%9C%BA%E5%88%B6"><span class="toc-text">（1）实现机制</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%EF%BC%882%EF%BC%89%E5%B5%8C%E5%A5%97%E8%B0%83%E7%94%A8%E7%9A%84%E8%87%AA%E5%8A%A8%E5%8A%A0%E9%94%81"><span class="toc-text">（2）嵌套调用的自动加锁</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#5%E3%80%81%E5%85%AC%E5%B9%B3%E9%94%81%E5%92%8C%E9%9D%9E%E5%85%AC%E5%B9%B3%E9%94%81"><span class="toc-text">5、公平锁和非公平锁</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#6%E3%80%81%E8%AF%BB%E5%86%99%E9%94%81%E5%92%8C%E6%8E%92%E5%AE%83%E9%94%81"><span class="toc-text">6、读写锁和排它锁</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%EF%BC%881%EF%BC%89%E4%BB%8B%E7%BB%8D%E4%B8%80%E4%B8%8BReentrantReadWriteLock%EF%BC%9A"><span class="toc-text">（1）介绍一下ReentrantReadWriteLock：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%EF%BC%882%EF%BC%89%E5%9B%9E%E5%BD%92%E6%AD%A3%E9%A2%98%EF%BC%9A"><span class="toc-text">（2）回归正题：</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%89%E3%80%81JUC%E5%8C%85%E4%B8%8B%E7%9A%84%E9%94%81"><span class="toc-text">三、JUC包下的锁</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#1%E3%80%81%E6%8A%BD%E8%B1%A1%E7%B1%BBAQS-AQLS-AOS"><span class="toc-text">1、抽象类AQS&#x2F;AQLS&#x2F;AOS</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AFAQS%EF%BC%9F"><span class="toc-text">什么是AQS？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84"><span class="toc-text">数据结构</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%90%8C%E6%AD%A5%E7%8A%B6%E6%80%81status"><span class="toc-text">同步状态status</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#Node%E8%8A%82%E7%82%B9"><span class="toc-text">Node节点</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2%E3%80%81%E6%8E%A5%E5%8F%A3-Condition-Lock-ReadWriteLock"><span class="toc-text">2、接口 Condition&#x2F;Lock&#x2F;ReadWriteLock</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#3%E3%80%81ReentrantLock%E7%B1%BB"><span class="toc-text">3、ReentrantLock类</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#4%E3%80%81synchronized%E5%85%B3%E9%94%AE%E5%AD%97"><span class="toc-text">4、synchronized关键字</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%97%A0%E9%94%81%E7%8A%B6%E6%80%81"><span class="toc-text">无锁状态</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%81%8F%E5%90%91%E9%94%81%E7%8A%B6%E6%80%81"><span class="toc-text">偏向锁状态</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%BD%BB%E9%87%8F%E7%BA%A7%E9%94%81%E7%8A%B6%E6%80%81"><span class="toc-text">轻量级锁状态</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%87%8D%E9%87%8F%E7%BA%A7%E9%94%81%E7%8A%B6%E6%80%81"><span class="toc-text">重量级锁状态</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Java%E9%94%81%E7%9A%84%E4%BD%8D%E7%BD%AE%E3%80%81%E4%BB%80%E4%B9%88%E6%98%AFMark-Word%EF%BC%9F"><span class="toc-text">Java锁的位置、什么是Mark Word？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%AF%E9%87%8D%E5%85%A5%E9%94%81%E7%9A%84%E5%AE%9E%E7%8E%B0"><span class="toc-text">可重入锁的实现</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8E%92%E4%BB%96%E9%94%81%E7%9A%84%E5%AE%9E%E7%8E%B0"><span class="toc-text">排他锁的实现</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AE%B2%E4%B8%80%E4%B8%AA%E6%88%91%E5%AD%A6%E4%B9%A0%E5%A4%9A%E7%BA%BF%E7%A8%8B%E6%97%B6%E7%A2%B0%E5%88%B0%E7%9A%84%E9%97%AE%E9%A2%98"><span class="toc-text">讲一个我学习多线程时碰到的问题</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#5%E3%80%81ReentrantReadWriteLock"><span class="toc-text">5、ReentrantReadWriteLock</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#6%E3%80%81%E6%8B%93%E5%B1%95%EF%BC%9AStampedLock"><span class="toc-text">6、拓展：StampedLock</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="solitude st-map-line"></i><span>最近发布</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2024/08/06/java%EF%BC%9A%E8%AF%A6%E8%A7%A3ConcurrentHashMap/" title="Java多线程：四、详解ConcurrentHashMap构成"><img alt="Java多线程：四、详解ConcurrentHashMap构成" src="/img/ConcurrentHashMap.png"></a><div class="content"><a class="title" href="/2024/08/06/java%EF%BC%9A%E8%AF%A6%E8%A7%A3ConcurrentHashMap/" title="Java多线程：四、详解ConcurrentHashMap构成">Java多线程：四、详解ConcurrentHashMap构成</a><a class="article-recent_post_categories" href="/2024/08/06/java%EF%BC%9A%E8%AF%A6%E8%A7%A3ConcurrentHashMap/">Java</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/08/05/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E9%94%81/" title="Java多线程：三、多线程锁、java锁的实现"><img alt="Java多线程：三、多线程锁、java锁的实现" src="/img/Lock.png"></a><div class="content"><a class="title" href="/2024/08/05/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E9%94%81/" title="Java多线程：三、多线程锁、java锁的实现">Java多线程：三、多线程锁、java锁的实现</a><a class="article-recent_post_categories" href="/2024/08/05/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E9%94%81/">Java</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/08/04/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9AJMM/" title="Java多线程：二、JMM、happens-before、volatile"><img alt="Java多线程：二、JMM、happens-before、volatile" src="/img/JVM.png"></a><div class="content"><a class="title" href="/2024/08/04/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9AJMM/" title="Java多线程：二、JMM、happens-before、volatile">Java多线程：二、JMM、happens-before、volatile</a><a class="article-recent_post_categories" href="/2024/08/04/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9AJMM/">Java</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/08/03/java-%E7%BA%BF%E7%A8%8B%E6%B1%A0/" title="Java多线程：一、线程池"><img alt="Java多线程：一、线程池" src="/img/JUC.png"></a><div class="content"><a class="title" href="/2024/08/03/java-%E7%BA%BF%E7%A8%8B%E6%B1%A0/" title="Java多线程：一、线程池">Java多线程：一、线程池</a><a class="article-recent_post_categories" href="/2024/08/03/java-%E7%BA%BF%E7%A8%8B%E6%B1%A0/">Java</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/07/30/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F%EF%BC%9A%EF%BC%88%E4%BA%8C%EF%BC%89%E4%B8%BA%E4%BB%80%E4%B9%880-1-0-2%E4%B8%8D%E7%AD%89%E4%BA%8E0-3/" title="操作系统：（二）原码，反码，补码，计算丢失精度"><img alt="操作系统：（二）原码，反码，补码，计算丢失精度" src="/img/OSCover2.png"></a><div class="content"><a class="title" href="/2024/07/30/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F%EF%BC%9A%EF%BC%88%E4%BA%8C%EF%BC%89%E4%B8%BA%E4%BB%80%E4%B9%880-1-0-2%E4%B8%8D%E7%AD%89%E4%BA%8E0-3/" title="操作系统：（二）原码，反码，补码，计算丢失精度">操作系统：（二）原码，反码，补码，计算丢失精度</a><a class="article-recent_post_categories" href="/2024/07/30/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F%EF%BC%9A%EF%BC%88%E4%BA%8C%EF%BC%89%E4%B8%BA%E4%BB%80%E4%B9%880-1-0-2%E4%B8%8D%E7%AD%89%E4%BA%8E0-3/">OS</a></div></div></div></div></div></div></main><footer id="footer"><div id="st-footer-bar"><div class="footer-logo"><span>颓废市民黄先生</span></div><div class="footer-bar-description">来自 颓废市民黄先生 的文章</div><a class="footer-bar-link" href="/about/">了解更多</a></div><div id="footer_deal"></div><div id="st-footer"></div><div id="footer-bar"><div class="footer-bar-links"><div class="footer-bar-left"><div class="copyright">© 2024 By&nbsp;<a class="footer-bar-link" href="/">颓废市民黄先生</a></div></div><div class="footer-bar-right"><a class="footer-bar-link" target="_blank" rel="noopener" href="https://github.com/everfu/hexo-theme-solitude" alt="主题">主题</a><a class="footer-bar-link cc" href="/null" aria-label="copyright"><i class="solitude st-copyright-line"></i><i class="solitude st-creative-commons-by-line"></i><i class="solitude st-creative-commons-nc-line"></i><i class="solitude st-creative-commons-nd-line"></i></a></div></div></div><div class="comment-barrage needEndHide"></div></footer></div><!-- right_menu--><div id="rightMenu"><div class="rightMenu-group rightMenu-small"><div class="rightMenu-item" id="menu-backward"><i class="solitude st-arrow-left-line"></i></div><div class="rightMenu-item" id="menu-forward"><i class="solitude st-arrow-right-line"></i></div><div class="rightMenu-item" id="menu-refresh"><i class="solitude st-restart-line"></i></div><div class="rightMenu-item" id="menu-top"><i class="solitude st-arrow-up-line"></i></div></div><div class="rightMenu-group rightMenu-line rightMenuPlugin"><div class="rightMenu-item" id="menu-copytext"><i class="solitude st-copy-fill"></i><span>复制选中文本</span></div><div class="rightMenu-item" id="menu-pastetext"><i class="solitude st-clipboard-fill"></i><span>粘贴文本</span></div><div class="rightMenu-item" id="menu-commenttext"><i class="solitude st-chat-new-fill"></i><span>引用到评论</span></div><div class="rightMenu-item" id="menu-newwindow"><i class="solitude st-window-fill"></i><span>新窗口打开</span></div><div class="rightMenu-item" id="menu-copylink"><i class="solitude st-link-line"></i><span>复制链接地址</span></div><div class="rightMenu-item" id="menu-copyimg"><i class="solitude st-copy-fill"></i><span>复制此图片</span></div><div class="rightMenu-item" id="menu-downloadimg"><i class="solitude st-download-cloud-fill"></i><span>下载此图片</span></div><div class="rightMenu-item" id="menu-search"><i class="solitude st-search-line"></i><span>站内搜索</span></div><div class="rightMenu-item" id="menu-music-toggle"><i class="solitude st-play-fill"></i><span>播放音乐</span></div><div class="rightMenu-item" id="menu-music-back"><i class="solitude st-skip-back-fill"></i><span>切换到上一首</span></div><div class="rightMenu-item" id="menu-music-forward"><i class="solitude st-skip-forward-fill"></i><span>切换到下一首</span></div><div class="rightMenu-item" id="menu-music-copyMusicName"><i class="solitude st-copy-fill"></i><span>复制歌名</span></div></div><div class="rightMenu-group rightMenu-line rightMenuOther"><div class="rightMenu-item" id="menu-randomPost" onclick="toRandomPost()||rm.hideRightMenu()"><i class="solitude st-signal-tower-fill"></i><span>随机短文</span></div><div class="rightMenu-item" onclick="pjax.loadUrl('/categories/')||rm.hideRightMenu()"><i class="solitude st-checkbox-multiple-blank-fill"></i><span>全部分类</span></div><div class="rightMenu-item" onclick="pjax.loadUrl('/tags/')||rm.hideRightMenu()"><i class="solitude st-price-tag-fill"></i><span>全部标签</span></div></div><div class="rightMenu-group rightMenu-line rightMenuOther"><div class="rightMenu-item" id="menu-commentBarrage" onclick="sco.switchCommentBarrage()"><i class="solitude st-chat-fill"></i><span class="menu-commentBarrage-text">关闭热评</span></div><div class="rightMenu-item" id="menu-darkmode" onclick="sco.switchDarkMode()"><i class="solitude st-moon-clear-fill"></i><span class="menu-darkmode-text">深色模式</span></div><div class="rightMenu-item" id="menu-translate"><i class="solitude st-panben-line"></i><span>轉為繁體</span></div></div></div><div id="rightmenu-mask"></div><!-- inject body--><div><script src="/js/utils.js?v=1.13.3"></script><script src="/js/main.js?v=1.13.3"></script><script src="/js/third_party/waterfall.min.js?v=1.13.3"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/pjax/0.2.8/pjax.min.js"></script><script src="/js/third_party/universe.min.js?v=1.13.3"></script><script>dark()
+</script><script src="/js/tw_cn.js?v=1.13.3"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/node-snackbar/0.1.16/snackbar.min.js"></script><script src="/js/third_party/efu_ai.min.js?v=1.13.3"></script><script>var meting_api = 'https://meting.qjqq.cn/?server=:server&type=:type&id=:id&auth=:auth&r=:r';</script><script src="https://cdnjs.cloudflare.com/ajax/libs/aplayer/1.10.1/APlayer.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/meting/2.0.1/Meting.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/pace/1.2.4/pace.min.js"></script><script src="/js/right_menu.js?v=1.13.3"></script><script src="/js/custom.js"></script><div class="js-pjax"><script>(() => {
+    const getCount = () => {
+        const ele = document.querySelectorAll('.twikoo-count')
+        if (!ele) return
+        twikoo.getCommentsCount({
+            envId: 'https://samurai127.cn',
+            region: '',
+            urls: [window.location.pathname],
+            includeReply: false
+        }).then(res => {
+            ele.forEach(item => item.textContent = res[0].count)
+        }).catch(err => {
+            console.error(err)
+        })
+    }
+    const init = () => {
+        twikoo.init(Object.assign({
+            el: '#twikoo-wrap',
+            envId: 'https://samurai127.cn',
+            region: '',
+            path: window.location.pathname,
+            onCommentLoaded: () => {
+                GLOBAL_CONFIG.lightbox && utils.lightbox(document.querySelectorAll('#twikoo .tk-content img:not(.tk-owo-emotion)'))
+            }
+        }, null))
+
+         && getCount()
+        sco.owoBig({
+            body: '.OwO-body',
+            item: '.OwO-items li'
+        })
+
+        true && barrageTwikoo()
+    }
+
+    const loadTwikoo = () => {
+        if (typeof twikoo === 'object') setTimeout(init,0)
+        else utils.getScript('https://cdnjs.cloudflare.com/ajax/libs/twikoo/1.6.36/twikoo.all.min.js').then(init)
+    }
+
+    if ('Twikoo' === 'Twikoo' || false) {
+        if (false) utils.loadComment(document.getElementById('twikoo-wrap'), loadTwikoo)
+        else loadTwikoo()
+    } else {
+        window.loadTwoComment = loadTwikoo
+    }
+})()
+</script><script>async function barrageTwikoo() {
+    await fetch("https://samurai127.cn", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            event: "COMMENT_GET",
+            accessToken: "",
+            url: window.location.pathname
+        })
+    }).then(async res => {
+        if (!res.ok) throw new Error("HTTP error! status: " + res.status)
+        const data = await res.json();
+        const init = () => {
+            initializeCommentBarrage((data.data).map(item => Object.assign({
+                content: item.comment,
+                nick: item.nick,
+                mailMd5: item.mailMd5,
+                id: item.id
+            })))
+        }
+        if (typeof initializeCommentBarrage === "undefined") await utils.getScript('/js/third_party/barrage.min.js?v=1.13.3').then(init)
+        else init()
+    }).catch(error => console.error("An error occurred while fetching comments: ", error))
+}</script><script defer pjax src="https://cdnjs.cloudflare.com/ajax/libs/busuanzi/2.3.0/bsz.pure.mini.min.js"></script></div></div><!-- pjax--><script>const pjax = new Pjax({
+    elements: 'a:not([target="_blank"])',
+    selectors: ['title','#body-wrap','#site-config','meta[name="description"]','.js-pjax','meta[property^="og:"]','#config-diff'],
+    cacheBust: false,
+    analytics: false,
+    scrollRestoration: false
+})
+
+document.querySelectorAll('script[data-pjax]').forEach(item => {
+    const newScript = document.createElement('script')
+    const content = item.text || item.textContent || item.innerHTML || ""
+    Array.from(item.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value))
+    newScript.appendChild(document.createTextNode(content))
+    item.parentNode.replaceChild(newScript, item)
+})
+
+document.addEventListener('pjax:complete', () => {
+    window.refreshFn()
+
+    document.querySelectorAll('script[data-pjax]').forEach(item => {
+        const newScript = document.createElement('script')
+        const content = item.text || item.textContent || item.innerHTML || ""
+        Array.from(item.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value))
+        newScript.appendChild(document.createTextNode(content))
+        item.parentNode.replaceChild(newScript, item)
+    })
+
+    GLOBAL_CONFIG.islazyload && window.lazyLoadInstance.update()
+
+})
+
+document.addEventListener('pjax:error', (e) => {
+    if (e.request.status === 404) {
+        pjax.loadUrl('/404.html')
+    }
+})</script><!-- theme--><script>initTheme = () => {
+    let isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const cachedMode = utils.saveToLocal.get('theme');
+    if (cachedMode === undefined) {
+        const nowMode =
+            isDarkMode ? 'dark' : 'light'
+        document.documentElement.setAttribute('data-theme', nowMode);
+    } else {
+        document.documentElement.setAttribute('data-theme', cachedMode);
+    }
+    typeof rm === 'object' && rm.mode(cachedMode === 'dark' && isDarkMode)
+}
+initTheme()</script><!-- google adsense--><!-- search--><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><button class="search-close-button"><i class="solitude st-close-fill"></i></button></nav><div class="search-wrap"><div class="search-box"><input class="search-box-input" id="search-input" type="text" autocomplete="off" spellcheck="false" autocorrect="off" autocapitalize="off" placeholder="输入关键词快速查找"></div><div id="search-results"><div id="search-hits"></div></div><div id="search-pagination"></div><div id="search-tips"></div></div></div><div id="search-mask"></div></div><script src="/js/search/local.js?v=1.13.3"></script><!-- Tianli-Talk--><span class="needEndHide" id="efuTalk" onclick="togglePostChatContainer(); return false;" title="问答ai"><i class="solitude st-robot-fill"></i><span class="efuTalkTitle">问答ai</span></span><script>var postChatConfig = {
+backgroundColor: "var(--efu-main)",
+bottom: "60px",
+...{"defaultInput":false,"upLoadWeb":true,"userTitle":"小黄同学来也","userDesc":"有什么可以帮助你的？","showInviteLink":"https://ai.tianli0.top/?InviteID=OZ3Z0V2R","blackDom":[".aplayer"]}
+};
+
+let b = true;
+
+document.getElementById('efuTalk').addEventListener('click', function () {
+    this.classList.toggle('on');
+    let efu = this
+    b && setTimeout(() => {
+        document.getElementById('close-button').addEventListener('click', function () {
+            efu.classList.remove('on');
+        })
+    }, 0);
+    b = false
+});</script><script pjax data-postChat_key="449aa72132adf73ef7084ef83c46792af1edab" src="https://ai.tianli0.top/static/public/postChatUser.min.js"></script><!-- music--><div class="needEndHide" id="nav-music" onclick="sco.musicToggle()"><div id="nav-music-hoverTips">音乐已暂停</div><meting-js id="994057368" server="netease" type="playlist" mutex="true" preload="none" data-lrctype="0" order="random" theme="var(--efu-main)"></meting-js></div></body></html><script>const posts=["2024/08/06/java：详解ConcurrentHashMap/","2024/08/05/java多线程：三、锁/","2024/08/04/java多线程：JMM/","2024/08/03/java-线程池/","2024/07/30/操作系统：（二）为什么0-1-0-2不等于0-3/","2024/07/14/搭建博客？本站搭建博客花费了多少精力？/","2024/07/09/算法：（四）递归/","2024/07/06/Java-JDK8函数式接口、lambda表达式、方法引用/","2024/07/06/算法：（三）链表/","2024/07/06/Docker实操/","2024/07/06/centOS部署docker/","2024/07/06/mybatis/","2024/07/06/JDBC 笔记/","2024/07/03/算法：（二）二分查找/","2024/07/03/操作系统：（一）快速学习存储器/","2024/07/03/算法：（一）排序算法/","2024/06/29/数据库-索引/","2024/06/26/git速查/"];function toRandomPost(){ pjax.loadUrl(GLOBAL_CONFIG.root+posts[Math.floor(Math.random()*posts.length)]); }</script>

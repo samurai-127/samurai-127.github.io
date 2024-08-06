@@ -765,6 +765,9 @@
 
 
 ]]></content>
+      <categories>
+        <category>Java</category>
+      </categories>
       <tags>
         <tag>Java</tag>
       </tags>
@@ -877,7 +880,7 @@
   <entry>
     <title>快速复习git</title>
     <url>/2024/06/26/git%E9%80%9F%E6%9F%A5/</url>
-    <content><![CDATA[<h3 id="1-博客前言"><a href="#1-博客前言" class="headerlink" title="1. 博客前言"></a>1. 博客前言</h3><p>这篇博客适用于有git基础的人看，如果没学习过git不建议看这篇博客。<br>本篇博客记录git常用的命令，用于快速复习。基于命令行，对一个项目进行版本控制（不使用图形化界面，例如idea、vscode等）。</p>
+    <content><![CDATA[<h3 id="1-博客前言"><a href="#1-博客前言" class="headerlink" title="1. 博客前言"></a>1. 博客前言</h3><p>本篇博客记录git常用的命令，用于快速复习。基于命令行，对一个项目进行版本控制（不使用图形化界面，例如idea、vscode等）。</p>
 <h3 id="2-常用命令"><a href="#2-常用命令" class="headerlink" title="2. 常用命令"></a>2. 常用命令</h3><h4 id="2-1-删除git仓库"><a href="#2-1-删除git仓库" class="headerlink" title="2.1 删除git仓库"></a>2.1 删除git仓库</h4><p>​	如果项目是拉取的，或者想要换一个gitee仓库，那么在使用自己的仓库之前需要将之前的删掉。步骤如下：</p>
 <ol>
 <li><p>打开命令行工具,得航到你的项目所在的目录。</p>
@@ -949,6 +952,655 @@
       <tags>
         <tag>软件技术</tag>
         <tag>git</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Java多线程：一、线程池</title>
+    <url>/2024/08/03/java-%E7%BA%BF%E7%A8%8B%E6%B1%A0/</url>
+    <content><![CDATA[<h1 id="前言："><a href="#前言：" class="headerlink" title="前言："></a>前言：</h1><p>全文了解线程池干货，<strong>要想看面试题直接看标题中带有八股的就行了。</strong></p>
+<h1 id="一、什么是线程池"><a href="#一、什么是线程池" class="headerlink" title="一、什么是线程池"></a>一、什么是线程池</h1><h2 id="1-1-什么是线程池？"><a href="#1-1-什么是线程池？" class="headerlink" title="1.1 什么是线程池？"></a>1.1 什么是线程池？</h2><p>线程池（Thread Pool）是一种并发编程中常用的技术，用于管理和重用线程。它由线程池管理器、工作队列和线程池线程组成。</p>
+<p>线程池的基本概念是，在应用程序启动时创建一定数量的线程，并将它们保存在线程池中。当需要执行任务时，从线程池中获取一个空闲的线程，将任务分配给该线程执行。当任务执行完毕后，线程将返回到线程池，可以被其他任务复用。</p>
+<p>大白话：线程池的设计思想是为了避免频繁地创建和销毁线程的开销，以及控制并发执行的线程数量，从而提高系统的性能和资源利用率。线程池保证线程的可复用。</p>
+<h2 id="1-2-线程池的关键组成部分："><a href="#1-2-线程池的关键组成部分：" class="headerlink" title="1.2 线程池的关键组成部分："></a>1.2 线程池的关键组成部分：</h2><h3 id="1-2-1-线程池管理器（ThreadPoolExecutor）"><a href="#1-2-1-线程池管理器（ThreadPoolExecutor）" class="headerlink" title="1.2.1 线程池管理器（ThreadPoolExecutor）"></a>1.2.1 线程池管理器（ThreadPoolExecutor）</h3><p>负责创建、管理和控制线程池。它负责线程的创建、销毁和管理，以及线程池的状态监控和调度任务。</p>
+<h3 id="1-2-2-线程池阻塞队列（BlockingQueue）"><a href="#1-2-2-线程池阻塞队列（BlockingQueue）" class="headerlink" title="1.2.2 线程池阻塞队列（BlockingQueue）"></a>1.2.2 线程池阻塞队列（BlockingQueue）</h3><p>用于存储待执行的任务。当线程池中的线程都在执行任务时，新的任务会被放入工作队列中等待执行。</p>
+<h3 id="1-2-3-线程池线程（Worker-Thread）"><a href="#1-2-3-线程池线程（Worker-Thread）" class="headerlink" title="1.2.3 线程池线程（Worker Thread）"></a>1.2.3 线程池线程（Worker Thread）</h3><p>实际执行任务的线程。线程池中会维护一组线程，这些线程可以被重复使用，从而避免了频繁创建和销毁线程的开销。</p>
+<h2 id="1-3-八股：Java线程池中阻塞队列常用类型有哪些？"><a href="#1-3-八股：Java线程池中阻塞队列常用类型有哪些？" class="headerlink" title="1.3 八股：Java线程池中阻塞队列常用类型有哪些？"></a>1.3 八股：Java线程池中阻塞队列常用类型有哪些？</h2><p><code>ArrayBlockingQueue</code>是一个基于数组结构的有界阻塞队列，此队列按 FIFO（先进先出）原则 对元素进行排序。 </p>
+<p><code>LinkedBlockingQueue</code> 一个基于链表结构的阻塞队列，此队列按FIFO （先进先出） 排序元素，吞吐量通常要高于 ArrayBlockingQueue </p>
+<p><code>SynchronousQueue</code>一个不存储元素的阻塞队列。</p>
+<p><code>PriorityBlockingQueue</code>一个具有优先级的无限阻塞队列。PriorityBlockingQueue也是基于最小二叉堆实现。PriorityBlockingQueue 并<strong>不会阻塞数据生产者，而只会在没有可消费的数据时，阻塞数据的消费者。</strong><br>因此使用的时候要特别注意，<strong>生产者生产数据的速度绝对不能快于消费者消费数据的速度</strong>，否则时间一长，会最终耗尽所有的可用堆内存空间。</p>
+<p><code>DelayQueue</code> 阿里内部资料只有当其指定的延迟时间到了，才能够从队列中获取到该元素。 DelayQueue是一个没有大小限制的队列， 因此往队列中插入数据的操作（生产者）永远不会被阻塞，而只有获取数据的操作（消费者）才会被阻塞。 </p>
+<p>这里能说出前三种也就差不多了，如果能说全那是最好。</p>
+<h1 id="二、八股：常用的线程池"><a href="#二、八股：常用的线程池" class="headerlink" title="二、八股：常用的线程池"></a>二、八股：常用的线程池</h1><p><strong>newSingleThreadExecutor：</strong>创建一个单线程的线程池，此线程池保证所有任务的执行顺序按照任务的提交顺序执行。</p>
+<p><strong>newFixedThreadPool：</strong>创建固定大小的线程池，每次提交一个任务就创建一个线程，直到线程达到线程池的最大大小。</p>
+<p><strong>newCachedThreadPool：</strong>创建一个可缓存的线程池，此线程池不会对线程池大小做限制，线程池大小完全依赖于操作系统（或者说JVM）能够创建的最大线程大小。</p>
+<p><strong>newScheduledThreadPool：</strong>创建一个大小无限的线程池，此线程池支持定时以及周期性执行任务的需求。</p>
+<h1 id="三、使用线程池的步骤"><a href="#三、使用线程池的步骤" class="headerlink" title="三、使用线程池的步骤"></a>三、使用线程池的步骤</h1><h2 id="3-1-使用线程池的一般步骤如下："><a href="#3-1-使用线程池的一般步骤如下：" class="headerlink" title="3.1 使用线程池的一般步骤如下："></a>3.1 使用线程池的一般步骤如下：</h2><ol>
+<li><strong>创建线程池：</strong>使用Executors工具类提供的静态方法之一，或者直接使用ThreadPoolExecutor类来创建线程池。</li>
+</ol>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">ExecutorService</span> <span class="variable">executor</span> <span class="operator">=</span> Executors.newFixedThreadPool(<span class="number">5</span>); <span class="comment">// 创建固定大小的线程池</span></span><br></pre></td></tr></table></figure>
+
+<p><img src="Snipaste_2024-08-03_18-05-06.png" alt="使用executors工具类创建线程"></p>
+<p><code>newCachedThreadPool</code>说是没有上限的线程池，实际上还是有的，是int的最大值。并且普通电脑在创建几千个的时候就蚌埠住了，所以理论上是没有上限的线程池。</p>
+<ol start="2">
+<li><strong>提交任务：</strong>使用execute()或submit()方法将任务提交给线程池。</li>
+</ol>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">executor.execute(<span class="keyword">new</span> <span class="title class_">MyRunnable</span>()); <span class="comment">// 提交Runnable任务</span></span><br><span class="line">Future&lt;String&gt; future = executor.submit(<span class="keyword">new</span> <span class="title class_">MyCallable</span>()); <span class="comment">// 提交Callable任务，并返回Future对象</span></span><br></pre></td></tr></table></figure>
+<ol start="3">
+<li><strong>关闭线程池：</strong>在不再需要线程池时，需要调用shutdown()方法来关闭线程池。这将停止接受新任务，并逐渐关闭线程池中的线程。</li>
+</ol>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">executor.shutdown();</span><br></pre></td></tr></table></figure>
+
+<p>实际开发中不会关闭线程池，比如游戏的服务器之类的，实时打开，在学习的时候还是需要了解流程的。</p>
+<h2 id="3-2-八股：Java线程池中submit-和-execute-方法有什么区别？"><a href="#3-2-八股：Java线程池中submit-和-execute-方法有什么区别？" class="headerlink" title="3.2 八股：Java线程池中submit() 和 execute()方法有什么区别？"></a>3.2 八股：Java线程池中submit() 和 execute()方法有什么区别？</h2><p>两个方法都可以向线程池提交任务，execute()方法的返回类型是void，它定义在Executor接口中, 而submit()方法可以返回持有计算结果的Future对象，它定义在ExecutorService接口中，它扩展了 Executor接口，其它线程池类像ThreadPoolExecutor和ScheduledThreadPoolExecutor都有这些 方法。</p>
+<h2 id="3-3-演示线程池（个人认为理解线程池的需要看）"><a href="#3-3-演示线程池（个人认为理解线程池的需要看）" class="headerlink" title="3.3 演示线程池（个人认为理解线程池的需要看）"></a>3.3 演示线程池（个人认为理解线程池的需要看）</h2><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//线程类：</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MyRunnable</span> <span class="keyword">implements</span> <span class="title class_">Runnable</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</span><br><span class="line">            System.out.print1n(Thread.current <span class="title function_">Thread</span><span class="params">()</span>.getName() + ---<span class="string">&quot; );</span></span><br><span class="line"><span class="string">        &#125;</span></span><br><span class="line"><span class="string">    &#125;</span></span><br><span class="line"><span class="string">&#125;</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">//main方法：</span></span><br><span class="line"><span class="string">//1.获取线程池对象</span></span><br><span class="line"><span class="string">ExecutorService pool1 = Executors . newCachedThreadPool();</span></span><br><span class="line"><span class="string">//2.提交任务</span></span><br><span class="line"><span class="string">pool1. submit (new MyRunnable());</span></span><br><span class="line"><span class="string">//Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">poo11.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">//Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit(new MyRunnable());</span></span><br><span class="line"><span class="string">//Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit(new MyRunnable());</span></span><br><span class="line"><span class="string">//Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">poo11.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">//Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">//3.销毁线程池</span></span><br><span class="line"><span class="string">//pool1. shutdown();</span></span><br></pre></td></tr></table></figure>
+
+<p>首先，在main方法中，不让main线程sleep，那么打印的结果如下：可以看到，线程池1中创建了1,2,3,4,5，一共5个线程（打印结果比较长我就截图一部分，实际上是5个）</p>
+<p><img src="Snipaste_2024-08-03_18-21-34.png" alt="main线程没有sleep的打印结果"></p>
+<p><strong>如果让main线程睡眠，那么可以让线程1在main方法sleep时赶紧结束run方法中的逻辑，使得线程1执行结束后返回线程池，在main线程sleep的时间结束后，再次调用submit方法时，拿到的还是线程1</strong></p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//线程类：</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MyRunnable</span> <span class="keyword">implements</span> <span class="title class_">Runnable</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</span><br><span class="line">            System.out.print1n(Thread.current <span class="title function_">Thread</span><span class="params">()</span>.getName() + ---<span class="string">&quot; );</span></span><br><span class="line"><span class="string">        &#125;</span></span><br><span class="line"><span class="string">    &#125;</span></span><br><span class="line"><span class="string">&#125;</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">//main方法：</span></span><br><span class="line"><span class="string">//1.获取线程池对象</span></span><br><span class="line"><span class="string">ExecutorService pool1 = Executors . newCachedThreadPool();</span></span><br><span class="line"><span class="string">//2.提交任务</span></span><br><span class="line"><span class="string">pool1. submit (new MyRunnable());</span></span><br><span class="line"><span class="string">Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">poo11.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit(new MyRunnable());</span></span><br><span class="line"><span class="string">Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit(new MyRunnable());</span></span><br><span class="line"><span class="string">Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">poo11.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">//3.销毁线程池</span></span><br><span class="line"><span class="string">//pool1. shutdown();</span></span><br></pre></td></tr></table></figure>
+
+<p><img src="Snipaste_2024-08-03_18-26-05.png" alt="使main线程sleep的打印结果"></p>
+<h1 id="四、线程池原理"><a href="#四、线程池原理" class="headerlink" title="四、线程池原理"></a>四、线程池原理</h1><h2 id="4-1-ThreadPoolExecutor类"><a href="#4-1-ThreadPoolExecutor类" class="headerlink" title="4.1 ThreadPoolExecutor类"></a>4.1 ThreadPoolExecutor类</h2><p>在创建线程池的方法中（3.1节），曾经说过创建线程池使用工具类或者使用ThreadPoolExecutor类，实际上工具类的底层也是调用ThreadPoolExecutor类来创建线程池：</p>
+<p>Executors类提供4个静态工厂方法：newCachedThreadPool()、newFixedThreadPool(int)、newSingleThreadExecutor和newScheduledThreadPool(int)。这些方法最终都是通过ThreadPoolExecutor类来完成的。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="title function_">ThreadPoolExecutor</span><span class="params">(<span class="type">int</span> corePoolSize,</span></span><br><span class="line"><span class="params">                          <span class="type">int</span> maximumPoolSize,</span></span><br><span class="line"><span class="params">                          <span class="type">long</span> keepAliveTime,</span></span><br><span class="line"><span class="params">                          TimeUnit unit,</span></span><br><span class="line"><span class="params">                          BlockingQueue&lt;Runnable&gt; workQueue,</span></span><br><span class="line"><span class="params">                          ThreadFactory threadFactory,</span></span><br><span class="line"><span class="params">                          RejectedExecutionHandler handler)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (corePoolSize &lt; <span class="number">0</span> ||</span><br><span class="line">        maximumPoolSize &lt;= <span class="number">0</span> ||</span><br><span class="line">        maximumPoolSize &lt; corePoolSize ||</span><br><span class="line">        keepAliveTime &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IllegalArgumentException</span>();</span><br><span class="line">    <span class="keyword">if</span> (workQueue == <span class="literal">null</span> || threadFactory == <span class="literal">null</span> || handler == <span class="literal">null</span>)</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">NullPointerException</span>();</span><br><span class="line">    <span class="built_in">this</span>.acc = System.getSecurityManager() == <span class="literal">null</span> ?</span><br><span class="line">            <span class="literal">null</span> :</span><br><span class="line">            AccessController.getContext();</span><br><span class="line">    <span class="built_in">this</span>.corePoolSize = corePoolSize;</span><br><span class="line">    <span class="built_in">this</span>.maximumPoolSize = maximumPoolSize;</span><br><span class="line">    <span class="built_in">this</span>.workQueue = workQueue;</span><br><span class="line">    <span class="built_in">this</span>.keepAliveTime = unit.toNanos(keepAliveTime);</span><br><span class="line">    <span class="built_in">this</span>.threadFactory = threadFactory;</span><br><span class="line">    <span class="built_in">this</span>.handler = handler;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>可以看到类里面有7个参数，这7个参数也就是线程池的核心参数。</strong></p>
+<h2 id="4-2-八股：线程池七大核心参数"><a href="#4-2-八股：线程池七大核心参数" class="headerlink" title="4.2 八股：线程池七大核心参数"></a>4.2 八股：线程池七大核心参数</h2><h3 id="4-2-1-黑马讲的故事（方便记忆参数，可以跳过）"><a href="#4-2-1-黑马讲的故事（方便记忆参数，可以跳过）" class="headerlink" title="4.2.1 黑马讲的故事（方便记忆参数，可以跳过）"></a>4.2.1 黑马讲的故事（方便记忆参数，可以跳过）</h3><p>故事就是讲了饭店内只有3名正式员工，同时招待的顾客最大6人，但是剩下的3名员工是临时工，只有招待人数大于3人的时候才会去招人，否则就不招，辞退这三个临时工。</p>
+<p><img src="Snipaste_2024-08-03_18-48-51.png"></p>
+<p>但是饭店小，只能允许10个人排队，超出的人就不给排队了</p>
+<p><img src="Snipaste_2024-08-03_18-53-22.png"></p>
+<p>OK，现在根据故事给出的7个参数代换： </p>
+<p><img src="Snipaste_2024-08-03_18-57-58.png" alt="7个参数代换"></p>
+<h3 id="4-2-2-八股：7个核心参数"><a href="#4-2-2-八股：7个核心参数" class="headerlink" title="4.2.2 八股：7个核心参数"></a>4.2.2 八股：7个核心参数</h3><ol>
+<li>int corePoolSize,核心线程数量，不能小于0 </li>
+<li>int maximumPoolSize,最大的线程数量，减去核心线程&#x3D;临时线程</li>
+<li>long keepAliveTime,空闲线程的最大存活时间</li>
+<li>TimeUnit unit,时间单位</li>
+<li>BlockingQueue<Runnable> workQueue,任务队列</Runnable></li>
+<li>ThreadFactory threadFactory,创建线程工厂</li>
+<li>RejectedExecutionHandler handler，任务的拒绝策略</li>
+</ol>
+<h2 id="4-3-线程池的工作原理流程（建议4-3全看，方便理解4-5的八股）"><a href="#4-3-线程池的工作原理流程（建议4-3全看，方便理解4-5的八股）" class="headerlink" title="4.3 线程池的工作原理流程（建议4.3全看，方便理解4.5的八股）"></a>4.3 线程池的工作原理流程（建议4.3全看，方便理解4.5的八股）</h2><h3 id="4-3-1-场景一"><a href="#4-3-1-场景一" class="headerlink" title="4.3.1 场景一"></a>4.3.1 场景一</h3><p>现在有如下场景：核心线程3个，临时线程3个，此时有5个任务进来的时候线程池应该如何创建线程？</p>
+<p><img src="Snipaste_2024-08-03_19-05-57.png"></p>
+<p>正确的是创建3个核心线程去处理前3个任务，而后两个任务应该排队，直到3个核心线程空闲出来才会被执行。</p>
+<p><img src="Snipaste_2024-08-03_19-07-50.png"></p>
+<h3 id="4-3-2-场景二"><a href="#4-3-2-场景二" class="headerlink" title="4.3.2 场景二"></a>4.3.2 场景二</h3><p>此时在场景一中，提交的任务数是8个，那么线程池如何创建线程？</p>
+<p>答案是1,2,3任务由核心线程处理，4,5,6任务进入阻塞队列，7,8任务交给临时线程处理。</p>
+<p><strong>重点：</strong></p>
+<ol>
+<li>只有阻塞队列满了以后，才会临时线程</li>
+<li>任务被线程处理的顺序不取决于先来先处理，比如案例中4,5,6任务先来但是7,8任务先被处理</li>
+</ol>
+<p><img src="Snipaste_2024-08-03_19-13-39.png"></p>
+<h3 id="4-3-3-场景三"><a href="#4-3-3-场景三" class="headerlink" title="4.3.3 场景三"></a>4.3.3 场景三</h3><p>当提交的任务数超过了核心线程数（参数1），临时线程数（参数2减去参数1），队列数（参数6，创建阻塞队列的时候给队列传递参数决定容量的大小，比如ArrayBlockingQueue指定数组大小，见1.3节）的时候，多出来的线程就会触发拒绝策略（参数7）</p>
+<p><img src="Snipaste_2024-08-03_19-23-56.png"></p>
+<h2 id="4-4-八股：任务拒绝策略（参数7）"><a href="#4-4-八股：任务拒绝策略（参数7）" class="headerlink" title="4.4 八股：任务拒绝策略（参数7）"></a>4.4 八股：任务拒绝策略（参数7）</h2><p><img src="Snipaste_2024-08-03_19-28-28.png" alt="任务拒绝策略"></p>
+<p><strong>主要的是使用默认的策略。</strong></p>
+<p>如果使用第三个，那么在场景三中，被抛弃的是任务4，然后加入任务10，队列为5&#x3D;&gt;6&#x3D;&gt;10</p>
+<p>如果使用第四个，那么任务10会跳过线程池，直接调用这个线程的run方法</p>
+<h2 id="4-5-阿里八股：线程池原理知道吗？以及核心参数？"><a href="#4-5-阿里八股：线程池原理知道吗？以及核心参数？" class="headerlink" title="4.5 阿里八股：线程池原理知道吗？以及核心参数？"></a>4.5 阿里八股：线程池原理知道吗？以及核心参数？</h2><p>首先线程池有几个核心的参数概念： </p>
+<ol>
+<li>最大线程数maximumPoolSize </li>
+<li>核心线程数corePoolSize </li>
+<li>活跃时间keepAliveTime </li>
+<li>阻塞队列workQueue </li>
+<li>拒绝策略RejectedExecutionHandler</li>
+</ol>
+<p>当提交一个新任务到线程池时，具体的执行流程如下： </p>
+<ol>
+<li>当我们提交任务，线程池会根据corePoolSize大小创建若干任务数量线程执行任务 </li>
+<li>当任务的数量超过corePoolSize数量，后续的任务将会进入阻塞队列阻塞排队 </li>
+<li>当阻塞队列也满了之后，那么将会继续创建(maximumPoolSize-corePoolSize)个数量的线程来 执行任务，如果任务处理完成，maximumPoolSize-corePoolSize额外创建的线程等待 keepAliveTime之后被自动销毁 </li>
+<li>如果达到maximumPoolSize，阻塞队列还是满的状态，那么将根据不同的拒绝策略对应处理</li>
+</ol>
+<p><img src="Snipaste_2024-08-03_19-33-13.png"></p>
+<p>这是阿里面试多线程&amp;JUC的35题，我直接照着搬答案过来了，是不是把第四大节看完后就很好理解了？</p>
+]]></content>
+      <categories>
+        <category>Java</category>
+      </categories>
+      <tags>
+        <tag>多线程</tag>
+        <tag>面试</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Java多线程：二、JMM、happens-before、volatile</title>
+    <url>/2024/08/04/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9AJMM/</url>
+    <content><![CDATA[<h1 id="一、内存模型（含八股内容）"><a href="#一、内存模型（含八股内容）" class="headerlink" title="一、内存模型（含八股内容）"></a>一、内存模型（含八股内容）</h1><h2 id="1-1-内存模型及并发问题"><a href="#1-1-内存模型及并发问题" class="headerlink" title="1.1 内存模型及并发问题"></a>1.1 内存模型及并发问题</h2><p>Java 内存模型（Java Memory Model，JMM）定义了 Java 程序中的变量、线程如何和主存以及工作内存进行交互的规则。它主要涉及到多线程环境下的共享变量可见性、指令重排等问题，是理解并发编程中的关键概念。</p>
+<p>并发编程的线程之间存在两个问题：</p>
+<ul>
+<li>线程间如何通信？即：线程之间以何种机制来交换信息</li>
+<li>线程间如何同步？即：线程以何种机制来控制不同线程间发生的相对顺序</li>
+</ul>
+<p>有两种并发模型可以解决这两个问题：</p>
+<ul>
+<li>消息传递并发模型</li>
+<li>共享内存并发模型</li>
+</ul>
+<p>这两种模型之间的区别如下图所示：</p>
+<p><img src="jmm-a610752d-ef73-47f2-b02c-6954eb3d62bf.png"></p>
+<p>重要的事情说三遍</p>
+<p><strong>Java 使用的是共享内存并发模型！！！！</strong></p>
+<p><strong>Java 使用的是共享内存并发模型！！！！</strong></p>
+<p><strong>Java 使用的是共享内存并发模型！！！！</strong></p>
+<h2 id="1-2-须知：Java共享内存并发模型"><a href="#1-2-须知：Java共享内存并发模型" class="headerlink" title="1.2 须知：Java共享内存并发模型"></a>1.2 须知：Java共享内存并发模型</h2><p>在共享内存的并发模型里，线程之间共享程序的公共状态，线程之间通过写-读内存中的公共状态来隐式进行通信。典型的共享内存通信方式，就是通过共享对象进行通信。 </p>
+<p>例如线程 A 与 线程 B 之间如果要通信的话，那么就必须经历下面两个步骤： 1. 线程 A 把本地内存 A 更新过得共享变量刷新到主内存中去。 2. 线程 B 到主内存中去读取线程 A 之前更新过的共享变量，<strong>也就是说，线程A和线程B之间一定要通过主存。</strong></p>
+<p><img src="jmm-f02219aa-e762-4df0-ac08-6f4cceb535c2.jpg" alt="共享内存"></p>
+<h2 id="1-3-八股：本地内存和主存有什么区别？"><a href="#1-3-八股：本地内存和主存有什么区别？" class="headerlink" title="1.3 八股：本地内存和主存有什么区别？"></a>1.3 八股：本地内存和主存有什么区别？</h2><p>线程之间的共享变量存在于主存中，每个线程都有一个私有的本地内存，存储了该线程的读、写共享变量的副本。本地内存是 Java 内存模型的一个抽象概念，并不真实存在。它涵盖了缓存、写缓冲区、寄存器等（比如cpu的三级缓存）。</p>
+<h1 id="二、如何保证内存可见性？"><a href="#二、如何保证内存可见性？" class="headerlink" title="二、如何保证内存可见性？"></a>二、如何保证内存可见性？</h1><p>由于java用的是内存共享并发模型，那么我们就按照这个来说。线程的安全问题包括原子性、可见性、活跃性、有序性，这里就先讨论可见性。</p>
+<p>可见性就是指，如果线程A在本地内存中更新了一个变量，那么线程B以及其他线程需要同步修改后的数据。如何同步修改后的数据？此时就是需要JMM，JMM控制主存和本地内存之间的交互，来提供内存可见性保证。</p>
+<p>Java 中的 <code>volatile 关键字</code>可以保证多线程操作共享变量的可见性以及禁止指令重排序，<code>synchronized 关键字</code>不仅保证可见性，同时也保证了原子性（互斥性）。</p>
+<p>在更底层，JMM 通过内存屏障来实现内存的可见性以及禁止重排序。为了程序员更方便地理解，设计者提出了 happens-before 的概念（下文会细讲），它更加简单易懂，从而避免了程序员为了理解内存可见性而去学习复杂的重排序规则，以及这些规则的具体实现方法。</p>
+<h1 id="三、JMM与重排序"><a href="#三、JMM与重排序" class="headerlink" title="三、JMM与重排序"></a>三、JMM与重排序</h1><p>前面提到了，JMM 定义了多线程之间如何互相交互的规则，主要目的是为了解决由于编译器优化、处理器优化和缓存系统等导致的可见性、原子性和有序性。</p>
+<p>那我们接下来就来聊聊重排序以及它所带来的顺序问题。</p>
+<h3 id="3-1-为什么指令重排可以提高性能？"><a href="#3-1-为什么指令重排可以提高性能？" class="headerlink" title="3.1 为什么指令重排可以提高性能？"></a>3.1 为什么指令重排可以提高性能？</h3><p>大家都知道，计算机在执行程序时，为了提高性能，编译器和处理器常常会对指令做重排。</p>
+<p>那可能有小伙伴就要问：<strong>为什么指令重排序可以提高性能？</strong></p>
+<p>简单地说，每一个指令都会包含多个步骤，每个步骤可能使用不同的硬件。因此，<strong>流水线技术</strong>产生了，它的原理是指令 1 还没有执行完，就可以开始执行指令 2，而不用等到指令 1 执行结束后再执行指令 2，这样就大大提高了效率。</p>
+<p>但是，流水线技术最害怕<strong>中断</strong>，恢复中断的代价是比较大的，所以我们要想尽办法不让流水线中断。指令重排就是减少中断的一种技术。</p>
+<p>我们分析一下下面这段代码的执行情况：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">a = b + c;</span><br><span class="line">d = e - f ;</span><br></pre></td></tr></table></figure>
+
+<p>先加载 b、c（<strong>注意，有可能先加载 b，也有可能先加载 c</strong>），但是在执行 <code>add(b,c)</code> 的时候，需要等待 b、c 装载结束才能继续执行，也就是需要增加停顿，那么后面的指令（加载 e 和 f）也会有停顿，这就降低了计算机的执行效率。</p>
+<p>为了减少停顿，我们可以在加载完 b 和 c 后把 e 和 f 也加载了，然后再去执行 <code>add(b,c)</code>，这样做对程序（串行）是没有影响的，但却减少了停顿。</p>
+<p>换句话说，既然 <code>add(b,c)</code> 需要停顿，那还不如去做一些有意义的事情（加载 e 和 f）。</p>
+<p>综上所述，<strong>指令重排对于提高 CPU 性能十分必要，但也带来了乱序的问题。</strong></p>
+<h3 id="3-2-重排序有哪几种？"><a href="#3-2-重排序有哪几种？" class="headerlink" title="3.2 重排序有哪几种？"></a>3.2 重排序有哪几种？</h3><p>指令重排一般分为以下三种：</p>
+<ul>
+<li><strong>编译器优化重排</strong>，编译器在<strong>不改变单线程程序语义</strong>的前提下，重新安排语句的执行顺序。</li>
+<li><strong>指令并行重排</strong>，现代处理器采用了指令级并行技术来将多条指令重叠执行。如果<strong>不存在数据依赖性</strong>(即后一个执行的语句无需依赖前面执行的语句的结果)，处理器可以改变语句对应的机器指令的执行顺序。</li>
+<li><strong>内存系统重排</strong>，由于处理器使用缓存和读写缓存冲区，这使得加载(load)和存储(store)操作看上去可能是在乱序执行，因为三级缓存的存在，导致内存与缓存的数据同步存在时间差。</li>
+</ul>
+<p><strong>指令重排可以保证串行语义一致，但是没有义务保证多线程间的语义也一致</strong>。所以在多线程下，指令重排序可能会导致一些问题。</p>
+<h1 id="四、happens-before-关系模型"><a href="#四、happens-before-关系模型" class="headerlink" title="四、happens-before 关系模型"></a>四、happens-before 关系模型</h1><h2 id="4-1-八股：什么是happens-before-关系模型？"><a href="#4-1-八股：什么是happens-before-关系模型？" class="headerlink" title="4.1 八股：什么是happens-before 关系模型？"></a>4.1 八股：什么是happens-before 关系模型？</h2><p>happens-before 关系的定义如下：</p>
+<ol>
+<li><p><strong>如果一个操作 happens-before 另一个操作，那么第一个操作的执行结果将对第二个操作可见，而且第一个操作的执行顺序排在第二个操作之前。</strong></p>
+</li>
+<li><p><strong>两个操作之间存在 happens-before 关系，并不意味着 Java 平台的具体实现必须要按照 happens-before 关系指定的顺序来执行。如果重排序之后的执行结果，与按 happens-before 关系来执行的结果一致，那么 JMM 也允许这样的重排序。</strong></p>
+</li>
+</ol>
+<p>总之，<strong>如果操作 A happens-before 操作 B，那么操作 A 在内存上所做的操作对操作 B 都是可见的，不管它们在不在一个线程。</strong></p>
+<h2 id="4-2-了解：happens-before-关系有哪些？"><a href="#4-2-了解：happens-before-关系有哪些？" class="headerlink" title="4.2 了解：happens-before 关系有哪些？"></a>4.2 了解：happens-before 关系有哪些？</h2><p>   在 Java 中，有以下天然的 happens-before 关系：</p>
+<ul>
+<li>程序顺序规则：一个线程中的每一个操作，happens-before 于该线程中的任意后续操作。</li>
+<li>监视器锁规则：对一个锁的解锁，happens-before 于随后对这个锁的加锁。</li>
+<li>volatile 变量规则：对一个 volatile 域的写，happens-before 于任意后续对这个 volatile 域的读。</li>
+<li>传递性：如果 A happens-before B，且 B happens-before C，那么 A happens-before C。</li>
+<li>start 规则：如果线程 A 执行操作 <code>ThreadB.start()</code>启动线程 B，那么 A 线程的 <code>ThreadB.start()</code>操作 happens-before 于线程 B 中的任意操作。</li>
+<li>join 规则：如果线程 A 执行操作 <code>ThreadB.join()</code>并成功返回，那么线程 B 中的任意操作 happens-before 于线程 A 从 <code>ThreadB.join()</code>操作成功返回。</li>
+</ul>
+<p>   举例：</p>
+   <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">int</span> <span class="variable">a</span> <span class="operator">=</span> <span class="number">1</span>; <span class="comment">// A操作</span></span><br><span class="line"><span class="type">int</span> <span class="variable">b</span> <span class="operator">=</span> <span class="number">2</span>; <span class="comment">// B操作</span></span><br><span class="line"><span class="type">int</span> <span class="variable">sum</span> <span class="operator">=</span> a + b;<span class="comment">// C 操作</span></span><br><span class="line">System.out.println(sum);</span><br></pre></td></tr></table></figure>
+
+<p>   根据以上介绍的 happens-before 规则，假如只有一个线程，那么不难得出：</p>
+   <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="number">1</span>&gt; A happens-before B</span><br><span class="line"><span class="number">2</span>&gt; B happens-before C</span><br><span class="line"><span class="number">3</span>&gt; A happens-before C</span><br></pre></td></tr></table></figure>
+
+<p>   注意，真正在执行指令的时候，其实 JVM 有可能对操作 A &amp; B 进行重排序，因为无论先执行 A 还是 B，他们都对对方是可见的，并且不影响执行结果。</p>
+<p>   如果这里发生了重排序，这在视觉上违背了 happens-before 原则，但是 JMM 是允许这样的重排序的。</p>
+<p>   所以，我们只关心 happens-before 规则，不用关心 JVM 到底是怎样执行的。只要确定操作 A happens-before 操作 B 就行了。</p>
+<p>   重排序有两类，JMM 对这两类重排序有不同的策略：</p>
+<ul>
+<li>会改变程序执行结果的重排序，比如 A -&gt; C，JMM 要求编译器和处理器都禁止这种重排序。</li>
+<li>不会改变程序执行结果的重排序，比如 A -&gt; B，JMM 对编译器和处理器不做要求，允许这种重排序。</li>
+</ul>
+<h1 id="五、volatile关键字"><a href="#五、volatile关键字" class="headerlink" title="五、volatile关键字"></a>五、volatile关键字</h1><h2 id="5-1-八股：volatile关键字的作用"><a href="#5-1-八股：volatile关键字的作用" class="headerlink" title="5.1 八股：volatile关键字的作用"></a>5.1 八股：volatile关键字的作用</h2><p>一旦一个共享变量（类的成员变量、类的静态成员变量）被volatile修饰之后，那么就具备了两层语义： </p>
+<ol>
+<li>保证了不同线程对这个变量进行操作时的可见性，即一个线程修改了某个变量的值，这新值对其他线程来说是立即可见的。 </li>
+<li>禁止进行指令重排序。 </li>
+<li>volatile本质是在告诉jvm当前变量在寄存器（工作内存）中的值是不确定的，需要从主存中读取；synchronized则是锁定当前变量，只有当前线程可以访问该变量，其他线程被阻塞住。 </li>
+<li>volatile仅能使用在变量级别；synchronized则可以使用在变量、方法、和类级别的。</li>
+<li>volatile仅能实现变量的修改可见性，并不能保证原子性；synchronized则可以保证变量的修改 可见性和原子性。</li>
+<li>volatile不会造成线程的阻塞；synchronized可能会造成线程的阻塞。 </li>
+<li>volatile标记的变量不会被编译器优化；synchronized标记的变量可以被编译器优化。</li>
+</ol>
+<h2 id="5-2-八股：volatile禁止指令重排序（volatile和-happens-before）"><a href="#5-2-八股：volatile禁止指令重排序（volatile和-happens-before）" class="headerlink" title="5.2 八股：volatile禁止指令重排序（volatile和 happens-before）"></a>5.2 八股：volatile禁止指令重排序（volatile和 happens-before）</h2><p>在讲 JMM的时候，我们提到了指令重排，相信大家都还有印象，我们来回顾一下重排序需要遵守的规则：</p>
+<ul>
+<li>重排序不会对存在数据依赖关系的操作进行重排序。比如：<code>a=1;b=a;</code> 这个指令序列，因为第二个操作依赖于第一个操作，所以在编译时和处理器运行时这两个操作不会被重排序。</li>
+<li>重排序是为了优化性能，但是不管怎么重排序，单线程下程序的执行结果不能被改变。比如：<code>a=1;b=2;c=a+b</code> 这三个操作，第一步 (a&#x3D;1) 和第二步 (b&#x3D;2) 由于不存在数据依赖关系，所以可能会发生重排序，但是 c&#x3D;a+b 这个操作是不会被重排序的，因为需要保证最终的结果一定是 c&#x3D;a+b&#x3D;3。</li>
+</ul>
+<p>使用 volatile 关键字修饰共享变量可以禁止这种重排序。怎么做到的呢？</p>
+<p>当我们使用 volatile 关键字来修饰一个变量时，Java 内存模型会插入内存屏障（一个处理器指令，可以对 CPU 或编译器重排序做出约束）来确保以下两点：</p>
+<ul>
+<li>写屏障（Write Barrier）：当一个 volatile 变量被写入时，写屏障确保在该屏障之前的所有变量的写入操作都提交到主内存。</li>
+<li>读屏障（Read Barrier）：当读取一个 volatile 变量时，读屏障确保在该屏障之后的所有读操作都从主内存中读取。</li>
+</ul>
+<p>换句话说：</p>
+<ul>
+<li>当程序执行到 volatile 变量的读操作或者写操作时，在其前面操作的更改肯定已经全部进行，且结果对后面的操作可见；在其后面的操作肯定还没有进行；</li>
+<li>在进行指令优化时，不能将 volatile 变量的语句放在其后面执行，也不能把 volatile 变量后面的语句放到其前面执行。</li>
+</ul>
+<h2 id="5-3-volatile不保证原子性"><a href="#5-3-volatile不保证原子性" class="headerlink" title="5.3 volatile不保证原子性"></a>5.3 volatile不保证原子性</h2><p>比如i++操作：</p>
+<p>在Java（以及许多其他编程语言中），i++ 是一个后缀递增操作符，它对变量 i 执行一个复合操作，该操作可以分解为以下三个步骤（尽管在实际执行时这些步骤可能会被优化或合并，但从概念上讲）： </p>
+<ol>
+<li>读取（Load）：首先，从内存中读取变量 i 的当前值。这个值被加载到CPU的寄存器中，供后续操作使用。 </li>
+<li>修改（Increment）：然后，将寄存器中的值增加1。这个步骤是在CPU内部完成的，不涉及内存的读写操作（除了可能涉及的缓存一致性协议）。 </li>
+<li>写回（Store）：最后，将修改后的值写回到内存中变量 i 的位置。这一步确保了内存中 i 的值被更新为新的值。</li>
+</ol>
+<p> 需要注意的是，在多线程环境中，这三个步骤可能会被其他线程的类似操作打断，导致数据不一致的问题。特别是，如果两个线程几乎同时执行对同一个变量的 i++ 操作，它们可能会： 第一个线程读取了 i 的原始值（比如10）。 第二个线程也读取了 i 的相同原始值（因为第一个线程还没有写回新值）。 第一个线程增加1并将结果（11）写回内存。 第二个线程也增加1（基于它读取的旧值10），并将结果（也是11）写回内存，覆盖了第一个线程的结果。 </p>
+<p>这就是为什么在多线程环境中，即使使用了 volatile 关键字来确保变量的可见性，i++ 这样的复合操作也仍然需要额外的同步机制来确保原子性。volatile 保证了每次读取 i 时都会从主内存中获取最新值，但它并不保证 i++ 操作的原子性。</p>
+<p><strong>解决方式：</strong>使用<code>synchronized关键字（重入锁）</code>或者<code>lock接口的实现类ReentrantLock（重入锁）</code>进行加锁，总所周知学线程编程的时候都会学习的两个锁，可以保证原子性</p>
+<h1 id="六、synchronized关键字"><a href="#六、synchronized关键字" class="headerlink" title="六、synchronized关键字"></a>六、synchronized关键字</h1><p>由于我写累了就不写基本用法了，就是修饰静态代码块，同步方法（实例方法），静态方法（类方法）三种用途，不懂的可以自己去查资料</p>
+<p>重点放在关键字保证的线程安全上，<strong>synchronized关键字是允许指令重排的，也就是说，满足了 happens-before模型的结果一致原则的指令重排。</strong></p>
+<p>另外，<strong>synchronized属于重入锁，这部分放到多线程和锁的内容去介绍。</strong></p>
+]]></content>
+      <categories>
+        <category>Java</category>
+      </categories>
+      <tags>
+        <tag>多线程</tag>
+        <tag>面试</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Java多线程：三、多线程锁、java锁的实现</title>
+    <url>/2024/08/05/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E9%94%81/</url>
+    <content><![CDATA[<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>大部分内容由网上搜索，有直接复制粘贴的内容，本篇博客整理我查找的内容，且加入我个人的理解和个人需要了解的知识进行搜索得到的内容，有错误请在评论区留言</p>
+<h1 id="一、首先介绍一下锁"><a href="#一、首先介绍一下锁" class="headerlink" title="一、首先介绍一下锁"></a>一、首先介绍一下锁</h1><p>操作系统层面的锁： 操作系统通过锁机制来管理进程（或线程）对共享资源的访问，以防止数据竞争和保证数据一致性。 常见的操作系统锁包括互斥锁（Mutex）、读写锁（Read-Write Lock）、自旋锁（Spinlock）等，它们用于控制对临界区（Critical Section）的访问。 </p>
+<blockquote>
+<p>这里介绍一下“临界区”的概念。所谓“临界区”，指的是某一块代码区域，它同一时刻只能由一个线程执行。</p>
+</blockquote>
+<p>Java多线程的锁： Java中的锁是Java编程语言中用于实现多线程同步和互斥的机制。 Java提供了多种类型的锁，如synchronized关键字、ReentrantLock类、ReadWriteLock等，用于控制多线程对共享资源的并发访问。</p>
+<p>首先需要明确的一点是：<strong>Java 多线程的锁都是基于对象的</strong>，Java 中的每一个对象都可以作为一个锁。在<a href="https://localhost:4000/">上一节</a>最后一点讲synchronized的时候有提到，synchronized可以修饰静态方法和实例方法，<strong>synchronized在这里其实就是加上了一个类锁。</strong></p>
+<p>Class 对象是一种特殊的 Java 对象，代表了程序中的类和接口。Java 中的每个类型（包括类、接口、数组以及基础类型）在 JVM 中都有一个唯一的 Class 对象与之对应。这个 Class 对象被创建的时机是在 JVM 加载类时，由 JVM 自动完成。</p>
+<p>Class 对象中包含了与类相关的很多信息，如类的名称、类的父类、类实现的接口、类的构造方法、类的方法、类的字段等等。这些信息通常被称为元数据（metadata）。</p>
+<p>可以通过 Class 对象来获取类的元数据，甚至动态地创建类的实例、调用类的方法、访问类的字段等。这就是Java 的反射（Reflection）机制</p>
+<p>所以我们常说的类锁，其实就是 Class 对象的锁。</p>
+<p><strong>多线程锁的类型</strong></p>
+<p>Java中常用的多线程锁类型有以下几种:</p>
+<ol>
+<li>synchronized关键字</li>
+<li>ReentrantLock类</li>
+<li>ReadWriteLock接口</li>
+<li>StampedLock类</li>
+<li>Atomic类</li>
+</ol>
+<p>这几个我会在第三大节里面介绍，首先先看基本锁的类型</p>
+<h1 id="二、锁的分类"><a href="#二、锁的分类" class="headerlink" title="二、锁的分类"></a>二、锁的分类</h1><p>直接上一个图</p>
+<p><img src="other-bukfsdjavassmtjstd-b2ded433-defd-4535-b767-fd2e5be0b5b9.png"></p>
+<h2 id="1、乐观锁-VS-悲观锁"><a href="#1、乐观锁-VS-悲观锁" class="headerlink" title="1、乐观锁 VS 悲观锁"></a>1、乐观锁 VS 悲观锁</h2><h3 id="八股：乐观锁-VS-悲观锁"><a href="#八股：乐观锁-VS-悲观锁" class="headerlink" title="八股：乐观锁 VS 悲观锁"></a>八股：乐观锁 VS 悲观锁</h3><p>乐观锁与悲观锁是一种广义上的概念，体现了看待线程同步的不同角度。</p>
+<p>先说概念。对于同一个数据的并发操作，悲观锁认为自己在使用数据的时候一定有别的线程来修改数据，因此在获取数据的时候会先加锁，确保数据不会被别的线程修改。<strong>Java 中，synchronized 关键字 是最典型的悲观锁。</strong></p>
+<p>而乐观锁认为自己在使用数据时不会有别的线程修改数据，所以不会加锁，只是在更新数据的时候会去判断之前有没有别的线程更新了这个数据。如果这个数据没有被更新，当前线程将自己修改的数据写入。如果数据已经被其他线程更新，则根据不同的实现方式执行不同的操作（例如报错或者自动重试）。</p>
+<p>乐观锁在 Java 中是通过无锁编程来实现的，最常采用的是<strong>CAS 算法</strong>，<strong>Java 原子类</strong>的递增操作就通过 CAS 自旋实现的。</p>
+<p><img src="other-bukfsdjavassmtjstd-840de182-83e2-4639-868a-bd5cc984575f.png"></p>
+<p>根据上面的概念描述我们可以发现：</p>
+<ul>
+<li>悲观锁适合写操作多的场景，先加锁可以保证写操作时数据正确。</li>
+<li>乐观锁适合读操作多的场景，不加锁的特点能够使其读操作的性能大幅提升。</li>
+</ul>
+<h3 id="八股：CAS算法"><a href="#八股：CAS算法" class="headerlink" title="八股：CAS算法"></a>八股：CAS算法</h3><p>在2.1中提到，<strong>乐观锁采用的是无锁编程，底层有采用CAS算法，</strong>那么什么是CAS算法？</p>
+<p>CAS（Compare-and-Swap）是一种乐观锁的实现方式，全称为“比较并交换”，是一种无锁的原子操作。</p>
+<p>在并发编程中，我们都知道<code>i++</code>操作是非线程安全的，这是因为 <code>i++</code>操作不是原子操作，这个在volatile关键字里讲过，可以去翻一下</p>
+<p>在 CAS 中，有这样三个值：</p>
+<ul>
+<li>V：要更新的变量(var)</li>
+<li>E：预期值(expected)</li>
+<li>N：新值(new)</li>
+</ul>
+<p>比较并交换的过程如下：</p>
+<p>判断 V 是否等于 E，如果等于，将 V 的值设置为 N；如果不等，说明已经有其它线程更新了 V，于是当前线程放弃更新，什么都不做。</p>
+<p>这里的<strong>预期值 E 本质上指的是“旧值”</strong>。</p>
+<p>我们以一个简单的例子来解释这个过程：</p>
+<ol>
+<li>如果有一个多个线程共享的变量<code>i</code>原本等于 5，我现在在线程 A 中，想把它设置为新的值 6;</li>
+<li>我们使用 CAS 来做这个事情；</li>
+<li>首先我们用 i 去与 5 对比，发现它等于 5，说明没有被其它线程改过，那我就把它设置为新的值 6，此次 CAS 成功，<code>i</code>的值被设置成了 6；</li>
+<li>如果不等于 5，说明<code>i</code>被其它线程改过了（比如现在<code>i</code>的值为 2），那么我就什么也不做，此次 CAS 失败，<code>i</code>的值仍然为 2。</li>
+</ol>
+<p>在这个例子中，<code>i</code>就是 V，5 就是 E，6 就是 N。</p>
+<p>那有没有可能我在判断了<code>i</code>为 5 之后，正准备更新它的新值的时候，被其它线程更改了<code>i</code>的值呢？</p>
+<p>不会的。因为 CAS 是一种原子操作，它是一种系统原语，是一条 CPU 的原子指令，从 CPU 层面已经保证它的原子性。</p>
+<p><strong>当多个线程同时使用 CAS 操作一个变量时，只有一个会胜出，并成功更新，其余均会失败，但失败的线程并不会被挂起，仅是被告知失败，并且允许再次尝试，当然也允许失败的线程放弃操作。</strong></p>
+<h3 id="了解：CAS算法如何实现原子操作？"><a href="#了解：CAS算法如何实现原子操作？" class="headerlink" title="了解：CAS算法如何实现原子操作？"></a>了解：CAS算法如何实现原子操作？</h3><h4 id="（1）实现原理"><a href="#（1）实现原理" class="headerlink" title="（1）实现原理"></a>（1）实现原理</h4><p>java底层实现CAS操作是使用native关键字调用c++的接口</p>
+<p>在 Java 中，有一个<code>Unsafe</code>类（下文介绍什么是unsafe类），它在<code>sun.misc</code>包中。它里面都是一些<code>native</code>方法（下文也会介绍什么是native方法），其中就有几个是关于 CAS 的：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">boolean</span> <span class="title function_">compareAndSwapObject</span><span class="params">(Object o, <span class="type">long</span> offset,Object expected, Object x)</span>;</span><br><span class="line"><span class="type">boolean</span> <span class="title function_">compareAndSwapInt</span><span class="params">(Object o, <span class="type">long</span> offset,<span class="type">int</span> expected,<span class="type">int</span> x)</span>;</span><br><span class="line"><span class="type">boolean</span> <span class="title function_">compareAndSwapLong</span><span class="params">(Object o, <span class="type">long</span> offset,<span class="type">long</span> expected,<span class="type">long</span> x)</span>;</span><br></pre></td></tr></table></figure>
+
+<p>Unsafe 对 CAS 的实现是通过 C++ 实现的，它的具体实现和操作系统、CPU 都有关系。</p>
+<blockquote>
+<p>Unsafe 是 Java 中一个非常特殊的类，它为 Java 提供了一种底层、”不安全”的机制来直接访问和操作内存、线程和对象。正如其名字所暗示的，Unsafe 提供了许多不安全的操作，因此它的使用应该非常小心，并限于那些确实需要使用这些底层操作的场景。我们在这里涉及到这个类基本上是需要native方法。</p>
+</blockquote>
+<blockquote>
+<p><code>native</code>方法，简单的说就是由 Java 调用非 Java 代码的接口，被调用的方法是由非 Java 语言实现的，例如它可以由 C 或 C++语言来实现，并编译成 DLL，然后直接供 Java 进行调用。<code>native</code>方法是通过 JNI（<code>Java Native Interface</code>）实现调用的，从 Java 1.1 开始 JNI 标准就是 Java 平台的一部分，它允许 Java 代码和其他语言的代码进行交互。</p>
+</blockquote>
+<h4 id="（2）实现原子操作"><a href="#（2）实现原子操作" class="headerlink" title="（2）实现原子操作"></a>（2）实现原子操作</h4><p>JDK 提供了一些用于原子操作的类，在<code>java.util.concurrent.atomic</code>包下面。在 JDK 8 中，有以下这些类：</p>
+<p>这里就做部分了解，需要深入了解可自行搜相关内容</p>
+<p><img src="cas-20230731195315.png"></p>
+<h3 id="八股：CAS-的三大问题"><a href="#八股：CAS-的三大问题" class="headerlink" title="八股：CAS 的三大问题"></a>八股：CAS 的三大问题</h3><p>尽管 CAS 提供了一种有效的同步手段，但也存在一些问题，主要有以下三个：ABA 问题、长时间自旋、多个共享变量的原子操作。</p>
+<h4 id="（1）ABA-问题"><a href="#（1）ABA-问题" class="headerlink" title="（1）ABA 问题"></a>（1）ABA 问题</h4><p>所谓的 ABA 问题，就是一个值原来是 A，变成了 B，又变回了 A。<strong>而当前线程在CAS操作中错误地认为该变量没有被其他线程修改过，从而可能导致数据不一致或错误。</strong>这个时候使用 CAS 是检查不出变化的，但实际上却被更新了两次。</p>
+<p>ABA 问题的解决思路是在变量前面追加上<strong>版本号或者时间戳</strong>。从 JDK 1.5 开始，JDK 的 atomic 包里提供了一个类<code>AtomicStampedReference</code>类来解决 ABA 问题。</p>
+<p>这个类的<code>compareAndSet</code>方法的作用是首先检查当前引用是否等于预期引用，并且检查当前标志是否等于预期标志，如果二者都相等，才使用 CAS 设置为新的值和标志。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">compareAndSet</span><span class="params">(V   expectedReference,</span></span><br><span class="line"><span class="params">                              V   newReference,</span></span><br><span class="line"><span class="params">                              <span class="type">int</span> expectedStamp,</span></span><br><span class="line"><span class="params">                              <span class="type">int</span> newStamp)</span> &#123;</span><br><span class="line">    Pair&lt;V&gt; current = pair;</span><br><span class="line">    <span class="keyword">return</span></span><br><span class="line">        expectedReference == current.reference &amp;&amp;</span><br><span class="line">        expectedStamp == current.stamp &amp;&amp;</span><br><span class="line">        ((newReference == current.reference &amp;&amp;</span><br><span class="line">          newStamp == current.stamp) ||</span><br><span class="line">          casPair(current, Pair.of(newReference, newStamp)));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>先来看参数：</p>
+<ul>
+<li>expectedReference：预期引用，也就是你认为原本应该在那个位置的引用。</li>
+<li>newReference：新引用，如果预期引用正确，将被设置到该位置的新引用。</li>
+<li>expectedStamp：预期标记，这是你认为原本应该在那个位置的标记。</li>
+<li>newStamp：新标记，如果预期标记正确，将被设置到该位置的新标记。</li>
+</ul>
+<p>执行流程：</p>
+<p>①、<code>Pair&lt;V&gt; current = pair;</code> 这行代码获取当前的 pair 对象，其中包含了引用和标记。</p>
+<p>②、接下来的 return 语句做了几个检查：</p>
+<ul>
+<li><code>expectedReference == current.reference &amp;&amp; expectedStamp == current.stamp</code>：首先检查当前的引用和标记是否和预期的引用和标记相同。如果二者中有任何一个不同，这个方法就会返回 false。</li>
+<li>如果上述检查通过，也就是说当前的引用和标记与预期的相同，那么接下来就会检查新的引用和标记是否也与当前的相同。如果相同，那么实际上没有必要做任何改变，这个方法就会返回 true。</li>
+<li>如果新的引用或者标记与当前的不同，那么就会调用 casPair 方法来尝试更新 pair 对象。casPair 方法会尝试用 newReference 和 newStamp 创建的新的 Pair 对象替换当前的 pair 对象。如果替换成功，casPair 方法会返回 true；如果替换失败（也就是说在尝试替换的过程中，pair 对象已经被其他线程改变了），casPair 方法会返回 false。</li>
+</ul>
+<h4 id="（2）长时间自旋"><a href="#（2）长时间自旋" class="headerlink" title="（2）长时间自旋"></a>（2）长时间自旋</h4><p>CAS 多与自旋结合。如果自旋 CAS 长时间不成功，会占用大量的 CPU 资源（存在一直自旋到最大次数后停止的情况，但是占用很多cpu资源）。</p>
+<p>解决思路是让 JVM 支持处理器提供的<strong>pause 指令</strong>（还有其他的，可以再去搜一些内容）。</p>
+<p>pause 指令能让自旋失败时 cpu 睡眠一小段时间再继续自旋，从而使得读操作的频率降低很多，为解决内存顺序冲突而导致的 CPU 流水线重排的代价也会小很多。</p>
+<h4 id="（3）多个共享变量的原子操作"><a href="#（3）多个共享变量的原子操作" class="headerlink" title="（3）多个共享变量的原子操作"></a>（3）多个共享变量的原子操作</h4><p>当对一个共享变量执行操作时，CAS 能够保证该变量的原子性。但是对于多个共享变量，CAS 就无法保证操作的原子性，这时通常有两种做法：</p>
+<ol>
+<li>使用<code>AtomicReference</code>类保证对象之间的原子性，把多个变量放到一个对象里面进行 CAS 操作；</li>
+<li>使用锁。锁内的临界区代码可以保证只有当前线程能操作。</li>
+</ol>
+<h2 id="2、自旋锁-VS-自适应自旋锁"><a href="#2、自旋锁-VS-自适应自旋锁" class="headerlink" title="2、自旋锁 VS 自适应自旋锁"></a>2、自旋锁 VS 自适应自旋锁</h2><h4 id="自旋锁"><a href="#自旋锁" class="headerlink" title="自旋锁"></a>自旋锁</h4><p>先了解一下临界资源：</p>
+<p><strong>临界资源指的是多个进程&#x2F;线程共同访问的某类资源，如打印机、数据表格或变量等。由于这些资源同时只能被一个进程&#x2F;线程安全地使用，因此在并发编程中需要对它们的访问进行控制，以避免数据不一致或竞态条件的发生。</strong></p>
+<p>突发提问，临界区是什么？不记得了看第一节介绍锁的地方吧</p>
+<p><strong>自旋锁（Spinlock）</strong>是一种对<strong>临界资源</strong>进行互斥访问的手段，自旋锁的定义和工作原理如下：</p>
+<p><strong>定义：</strong></p>
+<p>自旋锁是一种锁机制，当一个线程尝试去获取某一把锁的时候，如果这个锁已经被另外一个线程占有了，那么此线程就无法获取这把锁，该线程会等待，间隔一段时间后再次尝试获取。这种采用循环加锁，等待锁释放的机制就称为自旋锁。</p>
+<p><strong>工作原理：</strong></p>
+<ul>
+<li><strong>等待与重试</strong>：当线程发现锁被占用时，不是进入睡眠或阻塞状态，而是采用忙等待（busy waiting）的方式，即不断循环检查锁的状态，直到锁被释放。</li>
+<li><strong>原子操作</strong>：在自旋锁的实现中，对锁状态的检查和修改必须是原子操作，以避免竞态条件。</li>
+</ul>
+<p><strong>自旋锁通过等待和不断重试的操作，避免了线程的cpu来回切换，减少开销。</strong>仔细一想，如果锁里面的代码一下子就执行完成，甚至比切换线程，切换CPU的状态还要快，不使用自旋锁是不是有点得不偿失了呢？</p>
+<p><img src="other-bukfsdjavassmtjstd-be0964a8-856a-45c9-ab75-ce9505c2e237.png"></p>
+<p>自旋锁本身是有缺点的，它不能代替阻塞。自旋等待虽然避免了线程切换的开销，但它要占用处理器时间。如果锁被占用的时间很短，自旋等待的效果就会非常好。反之，如果锁被占用的时间很长，那么自旋的线程只会白白浪费处理器资源。所以，自旋等待的时间必须要有一定的限度，如果自旋超过了限定次数（默认是 10 次，可以使用<code>-XX:PreBlockSpin</code> 来更改）没有成功获得锁，就应当挂起线程。</p>
+<p><strong>自旋锁的实现原理同样也是 CAS</strong>，AtomicInteger 中调用 unsafe 进行自增操作的源码中的 do-while 循环就是一个自旋操作，如果修改数值失败则通过循环来执行自旋，直至修改成功。</p>
+<p><img src="other-bukfsdjavassmtjstd-0756521c-becf-4657-ab42-1973d74e9c73.png"></p>
+<h4 id="自适应自旋锁"><a href="#自适应自旋锁" class="headerlink" title="自适应自旋锁"></a>自适应自旋锁</h4><p><strong>自适应意味着自旋的时间（次数）不再固定，而是由前一次在同一个锁上的自旋时间及锁的拥有者的状态来决定。</strong>如果在同一个锁对象上，自旋刚刚成功获得过锁，并且持有锁的线程正在运行中，那么虚拟机就会认为这次自旋也是很有可能再次成功的，进而它将允许自旋等待更长的时间。如果对于某个锁，自旋很少成功获得过，那在以后尝试获取这个锁时将可能省略掉自旋过程，直接阻塞线程，避免浪费处理器资源。</p>
+<h2 id="3、无锁偏、向锁、轻量级锁、重量级锁"><a href="#3、无锁偏、向锁、轻量级锁、重量级锁" class="headerlink" title="3、无锁偏、向锁、轻量级锁、重量级锁"></a>3、无锁偏、向锁、轻量级锁、重量级锁</h2><p>这四种锁是专门针对 synchronized 的，我们在第三大节：JUC包下的锁中去介绍。</p>
+<h2 id="4、可重入锁-VS-不可重入锁"><a href="#4、可重入锁-VS-不可重入锁" class="headerlink" title="4、可重入锁 VS 不可重入锁"></a>4、可重入锁 VS 不可重入锁</h2><p>可重入锁又名递归锁，是指同一个线程在外层方法获取锁的时候，再进入该线程的内层方法会自动获取锁（前提：锁的是同一个对象或者 class），不会因为之前已经获取过还没释放而阻塞。Java 中<code>ReentrantLock</code>和<code>synchronized</code>都是可重入锁，可重入锁的一个优点就是可以一定程度避免死锁。</p>
+<p><strong>为什么可重入锁就可以在嵌套调用时自动获得锁呢？</strong></p>
+<h3 id="（1）实现机制"><a href="#（1）实现机制" class="headerlink" title="（1）实现机制"></a>（1）实现机制</h3><p>可重入锁的实现通常依赖于以下几个关键点：</p>
+<ol>
+<li>锁计数器（Lock Counter）<ul>
+<li>每个锁对象都维护一个计数器，用于记录该锁被当前线程持有的次数。</li>
+<li>当线程首次获取锁时，计数器被初始化为1。</li>
+<li>如果线程在持有锁的情况下再次尝试获取同一个锁，计数器将递增。</li>
+</ul>
+</li>
+<li>锁的持有者（Lock Owner）<ul>
+<li>锁对象还记录着当前持有该锁的线程。</li>
+<li>只有锁的当前持有者线程才能增加锁的计数器（即重复获取锁）。</li>
+</ul>
+</li>
+<li>锁释放（Lock Release）<ul>
+<li>当线程退出被锁保护的代码区域时，它会释放锁。</li>
+<li>释放锁时，锁的计数器会递减。</li>
+<li>如果计数器减至0，则表示当前线程已经完全释放了锁，其他线程可以尝试获取该锁。</li>
+</ul>
+</li>
+</ol>
+<h3 id="（2）嵌套调用的自动加锁"><a href="#（2）嵌套调用的自动加锁" class="headerlink" title="（2）嵌套调用的自动加锁"></a>（2）嵌套调用的自动加锁</h3><p>之前我们说过 ReentrantLock 和 synchronized 都是重入锁，那么我们通过重入锁 ReentrantLock 以及非可重入锁 NonReentrantLock 的源码来对比分析一下为什么非可重入锁在重复调用同步资源时会出现死锁。</p>
+<p>首先<code>ReentrantLock</code>和<code> NonReentrantLock</code> 都继承了父类<code>AQS</code>（第三大节），其父类 AQS 中维护了一个同步状态 status 来计数重入次数，status 初始值为 0。</p>
+<p>当线程在持有可重入锁的情况下进入嵌套调用（即一个被锁保护的方法或代码块内部调用了另一个被相同锁保护的方法或代码块）时，由于当前线程已经是锁的持有者，因此它可以自动增加锁的计数器，而无需等待锁的释放。这样，线程就可以无缝地进入内层被锁保护的区域，而不会导致死锁或阻塞。</p>
+<p>非可重入锁则是在确定当前线程是持有锁的线程之后，直接将 status 置为 0，将锁释放。</p>
+<p><img src="other-bukfsdjavassmtjstd-d6e12a34-c889-45e1-83bf-a4d7e36eedde.png"></p>
+<h2 id="5、公平锁和非公平锁"><a href="#5、公平锁和非公平锁" class="headerlink" title="5、公平锁和非公平锁"></a>5、公平锁和非公平锁</h2><p>这里的“公平”，其实通俗意义来说就是“先来后到”，也就是 FIFO。如果对一个锁来说，先对锁获取请求的线程一定会先被满足，后对锁获取请求的线程后被满足，那这个锁就是公平的。反之，那就是不公平的。</p>
+<p>一般情况下，<strong>非公平锁能提升一定的效率。但是非公平锁可能会发生线程饥饿（有一些线程长时间得不到锁）的情况</strong>。所以要根据实际的需求来选择非公平锁和公平锁。</p>
+<p><code>ReentrantLock</code> 支持非公平锁和公平锁两种。</p>
+<h2 id="6、读写锁和排它锁"><a href="#6、读写锁和排它锁" class="headerlink" title="6、读写锁和排它锁"></a>6、读写锁和排它锁</h2><p> <code>synchronized</code>和<code>ReentrantLock</code>，其实都是“排它锁”。也就是说，这些锁在同一时刻只允许一个线程进行访问。</p>
+<p>而读写锁可以在同一时刻允许多个读线程访问。Java 提供了 <code>ReentrantReadWriteLock</code>类作为读写锁的默认实现，内部维护了两个锁：一个读锁，一个写锁。通过分离读锁和写锁，使得在“读多写少”的环境下，大大地提高了性能。</p>
+<h3 id="（1）介绍一下ReentrantReadWriteLock："><a href="#（1）介绍一下ReentrantReadWriteLock：" class="headerlink" title="（1）介绍一下ReentrantReadWriteLock："></a>（1）介绍一下<strong>ReentrantReadWriteLock</strong>：</h3><p><strong>ReentrantReadWriteLock</strong>：是Java中的一个读写锁实现，它允许多个线程同时读取共享资源（读读可以并发），但在写入时只允许一个线程独占（读写、写读、写写互斥）。这个锁支持重入，即同一个线程可以多次获取相同类型的锁。它提高了读操作的并发性，同时保证了写操作的独占性。</p>
+<p><strong>我相信没学过ReentrantReadWriteLock的人肯定认为和ReentrantLock有什么关系。</strong></p>
+<p>实际上什么关系都没有，ReentrantReadWriteLock和ReentrantLock之间并没有继承关系。它们各自独立实现，服务于不同的锁需求。ReentrantReadWriteLock实现了<code>ReadWriteLock</code>接口。这个接口提供了两个锁对象：读锁（ReadLock）和写锁（WriteLock），分别通过<code>readLock()</code>和<code>writeLock()</code>方法获取。</p>
+<p>好了到这里，又有人想，<code>ReentrantReadWriteLock</code>实现了<code>ReadWriteLock</code>接口，而<code>ReentrantLock</code>实现了<code>Lock</code>接口，那么<code>ReadWriteLock</code>接口和<code>Lock</code>接口是不是继承关系？<strong>实际上也不是，都是JUC包下独立的接口。</strong></p>
+<h3 id="（2）回归正题："><a href="#（2）回归正题：" class="headerlink" title="（2）回归正题："></a><strong>（2）回归正题：</strong></h3><p>排它锁也叫独享锁，如果线程 T 对数据 A 加上排它锁后，则其他线程不能再对 A 加任何类型的锁。获得排它锁的线程既能读数据又能修改数据。</p>
+<p>与之对应的，就是共享锁，指该锁可被多个线程所持有。如果线程 T 对数据 A 加上共享锁后，则其他线程只能对 A 再加共享锁，不能加排它锁。获得共享锁的线程只能读数据，不能修改数据。</p>
+<p>独享锁与共享锁也是通过<code>AQS</code>（第三大节介绍）来实现的，通过实现不同的方法，来实现独享或者共享。</p>
+<p>下图为 <code>ReentrantReadWriteLock</code> 的部分源码：</p>
+<p><img src="other-bukfsdjavassmtjstd-baa93e76-ac90-4955-8955-50dabc6efbdd.png"></p>
+<p>我们看到ReentrantReadWriteLock有两把锁：ReadLock 和 WriteLock，由词知意，一个读锁一个写锁，合称“读写锁”。再进一步观察可以发现 ReadLock 和 WriteLock 是靠内部类 Sync 实现的锁。Sync 是 AQS（第三大节介绍） 的一个子类。</p>
+<p>在 ReentrantReadWriteLock 里面，读锁和写锁的锁主体都是 Sync，但读锁和写锁的加锁方式不一样。读锁是共享锁，写锁是独享锁。读锁的共享锁可保证并发读非常高效，而读写、写读、写写的过程互斥，因为读锁和写锁是分离的。所以 ReentrantReadWriteLock 的并发性相比一般的互斥锁有了很大提升。</p>
+<p><strong>那读锁和写锁的具体加锁方式有什么区别呢？</strong></p>
+<p>AQS中的存储status字段，该字段用来描述有多少线程持有锁。</p>
+<p>在独享锁中，这个值通常是 0 或者 1（如果是重入锁的话 state 值就是重入的次数），在共享锁中 state 就是持有锁的数量。但是ReentrantReadWriteLock 中有读、写两把锁，所以需要在一个整型变量 state 上分别描述读锁和写锁的数量（或者也可以叫状态）。</p>
+<p>关于深入去探究status字段的切割等底层原理就不写了，可以自行参考，我相信你准备面试也看不完这个</p>
+<h1 id="三、JUC包下的锁"><a href="#三、JUC包下的锁" class="headerlink" title="三、JUC包下的锁"></a>三、JUC包下的锁</h1><h2 id="1、抽象类AQS-AQLS-AOS"><a href="#1、抽象类AQS-AQLS-AOS" class="headerlink" title="1、抽象类AQS&#x2F;AQLS&#x2F;AOS"></a>1、抽象类AQS&#x2F;AQLS&#x2F;AOS</h2><h3 id="什么是AQS？"><a href="#什么是AQS？" class="headerlink" title="什么是AQS？"></a>什么是AQS？</h3><p>重要的事情说三遍</p>
+<p><strong>AQS的全称为（AbstractQueuedSynchronizer）抽象的队列式的同步器</strong>，是并发编程中实现同步器的一个框架，用来存储<strong>同步状态（State）和线程队列（CLH队列的变体）</strong>。</p>
+<p><strong>AQS的全称为（AbstractQueuedSynchronizer）抽象的队列式的同步器</strong>，是并发编程中实现同步器的一个框架，用来存储<strong>同步状态（State）和线程队列（CLH队列的变体）</strong>。</p>
+<p><strong>AQS的全称为（AbstractQueuedSynchronizer）抽象的队列式的同步器</strong>，是并发编程中实现同步器的一个框架，用来存储<strong>同步状态（State）和线程队列（CLH队列的变体）</strong>。</p>
+<p>我们需要特别记住<strong>同步状态（State）和线程队列（CLH队列的变体）。</strong></p>
+<p>字面意思理解：</p>
+<ol>
+<li><p>是一个抽象类，也就是它定义了一些基础功能，会有很多子类去扩展他的功能。</p>
+</li>
+<li><p>是一个队列式的，也就是会用来协调多个线程的。</p>
+</li>
+<li><p>是一个同步器，那么是用来给多个线程同步某个数据或者某个状态的。</p>
+</li>
+</ol>
+<p>AQS 是一个用来构建锁和同步器的框架，使用 AQS 能简单且高效地构造出应用广泛的同步器，比如 <strong>ReentrantLock、ReentrantReadWriteLock</strong>等等，都是基于 AQS 的。</p>
+<p>AQS 里面的“资源”是用一个<code>int</code>类型的数据来表示的，有时候业务需求的资源数超出了<code>int</code>的范围，所以在 JDK 1.6 中，多了一个<strong>AQLS</strong>（AbstractQueuedLongSynchronizer）。它的代码跟 AQS 几乎一样，只是把资源的类型变成了<code>long</code>类型。AQS 和 AQLS 都继承了一个类叫<strong>AOS</strong>（AbstractOwnableSynchronizer）。这个类也是在 JDK 1.6 中出现的。</p>
+<h3 id="数据结构"><a href="#数据结构" class="headerlink" title="数据结构"></a>数据结构</h3><h4 id="同步状态status"><a href="#同步状态status" class="headerlink" title="同步状态status"></a>同步状态status</h4><p>AQS 内部使用了一个volatile的变量 state 来作为资源的标识。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * The synchronization state.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">volatile</span> <span class="type">int</span> state;</span><br></pre></td></tr></table></figure>
+
+<p>同时定义了几个获取和改变 state 的 protected 方法，子类可以覆盖这些方法来实现自己的逻辑：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">getState()</span><br><span class="line">setState()</span><br><span class="line">compareAndSetState()</span><br></pre></td></tr></table></figure>
+
+<p>这三种操作均是原子操作，其中 compareAndSetState 的实现依赖于 Unsafe类 的 <code>compareAndSwapInt()</code> 方法。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"> <span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 同步状态值</span></span><br><span class="line"><span class="comment"> * 使用volatile修饰，保证多线程修改的可见性</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">volatile</span> <span class="type">int</span> state;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 获取同步状态值</span></span><br><span class="line"><span class="comment"> * 使用final修饰，子类不能覆盖，只能调用</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">protected</span> <span class="keyword">final</span> <span class="type">int</span> <span class="title function_">getState</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> state;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 修改同步状态值</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">protected</span> <span class="keyword">final</span> <span class="keyword">void</span> <span class="title function_">setState</span><span class="params">(<span class="type">int</span> newState)</span> &#123;</span><br><span class="line">    state = newState;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * CAS修改state值</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">protected</span> <span class="keyword">final</span> <span class="type">boolean</span> <span class="title function_">compareAndSetState</span><span class="params">(<span class="type">int</span> expect, <span class="type">int</span> update)</span> &#123;</span><br><span class="line">        <span class="comment">// See below for intrinsics setup to support this</span></span><br><span class="line">        <span class="keyword">return</span> unsafe.compareAndSwapInt(<span class="built_in">this</span>, stateOffset, expect, update);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h4 id="Node节点"><a href="#Node节点" class="headerlink" title="Node节点"></a>Node节点</h4><p>AQS 内部使用了一个先进先出（FIFO）的双端队列，并使用了两个引用 head 和 tail 用于标识队列的头部和尾部。</p>
+<p>但它并不直接储存线程，而是储存拥有线程的 Node 节点。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">class</span> <span class="title class_">Node</span> &#123;</span><br><span class="line">    <span class="comment">/**共享模式*/</span></span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">Node</span> <span class="variable">SHARED</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Node</span>();</span><br><span class="line">    <span class="comment">/**独占模式*/</span></span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">Node</span> <span class="variable">EXCLUSIVE</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**标记线程由于中断或超时，需要被取消，即踢出队列*/</span></span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">CANCELLED</span> <span class="operator">=</span>  <span class="number">1</span>;</span><br><span class="line">    <span class="comment">/**线程需要被唤醒*/</span></span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">SIGNAL</span> <span class="operator">=</span> -<span class="number">1</span>;</span><br><span class="line">    <span class="comment">/**线程正在等待一个条件*/</span></span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">CONDITION</span> <span class="operator">=</span> -<span class="number">2</span>;</span><br><span class="line">    <span class="comment">/**传播 当前节点执行释放release操作后，需要通知到其他线程*/</span></span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">PROPAGATE</span> <span class="operator">=</span> -<span class="number">3</span>;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// waitStatus只取上面CANCELLED、SIGNAL、CONDITION、PROPAGATE四种取值之一</span></span><br><span class="line">    <span class="keyword">volatile</span> <span class="type">int</span> waitStatus;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 表示前驱节点</span></span><br><span class="line">    <span class="keyword">volatile</span> Node prev;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 表示后继节点</span></span><br><span class="line">    <span class="keyword">volatile</span> Node next;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 队列元素需要关联一个线程对象</span></span><br><span class="line">    <span class="keyword">volatile</span> Thread thread;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 表示下一个waitStatus值为CONDITION的节点</span></span><br><span class="line">    Node nextWaiter;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 是否当前结点是处于共享模式</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">final</span> <span class="type">boolean</span> <span class="title function_">isShared</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> nextWaiter == SHARED;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 返回前一个节点，如果没有前一个节点，则抛出空指针异常</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">final</span> Node <span class="title function_">predecessor</span><span class="params">()</span> <span class="keyword">throws</span> NullPointerException &#123;</span><br><span class="line">        <span class="comment">// 获取前一个节点的指针</span></span><br><span class="line">        <span class="type">Node</span> <span class="variable">p</span> <span class="operator">=</span> prev;</span><br><span class="line">        <span class="comment">// 如果前一个节点不存在</span></span><br><span class="line">        <span class="keyword">if</span> (p == <span class="literal">null</span>)</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">NullPointerException</span>();</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">        <span class="comment">// 否则返回</span></span><br><span class="line">            <span class="keyword">return</span> p;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 初始化头节点使用</span></span><br><span class="line">    Node() &#123;&#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     *  当有线程需要入队时，那么就创建一个新节点，然后关联该线程对象，由addWaiter()方法调用</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    Node(Thread thread, Node mode) &#123;     <span class="comment">// Used by addWaiter</span></span><br><span class="line">        <span class="built_in">this</span>.nextWaiter = mode;</span><br><span class="line">        <span class="built_in">this</span>.thread = thread;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 一个线程需要等待一个条件阻塞了，那么就创建一个新节点，关联线程对象</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    Node(Thread thread, <span class="type">int</span> waitStatus) &#123; <span class="comment">// Used by Condition</span></span><br><span class="line">        <span class="built_in">this</span>.waitStatus = waitStatus;</span><br><span class="line">        <span class="built_in">this</span>.thread = thread;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>通过 Node 我们可以实现两种队列：</p>
+<p>1）一是通过 prev 和 next 实现 CLH（Craig, Landin, and Hagersten）队列（线程同步队列、双向队列）。</p>
+<p>在 CLH 锁中，每个等待的线程都会有一个关联的 Node，每个 Node 有一个 prev 和 next 指针。当一个线程尝试获取锁并失败时，它会将自己添加到队列的尾部并自旋，等待前一个节点的线程释放锁。类似下面这样。</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">public class CLHLock &#123;</span><br><span class="line">    private volatile Node tail;</span><br><span class="line">    private ThreadLocal&lt;Node&gt; myNode = ThreadLocal.withInitial(Node::new);</span><br><span class="line">    private ThreadLocal&lt;Node&gt; myPred = new ThreadLocal&lt;&gt;();</span><br><span class="line"></span><br><span class="line">    public void lock() &#123;</span><br><span class="line">        Node node = myNode.get();</span><br><span class="line">        node.locked = true;</span><br><span class="line">        // 把自己放到队尾，并取出前面的节点</span><br><span class="line">        Node pred = tail;</span><br><span class="line">        myPred.set(pred);</span><br><span class="line">        while (pred.locked) &#123;</span><br><span class="line">            // 自旋等待</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    public void unlock() &#123;</span><br><span class="line">        Node node = myNode.get();</span><br><span class="line">        node.locked = false;</span><br><span class="line">        myNode.set(myPred.get());</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    private static class Node &#123;</span><br><span class="line">        private volatile boolean locked;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>2）二是通过 nextWaiter 实现 <code>Condition</code>上的等待线程队列（单向队列），这个 Condition 主要用在 <code>ReentrantLock</code>类中。</p>
+<h2 id="2、接口-Condition-Lock-ReadWriteLock"><a href="#2、接口-Condition-Lock-ReadWriteLock" class="headerlink" title="2、接口 Condition&#x2F;Lock&#x2F;ReadWriteLock"></a>2、接口 Condition&#x2F;Lock&#x2F;ReadWriteLock</h2><p>locks 包下共有三个接口：<code>Condition</code>、<code>Lock</code>、<code>ReadWriteLock</code>。</p>
+<p>其中，Lock 和 ReadWriteLock 从名字就可以看得出来，分别是锁和读写锁的意思。Lock 接口里面有一些获取锁和释放锁的方法声明，而 ReadWriteLock 里面只有两个方法，分别返回“读锁”和“写锁”：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">ReadWriteLock</span> &#123;</span><br><span class="line">    Lock <span class="title function_">readLock</span><span class="params">()</span>;</span><br><span class="line">    Lock <span class="title function_">writeLock</span><span class="params">()</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Lock 接口中有一个方法可以获得一个Condition：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">Condition <span class="title function_">newCondition</span><span class="params">()</span>;</span><br></pre></td></tr></table></figure>
+
+<p>之前我们提到过每个对象都可以用<code>Object</code>的<strong>wait&#x2F;notify</strong>方法来实现<strong>等待&#x2F;通知机制</strong>。而 Condition 接口也提供了类似 Object 的方法，可以配合<strong>Lock</strong>来实现等待&#x2F;通知模式。使用Condition监视器的理由可以认为线程等待队列可以是多个，而object只能是一个。</p>
+<h2 id="3、ReentrantLock类"><a href="#3、ReentrantLock类" class="headerlink" title="3、ReentrantLock类"></a>3、ReentrantLock类</h2><p>ReentrantLock 是 Lock 接口的默认实现，实现了锁的基本功能。</p>
+<p>从名字上看，它是一个“可重入”锁，从源码上看，它内部有一个抽象类<code>Sync</code>，继承了 <code>AQS</code>，自己实现了一个同步器。</p>
+<p>同时，ReentrantLock 内部有两个非抽象类<code>NonfairSync</code>和<code>FairSync</code>，它们都继承了 Sync。从名字上可以看得出，分别是”非公平同步器“和”公平同步器“的意思。这意味着 ReentrantLock 可以支持”公平锁“和”非公平锁“。</p>
+<p>通过看这两个同步器的源码可以发现，它们的实现都是”独占“的。都调用了 AOS 的<code>setExclusiveOwnerThread</code>方法，所以 ReentrantLock 的锁是”独占“的，也就是说，它的锁都是”排他锁“，不能共享。</p>
+<p>在 ReentrantLock 的构造方法里，可以传入一个<code>boolean</code>类型的参数，来指定它是否是一个公平锁，默认情况下是非公平的。这个参数一旦实例化后就不能修改，只能通过<code>isFair()</code>方法来查看。</p>
+<p><strong>根据第二大节中的内容，ReentrantLock 是可重入锁、公平锁和非公平锁、排它锁。</strong></p>
+<h2 id="4、synchronized关键字"><a href="#4、synchronized关键字" class="headerlink" title="4、synchronized关键字"></a>4、synchronized关键字</h2><p>在Java中，<code>synchronized</code> 关键字用于控制多个线程对共享资源的访问，其底层实现涉及多种锁状态，这些状态根据竞争情况逐步升级，以提高锁的获取与释放效率。我查到的资料说，在jdk1.6之前所有锁都是操作系统提供的重量级锁，后续对synchronized进行优化，直到现在出现了<strong>四个锁状态</strong>，<strong>由低到高</strong>（即锁的要求越来越高）分别是<strong>无锁状态、偏向锁、轻量级锁状态、重量级锁状态。</strong></p>
+<h3 id="无锁状态"><a href="#无锁状态" class="headerlink" title="无锁状态"></a>无锁状态</h3><p><strong>定义</strong>：<br>无锁状态是指没有对资源进行锁定，所有的线程都能访问并尝试修改同一个资源，但同时只有一个线程能修改成功。无锁的特点是修改操作会在循环内进行，线程会不断地尝试修改共享资源。如果没有冲突就修改成功并退出，否则就会继续循环尝试。</p>
+<p><strong>特点</strong>：</p>
+<ul>
+<li>无需使用锁机制，适用于线程冲突较少的场景。</li>
+<li>线程通过自旋（CAS）来尝试访问资源，直至成功。</li>
+</ul>
+<h3 id="偏向锁状态"><a href="#偏向锁状态" class="headerlink" title="偏向锁状态"></a>偏向锁状态</h3><p><strong>定义</strong>：<br>偏向锁是指当一段同步代码一直被同一个线程所访问时，即不存在多个线程的竞争时，那么该线程在后续访问时便会自动获得锁，从而降低获取锁带来的消耗，即提高性能。</p>
+<p><strong>特点</strong>：</p>
+<ul>
+<li>偏向锁的目标是减少无竞争且只有一个线程使用锁的情况下的性能消耗。</li>
+<li>JVM使用CAS操作把线程ID记录到对象的Mark Word（等下介绍）当中，并修改标识位，当前线程就拥有了这把锁。</li>
+<li>偏向锁只有遇到其他线程尝试竞争偏向锁时，持有偏向锁的线程才会释放锁。</li>
+</ul>
+<h3 id="轻量级锁状态"><a href="#轻量级锁状态" class="headerlink" title="轻量级锁状态"></a>轻量级锁状态</h3><p><strong>定义</strong>：<br>轻量级锁是指当锁是偏向锁的时候，却被另外的线程所访问，此时偏向锁就会升级为轻量级锁。其他线程会通过自旋的形式尝试获取锁，线程不会阻塞，从而提高性能。</p>
+<p><strong>特点</strong>：</p>
+<ul>
+<li>轻量级锁是介于偏向锁和重量级锁之间的锁实现。</li>
+<li>通过CAS操作尝试将对象的Mark Word更新为指向Lock Record的指针，如果成功，则线程拥有锁。</li>
+<li>适用于线程竞争不激烈且同步块执行时间较短的场景。</li>
+<li>如果多个线程竞争锁，轻量级锁可能会升级为重量级锁。</li>
+</ul>
+<h3 id="重量级锁状态"><a href="#重量级锁状态" class="headerlink" title="重量级锁状态"></a>重量级锁状态</h3><p><strong>定义</strong>：<br>重量级锁是指当多个线程竞争同一个锁时，锁的状态会升级为重量级锁。此时，除了锁的拥有者外，其余线程都会处于阻塞状态。</p>
+<p><strong>特点</strong>：</p>
+<ul>
+<li>重量级锁通过对象内部的监视器锁（monitor）实现，依赖于操作系统的Mutex Lock。</li>
+<li>线程阻塞和唤醒的开销较大，适用于线程竞争激烈的场景。</li>
+<li>当轻量级锁的自旋次数达到一定阈值时，如果仍未获得锁，则会升级为重量级锁。</li>
+</ul>
+<p>好，现在看到这里大部分的无锁偏、向锁、轻量级锁、重量级锁内容就可以解释清楚了，但是博客写到这里的时候，我就在思考，<strong>synchronized的锁底层并没有使用AQS这样的抽象队列同步器，为什么synchronized可以实现可重入锁，排它锁的功能？</strong></p>
+<p>首先我们需要了解，java中的锁存放在哪里，上面的提到的Mark Word是什么？</p>
+<h3 id="Java锁的位置、什么是Mark-Word？"><a href="#Java锁的位置、什么是Mark-Word？" class="headerlink" title="Java锁的位置、什么是Mark Word？"></a>Java锁的位置、什么是Mark Word？</h3><p>首先我们来看看一个对象的“锁”是存放在什么地方的。</p>
+<p>每个 Java 对象都有一个对象头。如果是非数组类型，则用 2 个字宽来存储对象头，如果是数组，则会用 3 个字宽来存储对象头。在 32 位处理器中，一个字宽是 32 位；在 64 位虚拟机中，一个字宽是 64 位。对象头的内容如下表所示：</p>
+<table>
+<thead>
+<tr>
+<th>长度</th>
+<th>内容</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>32&#x2F;64bit</td>
+<td>Mark Word</td>
+<td>存储对象的 hashCode 或锁信息等</td>
+</tr>
+<tr>
+<td>32&#x2F;64bit</td>
+<td>Class Metadata Address</td>
+<td>存储到对象类型数据的指针</td>
+</tr>
+<tr>
+<td>32&#x2F;64bit</td>
+<td>Array length</td>
+<td>数组的长度（如果是数组）</td>
+</tr>
+</tbody></table>
+<p>我们主要来看看 Mark Word 的格式：</p>
+<table>
+<thead>
+<tr>
+<th>锁状态</th>
+<th>29 bit 或 61 bit</th>
+<th>1 bit 是否是偏向锁？</th>
+<th>2 bit 锁标志位</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>无锁</td>
+<td></td>
+<td>0</td>
+<td>01</td>
+</tr>
+<tr>
+<td>偏向锁</td>
+<td>线程 ID</td>
+<td>1</td>
+<td>01</td>
+</tr>
+<tr>
+<td>轻量级锁</td>
+<td>指向栈中锁记录的指针</td>
+<td>此时这一位不用于标识偏向锁</td>
+<td>00</td>
+</tr>
+<tr>
+<td>重量级锁</td>
+<td>指向互斥量（重量级锁）的指针</td>
+<td>此时这一位不用于标识偏向锁</td>
+<td>10</td>
+</tr>
+<tr>
+<td>GC 标记</td>
+<td></td>
+<td>此时这一位不用于标识偏向锁</td>
+<td>11</td>
+</tr>
+</tbody></table>
+<p>可以看到，当对象状态为偏向锁时，<code>Mark Word</code>存储的是偏向的线程 ID；当状态为轻量级锁时，<code>Mark Word</code>存储的是指向线程栈中<code>Lock Record</code>的指针；当状态为重量级锁时，<code>Mark Word</code>为指向堆中的 monitor（监视器）对象的指针。</p>
+<blockquote>
+<p>在 Java 中，监视器（monitor）是一种同步工具，用于保护共享数据，避免多线程并发访问导致数据不一致。在 Java 中，每个对象都有一个内置的监视器。</p>
+</blockquote>
+<p>监视器包括两个重要部分，一个是锁，一个是等待&#x2F;通知机制，后者是通过 Object 类中的<code>wait()</code>, <code>notify()</code>, <code>notifyAll()</code>等方法实现的。</p>
+<blockquote>
+<p>我在下文会提到 Object 类中的<code>wait()</code>, <code>notify()</code>, <code>notifyAll()</code>等方法，可以看下我学习多线程碰到的问题。</p>
+</blockquote>
+<p>好了，现在可以回答为什么synchronized可以实现可重入锁，排它锁的功能？</p>
+<h3 id="可重入锁的实现"><a href="#可重入锁的实现" class="headerlink" title="可重入锁的实现"></a>可重入锁的实现</h3><p>synchronized是可重入锁，这意味着同一个线程可以多次获取同一个对象锁，而不会导致死锁。synchronized实现可重入锁的机制主要依赖于对象头中的锁计数器（或称为锁记录器、锁状态等，具体实现可能因JVM版本和平台而异）：</p>
+<blockquote>
+<p>根据我查到的资料，锁计数器是一个抽象的概念，在对象头中并非是以一个单独的字段出现，而是在Mark Word中以锁信息的方式存储在内，并且这些信息具体实现可能因JVM版本和平台而异。</p>
+</blockquote>
+<ol>
+<li><strong>锁计数器</strong>：每个对象都有一个与之关联的锁计数器，用于记录当前持有该对象锁的线程重入的次数。</li>
+<li><strong>加锁</strong>：当一个线程首次获取锁时，JVM会将锁计数器的值设置为1，并将锁的持有者设置为当前线程。如果同一个线程再次尝试获取该锁，锁计数器会递增，而不是阻塞线程。</li>
+<li><strong>解锁</strong>：当线程退出同步代码块时，锁计数器会递减。只有当锁计数器的值减为0时，锁才会被完全释放，此时其他线程才能获取该锁。</li>
+</ol>
+<p>通过这种机制，synchronized确保了同一个线程可以多次进入同步代码块而不会导致死锁，同时也保证了在锁被完全释放之前，其他线程无法进入该同步代码块。</p>
+<h3 id="排他锁的实现"><a href="#排他锁的实现" class="headerlink" title="排他锁的实现"></a>排他锁的实现</h3><p>synchronized实现的锁本质上是排他锁（互斥锁），即在同一时刻，只有一个线程能够持有锁并访问被保护的资源。这是通过JVM的监视器锁（monitor lock）机制实现的：</p>
+<ol>
+<li><strong>监视器锁</strong>：每个Java对象都可以关联一个监视器锁（monitor）。当线程进入同步代码块时，它会尝试获取与同步代码块对象相关联的监视器锁。</li>
+<li><strong>加锁与解锁</strong>：如果监视器锁未被其他线程持有，则当前线程将获取锁并继续执行同步代码块。如果锁已被其他线程持有，则当前线程将被阻塞，直到锁被释放。线程退出同步代码块时，会释放锁，允许其他线程获取锁并执行同步代码块。</li>
+</ol>
+<h3 id="讲一个我学习多线程时碰到的问题"><a href="#讲一个我学习多线程时碰到的问题" class="headerlink" title="讲一个我学习多线程时碰到的问题"></a>讲一个我学习多线程时碰到的问题</h3><p>这个问题是关于重量级锁的内容。当时我学习Object类的wait方法、notify方法（包括notifyAll，下文可能会省略）这些关于线程的方法的时候，我没有使用synchronized关键字包裹代码，类似的结构像这样：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Test</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> InterruptedException &#123;</span><br><span class="line">        <span class="type">Object</span> <span class="variable">obj</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Object</span>();</span><br><span class="line">        System.out.println(<span class="string">&quot;wait之前: &quot;</span>);</span><br><span class="line">        obj.wait(); <span class="comment">//所有可能会引起线程阻塞等到的方法都会拋出InterruptedException受查异常</span></span><br><span class="line">        System.out.println(<span class="string">&quot;wait之后: &quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我相信大家学习的时候一定学到了<strong>Object类的wait方法、notify方法是为了让线程中出让锁，或是唤醒等待状态下的线程</strong>，但是前提条件都是加了锁，否则哪里来的出让锁和抢夺cpu一说？</p>
+<p>我们再把这三个方法说得细致一些：当一个线程调用了一个对象的 <code>wait()</code> 方法时，它会释放该对象的监视器锁，并进入该对象的等待集合中等待。直到其他线程调用了该对象的 <code>notify()</code> 或 <code>notifyAll()</code> 方法，并且当前线程重新获得了该对象的监视器锁之后，它才会从 <code>wait()</code> 方法返回，并继续执行。这也就是<strong>重量级锁</strong>中我们说到的内容。</p>
+<p>由于 <code>notify()</code> 和 <code>notifyAll()</code> 是用来唤醒等待在该对象监视器上的线程的，因此它们必须在持有该对象监视器锁的同步代码块或同步方法中调用。否则，编译器会报错，因为如果没有持有监视器锁，那么线程就没有权限调用这些方法。</p>
+<p><img src="Snipaste_2024-08-07_01-22-20.png"></p>
+<p>如果还没有获取到锁就尝试解锁，运行后就会抛出非法的锁状态异常。这里的代码抛出该异常正是这个原因：wait（）方法内部有一步重要的操作：先解锁，再阻塞等待。</p>
+<p>因此，在使用wait（） 前，必须先加锁，把wait（）写到synchronized代码块内部。 同时，Java也规定调用notify（）也必须在synchronized代码块中。</p>
+<p>并且，加锁的锁对象必须要与调用wait（）的锁对象是同一个。如果加锁对象与调用wait（）的对象不是同一个，也会抛出<code>IllgalMonitorStateException</code> 异常。</p>
+<h2 id="5、ReentrantReadWriteLock"><a href="#5、ReentrantReadWriteLock" class="headerlink" title="5、ReentrantReadWriteLock"></a>5、ReentrantReadWriteLock</h2><p><code>ReentrantReadWriteLock</code>是 <code>ReadWriteLock</code> 接口的默认实现。它与 ReentrantLock 的功能类似，同样是可重入的，支持非公平锁和公平锁。不同的是，它还支持”读写锁“。</p>
+<blockquote>
+<p>在这里只介绍内部结构，可重入锁、非公平锁和公平锁看第二大节</p>
+</blockquote>
+<p>ReentrantReadWriteLock 内部的结构大概是这样：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 内部结构</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> ReentrantReadWriteLock.ReadLock readerLock;</span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> ReentrantReadWriteLock.WriteLock writerLock;</span><br><span class="line"><span class="keyword">final</span> Sync sync;</span><br><span class="line"><span class="keyword">abstract</span> <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">Sync</span> <span class="keyword">extends</span> <span class="title class_">AbstractQueuedSynchronizer</span> &#123;</span><br><span class="line">    <span class="comment">// 具体实现</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">class</span> <span class="title class_">NonfairSync</span> <span class="keyword">extends</span> <span class="title class_">Sync</span> &#123;</span><br><span class="line">    <span class="comment">// 具体实现</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">class</span> <span class="title class_">FairSync</span> <span class="keyword">extends</span> <span class="title class_">Sync</span> &#123;</span><br><span class="line">    <span class="comment">// 具体实现</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">ReadLock</span> <span class="keyword">implements</span> <span class="title class_">Lock</span>, java.io.Serializable &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> Sync sync;</span><br><span class="line">    <span class="keyword">protected</span> <span class="title function_">ReadLock</span><span class="params">(ReentrantReadWriteLock lock)</span> &#123;</span><br><span class="line">            sync = lock.sync;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 具体实现</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">WriteLock</span> <span class="keyword">implements</span> <span class="title class_">Lock</span>, java.io.Serializable &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> Sync sync;</span><br><span class="line">    <span class="keyword">protected</span> <span class="title function_">WriteLock</span><span class="params">(ReentrantReadWriteLock lock)</span> &#123;</span><br><span class="line">            sync = lock.sync;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 具体实现</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 构造方法，初始化两个锁</span></span><br><span class="line"><span class="keyword">public</span> <span class="title function_">ReentrantReadWriteLock</span><span class="params">(<span class="type">boolean</span> fair)</span> &#123;</span><br><span class="line">    sync = fair ? <span class="keyword">new</span> <span class="title class_">FairSync</span>() : <span class="keyword">new</span> <span class="title class_">NonfairSync</span>();</span><br><span class="line">    readerLock = <span class="keyword">new</span> <span class="title class_">ReadLock</span>(<span class="built_in">this</span>);</span><br><span class="line">    writerLock = <span class="keyword">new</span> <span class="title class_">WriteLock</span>(<span class="built_in">this</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 获取读锁和写锁的方法</span></span><br><span class="line"><span class="keyword">public</span> ReentrantReadWriteLock.WriteLock <span class="title function_">writeLock</span><span class="params">()</span> &#123; <span class="keyword">return</span> writerLock; &#125;</span><br><span class="line"><span class="keyword">public</span> ReentrantReadWriteLock.ReadLock  <span class="title function_">readLock</span><span class="params">()</span>  &#123; <span class="keyword">return</span> readerLock; &#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到，它同样是内部维护了两个同步器。且维护了两个 Lock 的实现类 ReadLock 和 WriteLock。从源码可以发现，这两个内部类用的是外部类的同步器。</p>
+<h2 id="6、拓展：StampedLock"><a href="#6、拓展：StampedLock" class="headerlink" title="6、拓展：StampedLock"></a>6、拓展：StampedLock</h2><p><code>StampedLock</code> 类是 Java 8 才发布的，也是 Doug Lea 大神所写，有人称它为锁的性能之王。</p>
+<p>StampedLock 没有实现 Lock 接口和 ReadWriteLock 接口，但它实现了“读写锁”的功能，并且性能比 ReentrantReadWriteLock 更高。StampedLock 还把读锁分为了“乐观读锁”和“悲观读锁”两种。</p>
+<p>感兴趣可以自行搜索，博客面向八股介绍比较常见的锁。</p>
+]]></content>
+      <categories>
+        <category>Java</category>
+      </categories>
+      <tags>
+        <tag>多线程</tag>
+        <tag>面试</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Java多线程：四、详解ConcurrentHashMap构成</title>
+    <url>/2024/08/06/java%EF%BC%9A%E8%AF%A6%E8%A7%A3ConcurrentHashMap/</url>
+    <content><![CDATA[<h1 id="一、JDK-1-7"><a href="#一、JDK-1-7" class="headerlink" title="一、JDK 1.7"></a>一、JDK 1.7</h1><h2 id="1-1-加锁机制"><a href="#1-1-加锁机制" class="headerlink" title="1.1 加锁机制"></a>1.1 加锁机制</h2><p>ConcurrentHashMap 在 JDK 1.7 中，提供了一种粒度更细的加锁机制，这种机制叫分段锁「Lock Striping」。整个哈希表被分为多个段，每个段都独立锁定。读取操作不需要锁，写入操作仅锁定相关的段。这减小了锁冲突的几率，从而提高了并发性能。</p>
+<p>这种机制的优点：在并发环境下将实现更高的吞吐量，而在单线程环境下只损失非常小的性能。</p>
+<p>可以这样理解分段锁，就是<strong>将数据分段，对每一段数据分配一把锁</strong>。当一个线程占用锁访问其中一个段数据的时候，其他段的数据也能被其他线程访问。</p>
+<p>有些方法需要跨段，比如 <code>size()</code>、<code>isEmpty()</code>、<code>containsValue()</code>，它们可能需要锁定整个表而不仅仅是某个段，这需要按顺序锁定所有段，操作完后，再按顺序释放所有段的锁。如下图：</p>
+<p><img src="map-20230816155810.png" alt="jdk1.7之前的构成图"></p>
+<h2 id="1-2-八股：jdk1-7之前的构成"><a href="#1-2-八股：jdk1-7之前的构成" class="headerlink" title="1.2 八股：jdk1.7之前的构成"></a>1.2 八股：jdk1.7之前的构成</h2><p>敲重点！字体加粗了务必记好。</p>
+<p>ConcurrentHashMap 是由 <strong>Segment 数组结构和 HashEntry 数组</strong>构成的。Segment 是一种可重入的锁 <code>ReentrantLock</code>，HashEntry 则用于存储键值对数据。</p>
+<p>一个 ConcurrentHashMap 里包含<strong>一个 Segment 数组，数组中都是segment对象</strong>，Segment 的结构和 HashMap 类似，是一种数组和链表结构，一个 Segment 里包含一个 <strong>HashEntry 数组</strong>，每个 HashEntry 是一个链表结构的元素，每个 Segment 守护着一个 HashEntry 数组里的元素，当对 HashEntry 数组的数据进行修改时，必须首先获得它对应的 Segment 锁（可重入锁）。</p>
+<p><strong>HashEntry到底是什么？</strong></p>
+<p>我自己搜的时候都在介绍hashentry是数组，但是搜到的都是类似链表的结构，包括在1.1节中的图片看上去都是链表，这是怎么回事？</p>
+<p>其实，<code>HashEntry</code>本身是一个<strong>结构体（或内部类，同样segment也是内部类）</strong>，实际上是每个<code>Segment</code>内部的一个数组，用于封装键值对数据，并可能包含指向下一个<code>HashEntry</code>的引用以形成链表结构，用于处理哈希冲突。但由于哈希冲突的存在，这个数组的每个位置可能不仅仅是一个<code>HashEntry</code>对象，而是一个由<code>HashEntry</code>对象组成的链表（或更复杂的结构，如红黑树，但这在JDK 1.7中不是默认的）。</p>
+<p><code>ConcurrentHashMap</code>使用链表来存储这些具有相同索引值的键值对。具体来说，每个数组位置（在JDK 1.7中实际上是<code>Segment</code>内部的数组，而在JDK 1.8及以后是<code>Node</code>数组）存储的是链表的头节点。如果发生哈希冲突，新的键值对会被添加到这个链表的末尾。</p>
+<p>接下来看看Segment的结构组成：</p>
+<p>单一的 Segment 结构如下：</p>
+<p><img src="map-20230816160155.png"></p>
+<p>像这样的 Segment 对象，在 ConcurrentHashMap 集合中有多少个呢？有 2 的 N 次方个，共同保存在一个名为 segments 的数组当中。 因此整个 ConcurrentHashMap 的结构如下：</p>
+<p><img src="map-20230816160223.png"></p>
+<p>可以说，ConcurrentHashMap 是一个二级哈希表。在一个总的哈希表下面，有若干个子哈希表。</p>
+<p>Case1：不同 Segment 的并发写入（可以并发执行）</p>
+<p><img src="map-20230816160301.png"></p>
+<p>Case2：同一 Segment 的一写一读（可以并发执行）</p>
+<p><img src="map-20230816160316.png"></p>
+<p>Case3：同一 Segment 的并发写入</p>
+<p><img src="map-20230816160331.png"></p>
+<h1 id="二、JDK1-8往后"><a href="#二、JDK1-8往后" class="headerlink" title="二、JDK1.8往后"></a>二、JDK1.8往后</h1><p>而在 JDK 1.8 中，ConcurrentHashMap 主要做了两个优化：</p>
+<ul>
+<li>同<code>HashMap</code> 一样，链表也会在长度达到 8 的时候转化为红黑树，这样可以提升大量冲突时候的查询效率；</li>
+<li>以某个位置的头结点（链表的头结点或红黑树的 root 结点）为锁，**配合自旋+CAS(乐观锁)**避免不必要的锁开销，进一步提升并发性能。</li>
+</ul>
+<p><img src="map-20230816155924.png"></p>
+<p>相比 JDK1.7 中的 ConcurrentHashMap，JDK1.8 中的 ConcurrentHashMap 取消了 Segment 分段锁，采用 CAS + synchronized 来保证并发安全性，整个容器只分为一个 Segment，即 table 数组。</p>
+<p>JDK1.8 中的 ConcurrentHashMap 对节点 Node 类中的共享变量，和 JDK1.7 一样，使用 volatile 关键字，保证多线程操作时，变量的可见性。</p>
+]]></content>
+      <categories>
+        <category>Java</category>
+      </categories>
+      <tags>
+        <tag>多线程</tag>
+        <tag>面试</tag>
       </tags>
   </entry>
   <entry>
@@ -1754,8 +2406,46 @@
         <category>OS</category>
       </categories>
       <tags>
-        <tag>操作系统</tag>
         <tag>面试</tag>
+        <tag>操作系统</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>操作系统：（二）原码，反码，补码，计算丢失精度</title>
+    <url>/2024/07/30/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F%EF%BC%9A%EF%BC%88%E4%BA%8C%EF%BC%89%E4%B8%BA%E4%BB%80%E4%B9%880-1-0-2%E4%B8%8D%E7%AD%89%E4%BA%8E0-3/</url>
+    <content><![CDATA[<h1 id="1-原码"><a href="#1-原码" class="headerlink" title="1.原码"></a>1.原码</h1><p>对于一个数， 计算机要使用一定的编码方式进行存储。<strong>原码， 反码， 补码</strong>是机器存储一个具体数字的编码方式。<strong>在计算机中数据存储都是以二进制的形式表示数据，那么将一个十进制数转换为其二进制形式称为其原码。</strong>二进制最左边的是符号位，0为正，1为负。</p>
+<p>计算机中存储的最小单元是<code>字节</code>，字节以二进制存储数据，一个字节对应<code>8个比特位</code>。也就是说一个字节的最大值的二进制表示形式为<code>0111 1111</code>，其中第一个0为符号位，最大值对应十进制就是127。最小值为<code>1111 1111</code>，十进制为-127。</p>
+<h1 id="2-反码"><a href="#2-反码" class="headerlink" title="2.反码"></a>2.反码</h1><p><strong>当前讨论的反码和补码都是讨论负数，正数的反码和补码等于其原码</strong></p>
+<p>在原码为负数的情况进行相加，会出现运算结果不一致的情况，例如<code>1000 0001</code>，加1，那么理论得到的结果应该是<code>1000 0000</code>（十进制0），实际得到的是100000010（十进制-2）。</p>
+<p>为了解决原码不能计算负数，遵循以下反码的计算规则：正数反码不变，负数的反码在原码的基础上，符号位不变，0变1,1变0。计算完后再取反码就可以得到负数的运算结果。</p>
+<p><strong>但是在跨0计算的时候会存在误差：例如-5+6得0（当前讨论一个字节，多出去的1直接忽略）</strong></p>
+<p><img src="%E5%8F%8D%E7%A0%81%E9%97%AE%E9%A2%981.png" alt="反码原理以及反码存在的问题"></p>
+<h1 id="3-补码"><a href="#3-补码" class="headerlink" title="3.补码"></a>3.补码</h1><p><strong>当前讨论的反码和补码都是讨论负数，正数的反码和补码等于其原码</strong></p>
+<p>为了针对0在二进制中有两个表示形式，引出使用补码进行计算，<strong>即负数的补码等于负数的反码+1</strong></p>
+<p><img src="%E8%A1%A5%E7%A0%81.png" alt="负数补码等于其反码+1"></p>
+<p>由于原码的0占了两个反码，在修改成补码后会多出一个数字，二进制数字为<code>1000 0000</code>，即-128，所以规定-128的补码为<code>1000 0000</code>。</p>
+<p><img src="-128%E7%9A%84%E8%A1%A5%E7%A0%81.png" alt="-128补码"></p>
+<p><strong>在计算机中存储和计算都采用补码</strong>，所以即使-128没有原码和反码也不碍事（在1个字节的情况下）。</p>
+<h1 id="4-Java中的隐式转换和强制转换（拓展）"><a href="#4-Java中的隐式转换和强制转换（拓展）" class="headerlink" title="4.Java中的隐式转换和强制转换（拓展）"></a>4.Java中的隐式转换和强制转换（拓展）</h1><p>隐式转换直接加0</p>
+<p><img src="Snipaste_2024-07-30_16-19-43.png" alt="隐式转换"></p>
+<p>强制转换直接删掉字节前面的全部内容，得到补码进行计算（<strong>在计算机中存储和计算都采用补码</strong>）</p>
+<p><img src="Snipaste_2024-07-30_16-20-57.png" alt="强制转换"></p>
+<p>b的值就是二进制-1后取反，得到原码，最后是-56。因为b是补码形式的二进制数据。</p>
+<h1 id="5-其他运算符（拓展）"><a href="#5-其他运算符（拓展）" class="headerlink" title="5.其他运算符（拓展）"></a>5.其他运算符（拓展）</h1><p><img src="%E9%80%BB%E8%BE%91%E4%B8%8E.png" alt="逻辑与"></p>
+<p>左移一次乘2，右移一次除2。</p>
+<p><img src="%E5%B7%A6%E7%A7%BB%E8%BF%90%E7%AE%97%E7%AC%A6.png" alt="左移"></p>
+<h1 id="6-十进制转二进制"><a href="#6-十进制转二进制" class="headerlink" title="6.十进制转二进制"></a>6.十进制转二进制</h1><p>小数部分的转换不同于整数部分，它采用的是乘2取整法，将十进制中的小数部分乘以2作为二进制的一位，然后继续取小数部分乘以2作为下一位，直到不存在小数为止。</p>
+<p><img src="%E5%8D%81%E8%BF%9B%E5%88%B6%E5%B0%8F%E6%95%B0%E8%BD%AC%E4%BA%8C%E8%BF%9B%E5%88%B6.webp" alt="十进制转二进制"></p>
+<p>但是，并不是所有小数都可以用二进制表示，前面提到的0.625小数是一个特例，刚好通过乘2取整法的方式完整的转换成二进制。<br>如果我们用相同的方式，来把0.1 转换成二进制，过程如下:</p>
+<p><img src="%E6%97%A0%E9%99%90%E5%B0%8F%E6%95%B0.webp"></p>
+<p>所以只能无限接近0.1而取不到0.1的值，所以算出来就不是0.3</p>
+]]></content>
+      <categories>
+        <category>OS</category>
+      </categories>
+      <tags>
+        <tag>面试</tag>
+        <tag>操作系统</tag>
       </tags>
   </entry>
   <entry>
@@ -2154,6 +2844,100 @@
       </tags>
   </entry>
   <entry>
+    <title>算法：（二）二分查找</title>
+    <url>/2024/07/03/%E7%AE%97%E6%B3%95%EF%BC%9A%EF%BC%88%E4%BA%8C%EF%BC%89%E4%BA%8C%E5%88%86%E6%9F%A5%E6%89%BE/</url>
+    <content><![CDATA[<h1 id="一、基础二分查找"><a href="#一、基础二分查找" class="headerlink" title="一、基础二分查找"></a>一、基础二分查找</h1><p><a href="https://leetcode.cn/problems/binary-search/description/">力扣704：二分查找</a></p>
+<p>左闭右闭区间：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="type">int</span> <span class="title function_">search</span><span class="params">(<span class="type">int</span>[] nums, <span class="type">int</span> target)</span> &#123;</span><br><span class="line">        <span class="comment">// 避免当 target 小于nums[0] nums[nums.length - 1]时多次循环运算</span></span><br><span class="line">        <span class="keyword">if</span> (target &lt; nums[<span class="number">0</span>] || target &gt; nums[nums.length - <span class="number">1</span>]) &#123;</span><br><span class="line">            <span class="keyword">return</span> -<span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="type">int</span> <span class="variable">left</span> <span class="operator">=</span> <span class="number">0</span>, right = nums.length - <span class="number">1</span>;</span><br><span class="line">        <span class="keyword">while</span> (left &lt;= right) &#123;</span><br><span class="line">            <span class="type">int</span> <span class="variable">mid</span> <span class="operator">=</span> left + ((right - left) &gt;&gt; <span class="number">1</span>);</span><br><span class="line">            <span class="keyword">if</span> (nums[mid] == target) &#123;</span><br><span class="line">                <span class="keyword">return</span> mid;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">else</span> <span class="keyword">if</span> (nums[mid] &lt; target) &#123;</span><br><span class="line">                left = mid + <span class="number">1</span>;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">else</span> &#123; <span class="comment">// nums[mid] &gt; target</span></span><br><span class="line">                right = mid - <span class="number">1</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 未找到目标值</span></span><br><span class="line">        <span class="keyword">return</span> -<span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>左闭右开区间：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="type">int</span> <span class="title function_">search</span><span class="params">(<span class="type">int</span>[] nums, <span class="type">int</span> target)</span> &#123;</span><br><span class="line">        <span class="type">int</span> <span class="variable">left</span> <span class="operator">=</span> <span class="number">0</span>, right = nums.length;</span><br><span class="line">        <span class="keyword">while</span> (left &lt; right) &#123;</span><br><span class="line">            <span class="type">int</span> <span class="variable">mid</span> <span class="operator">=</span> left + ((right - left) &gt;&gt; <span class="number">1</span>);</span><br><span class="line">            <span class="keyword">if</span> (nums[mid] == target) &#123;</span><br><span class="line">                <span class="keyword">return</span> mid;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">else</span> <span class="keyword">if</span> (nums[mid] &lt; target) &#123;</span><br><span class="line">                left = mid + <span class="number">1</span>;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">else</span> &#123; <span class="comment">// nums[mid] &gt; target</span></span><br><span class="line">                right = mid;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 未找到目标值</span></span><br><span class="line">        <span class="keyword">return</span> -<span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<p><strong>left和right的含义（贼他妈重点，区分两个写法的区间到底怎么写）：</strong></p>
+<p>作为<strong>区间</strong>[left,right]或者[left,right)；作为指针指向元素。</p>
+<p>在左闭右闭区间中，left&lt;&#x3D;right，right是有可能指向target的，但是left&lt;right，<strong>right只是边界</strong>，right不可能是target。因此在左闭右闭区间的时候，right&#x3D;arr.length-1，而左闭右开区间right&#x3D;arr.length。</p>
+<img src="%E4%BA%8C%E5%88%86%E7%AE%97%E6%B3%95%E8%8D%89%E7%A8%BF.jpg" style="zoom:120%;">
+
+
+
+
+
+<p><strong>二分查找注意点：</strong></p>
+<ol>
+<li><p><strong>单单只看左闭右闭区间，while循环中到底是left&lt;right还是left&lt;&#x3D;right？</strong></p>
+<p>可以有一个具体的例子，当查找的数字是左边界的时候，left&lt;right会漏掉一次查询。因为left和right共同指向一个位置的时候不满足while条件，所以退出循环。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 拿草稿纸自己写一下，别只看不动笔的</span></span><br><span class="line"><span class="type">int</span>[] arr = &#123;<span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">13</span>, <span class="number">16</span>, <span class="number">23</span>, <span class="number">24</span>&#125;;</span><br><span class="line">target = <span class="number">2</span>;</span><br></pre></td></tr></table></figure>
+
+
+</li>
+<li><p><strong>int mid &#x3D; left + ((right - left) &gt;&gt; 1)是什么？为什么不是直接相加除2？</strong></p>
+<p>超过int类型的范围以后会变负数。右移运算符&gt;&gt;1相当于转换成二进制除2，需要补一下原码，反码，补码的内容，懒得写了。</p>
+</li>
+</ol>
+<h1 id="二、二分查找寻找插入点"><a href="#二、二分查找寻找插入点" class="headerlink" title="二、二分查找寻找插入点"></a>二、二分查找寻找插入点</h1><p>这个在力扣上也是有题目的：<a href="https://leetcode.cn/problems/search-insert-position/submissions/544277320/">力扣35：二分查找寻找插入点</a></p>
+<p>来看一个最简单的情况</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">int</span>[] arr = &#123;<span class="number">1</span>,<span class="number">3</span>,<span class="number">5</span>&#125;;</span><br><span class="line"><span class="comment">// target = 0 or 2 or 4 or 6</span></span><br></pre></td></tr></table></figure>
+
+<p>其实不难看出就是4种情况，基于mid分两边，左边是target&#x3D;0,2，或者是右边target&#x3D;4,6，因为都是查不到的，那么肯定在左闭右闭的写法中，right和left指针会发生重合，无非就是在看0，2两个情况左右两个指针怎么动罢了，由稿纸一眼法得出，left指针的值就是需要插入的位置</p>
+<p>代码：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="type">int</span> <span class="title function_">searchInsert</span><span class="params">(<span class="type">int</span>[] nums, <span class="type">int</span> target)</span> &#123;</span><br><span class="line">        <span class="type">int</span> <span class="variable">min</span> <span class="operator">=</span> <span class="number">0</span>;</span><br><span class="line">        <span class="type">int</span> <span class="variable">max</span> <span class="operator">=</span> nums.length - <span class="number">1</span>;</span><br><span class="line">        <span class="type">int</span> mid=<span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">while</span> (min&lt;=max) &#123;</span><br><span class="line">            mid = (max + min) / <span class="number">2</span>;</span><br><span class="line">        </span><br><span class="line">            <span class="keyword">if</span> (nums[mid] &lt; target) &#123;</span><br><span class="line">                <span class="comment">// 说明在target应该在右边</span></span><br><span class="line">                min = mid + <span class="number">1</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> (nums[mid] &gt; target) &#123;</span><br><span class="line">                <span class="comment">// 说明target应该在左边</span></span><br><span class="line">                max = mid - <span class="number">1</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="comment">// 找到插入的位置</span></span><br><span class="line">                <span class="keyword">return</span> mid;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> min;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<h1 id="三、二分查找重复元素的处理"><a href="#三、二分查找重复元素的处理" class="headerlink" title="三、二分查找重复元素的处理"></a>三、二分查找重复元素的处理</h1><h3 id="3-1-重复元素LeftMost"><a href="#3-1-重复元素LeftMost" class="headerlink" title="3.1 重复元素LeftMost"></a>3.1 重复元素LeftMost</h3><p>leftMost：查找元素最左边的索引</p>
+<p>无非就是找到target以后记录索引，而不是return。</p>
+<p>代码：我写的是target一定在arr中存在的情况</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">BinarySearch3</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="type">int</span>[] arr = &#123;<span class="number">1</span>, <span class="number">2</span>, <span class="number">4</span>, <span class="number">4</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>, <span class="number">7</span>, <span class="number">7</span>, <span class="number">8</span>, <span class="number">8</span>&#125;;</span><br><span class="line">        <span class="type">int</span> <span class="variable">left</span> <span class="operator">=</span> <span class="number">0</span>, right = arr.length - <span class="number">1</span>;</span><br><span class="line">        <span class="type">int</span> <span class="variable">target</span> <span class="operator">=</span> <span class="number">8</span>;</span><br><span class="line">        <span class="type">int</span> <span class="variable">temp</span> <span class="operator">=</span> Integer.MAX_VALUE;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// leftMost</span></span><br><span class="line">        <span class="keyword">while</span> (left &lt;= right) &#123;</span><br><span class="line">            <span class="type">int</span> <span class="variable">mid</span> <span class="operator">=</span> (left + right) &gt;&gt; <span class="number">1</span>;</span><br><span class="line">            <span class="keyword">if</span> (target &lt;= arr[mid]) &#123;</span><br><span class="line">                temp = mid;</span><br><span class="line">                right = mid - <span class="number">1</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                left = mid + <span class="number">1</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        System.out.println(temp);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>如果target不存在，这个写法得出来的是target插入的位置</p>
+<h3 id="3-2-重复元素RigthMost"><a href="#3-2-重复元素RigthMost" class="headerlink" title="3.2 重复元素RigthMost"></a>3.2 重复元素RigthMost</h3><p>和上面一样，直接往右边一直找就完事儿了</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">while</span> (left &lt;= right) &#123;</span><br><span class="line">           <span class="type">int</span> <span class="variable">mid</span> <span class="operator">=</span> (left + right) &gt;&gt; <span class="number">1</span>;</span><br><span class="line">           <span class="keyword">if</span> (arr[mid] == target) &#123;</span><br><span class="line">               temp = mid;</span><br><span class="line">               left = mid + <span class="number">1</span>;</span><br><span class="line">           &#125; <span class="keyword">else</span> <span class="keyword">if</span> (target &lt; arr[mid]) &#123;</span><br><span class="line">               right = mid - <span class="number">1</span>;</span><br><span class="line">           &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">               left = mid + <span class="number">1</span>;</span><br><span class="line">           &#125;</span><br><span class="line">     &#125;</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<h3 id="3-3-重复元素中target不一定存在的情况返回最左边索引"><a href="#3-3-重复元素中target不一定存在的情况返回最左边索引" class="headerlink" title="3.3 重复元素中target不一定存在的情况返回最左边索引"></a>3.3 重复元素中target不一定存在的情况返回最左边索引</h3><p>其实在3.1中那样写if语句不包括target不一定在arr中的情况，因为我默认他可以找到的话，我会一直进行temp&#x3D;mid赋值，然而如果不存在target还进行赋值的话返回的不会是-1</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">BinarySearch4</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="type">int</span>[] arr = &#123;<span class="number">1</span>, <span class="number">2</span>, <span class="number">4</span>, <span class="number">4</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>, <span class="number">7</span>, <span class="number">8</span>&#125;;</span><br><span class="line">        <span class="type">int</span> <span class="variable">left</span> <span class="operator">=</span> <span class="number">0</span>, right = arr.length - <span class="number">1</span>;</span><br><span class="line">        <span class="type">int</span> <span class="variable">target</span> <span class="operator">=</span> <span class="number">4</span>;</span><br><span class="line">        <span class="type">int</span> <span class="variable">temp</span> <span class="operator">=</span> Integer.MAX_VALUE;</span><br><span class="line"></span><br><span class="line">        temp = binarySearch3(arr, left, right, target, temp);</span><br><span class="line"></span><br><span class="line">        System.out.println(temp);</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="type">int</span> <span class="title function_">binarySearch4</span><span class="params">(<span class="type">int</span>[] arr, <span class="type">int</span> left, <span class="type">int</span> right, <span class="type">int</span> target, <span class="type">int</span> temp)</span> &#123;</span><br><span class="line">        <span class="comment">// leftMost</span></span><br><span class="line">        <span class="keyword">while</span> (left &lt;= right) &#123;</span><br><span class="line">            <span class="type">int</span> <span class="variable">mid</span> <span class="operator">=</span> (left + right) &gt;&gt; <span class="number">1</span>;</span><br><span class="line">            <span class="keyword">if</span> (target &lt; arr[mid]) &#123;</span><br><span class="line">                right = mid - <span class="number">1</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> (target &gt; arr[mid]) &#123;</span><br><span class="line">                left = mid + <span class="number">1</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                right = mid - <span class="number">1</span>;</span><br><span class="line">                temp = mid;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (temp == Integer.MAX_VALUE) &#123;</span><br><span class="line">            <span class="keyword">return</span> -<span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> temp;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="3-4-重复元素中target不一定存在返回时插入位置"><a href="#3-4-重复元素中target不一定存在返回时插入位置" class="headerlink" title="3.4 重复元素中target不一定存在返回时插入位置"></a>3.4 重复元素中target不一定存在返回时插入位置</h3><p>看到3.1的代码就是了。为什么那样写可以在找到重复元素的同时（target存在）可以找到插入的位置？</p>
+<p>原因是因为在找target的过程中，每次都给temp赋值，我们已经知道这段代码永远会去找最左边的值了：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">if</span> (target &lt;= arr[mid]) &#123;</span><br><span class="line">    temp = mid;</span><br><span class="line">    right = mid - <span class="number">1</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>并且左闭右闭，left&#x3D;right最后一步的时候，mid的值取平均值后和left、right相等，temp&#x3D;mid记录的就是重复元素最左边的位置，刚好这个位置就是插入的位置了。</p>
+<p>寻找插入位置我认为不需要判断leftmost或者rightmost，得到的结果都一样，我改了一下数组，看数组和输出结果就行了，用的都是leftMost的方法</p>
+<img src="%E4%B8%8D%E5%AD%98%E5%9C%A8target%E8%8E%B7%E5%8F%96%E6%8F%92%E5%85%A5%E7%B4%A2%E5%BC%951.png" style="zoom:120%;">
+
+
+
+<img src="%E4%B8%8D%E5%AD%98%E5%9C%A8target%E8%8E%B7%E5%8F%96%E6%8F%92%E5%85%A5%E7%B4%A2%E5%BC%952.png" style="zoom:80%;">
+
+
+
+<h3 id="3-5-练习"><a href="#3-5-练习" class="headerlink" title="3.5 练习"></a>3.5 练习</h3><p><a href="https://leetcode.cn/problems/find-first-and-last-position-of-element-in-sorted-array/description/">力扣34：查找排序数组中元素的第一个位置和最后一个位置</a></p>
+<p>简单死了，就是查一个leftMost和rightMost，返回就行了</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line">   <span class="keyword">public</span> <span class="keyword">static</span> <span class="type">int</span>[] searchRange(<span class="type">int</span>[] nums, <span class="type">int</span> target) &#123;</span><br><span class="line">        <span class="type">int</span> <span class="variable">left</span> <span class="operator">=</span> leftMost(nums, target);</span><br><span class="line">        <span class="type">int</span> <span class="variable">right</span> <span class="operator">=</span> rightMost(nums, target);</span><br><span class="line">        <span class="type">int</span>[] arr = &#123;left, right&#125;;</span><br><span class="line">        <span class="keyword">return</span> arr;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="type">int</span> <span class="title function_">leftMost</span><span class="params">(<span class="type">int</span>[] nums, <span class="type">int</span> target)</span> &#123;</span><br><span class="line">        <span class="type">int</span> <span class="variable">leftMost</span> <span class="operator">=</span> Integer.MAX_VALUE;</span><br><span class="line">        <span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>;</span><br><span class="line">        <span class="type">int</span> <span class="variable">j</span> <span class="operator">=</span> nums.length - <span class="number">1</span>;</span><br><span class="line">        <span class="keyword">while</span> (i &lt;= j) &#123;</span><br><span class="line">            <span class="type">int</span> <span class="variable">mid</span> <span class="operator">=</span> (i + j) &gt;&gt; <span class="number">1</span>;</span><br><span class="line">            <span class="keyword">if</span> (nums[mid] &lt; target) &#123;</span><br><span class="line">                i = mid + <span class="number">1</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> (target &lt; nums[mid]) &#123;</span><br><span class="line">                j = mid - <span class="number">1</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                leftMost = mid;</span><br><span class="line">                j = mid - <span class="number">1</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (leftMost == Integer.MAX_VALUE) &#123;</span><br><span class="line">            <span class="keyword">return</span> -<span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> leftMost;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="type">int</span> <span class="title function_">rightMost</span><span class="params">(<span class="type">int</span>[] nums, <span class="type">int</span> target)</span> &#123;</span><br><span class="line">        <span class="type">int</span> <span class="variable">rightMost</span> <span class="operator">=</span> Integer.MAX_VALUE;</span><br><span class="line">        <span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>;</span><br><span class="line">        <span class="type">int</span> <span class="variable">j</span> <span class="operator">=</span> nums.length - <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">while</span> (i &lt;= j) &#123;</span><br><span class="line">            <span class="type">int</span> <span class="variable">mid</span> <span class="operator">=</span> (i + j) &gt;&gt; <span class="number">1</span>;</span><br><span class="line">            <span class="keyword">if</span> (nums[mid] &lt; target) &#123;</span><br><span class="line">                i = mid + <span class="number">1</span>;</span><br><span class="line">                </span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> (target &lt; nums[mid]) &#123;</span><br><span class="line">                j = mid - <span class="number">1</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                rightMost = mid;</span><br><span class="line">                i = mid + <span class="number">1</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (rightMost == Integer.MAX_VALUE) &#123;</span><br><span class="line">            <span class="keyword">return</span> -<span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> rightMost;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<h3 id="3-6-总结"><a href="#3-6-总结" class="headerlink" title="3.6 总结"></a>3.6 总结</h3><p>在第三节里面，讨论了二分时有重复元素的情况，<strong>使用方法查找重复元素最左边或者最右边的索引，以及通过leftMost的样例代码寻找不存在元素的插入索引位置。</strong></p>
+]]></content>
+      <categories>
+        <category>算法</category>
+      </categories>
+      <tags>
+        <tag>算法</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>算法：（四）递归</title>
     <url>/2024/07/09/%E7%AE%97%E6%B3%95%EF%BC%9A%EF%BC%88%E5%9B%9B%EF%BC%89%E9%80%92%E5%BD%92/</url>
     <content><![CDATA[<h1 id="一、递归的解决思想"><a href="#一、递归的解决思想" class="headerlink" title="一、递归的解决思想"></a>一、递归的解决思想</h1><ol>
@@ -2271,100 +3055,6 @@
 <h2 id="3-优化杨辉三角"><a href="#3-优化杨辉三角" class="headerlink" title="3.优化杨辉三角"></a>3.优化杨辉三角</h2><p>可以看到，其实杨辉三角中进行递归的时候还是有重复的流程的，和斐波那契数列一样</p>
 <p><img src="%E4%B8%89%E8%A7%923.png"></p>
 <p>两个10其实都需要上面的6，然而原本的方法是直接不断递归，没有像类似斐波那契数列用数组存储避免递归。而在这个地方也可以使用二维数组的记忆法去避免递归，这里略了，参考黑马算法p67,68。</p>
-]]></content>
-      <categories>
-        <category>算法</category>
-      </categories>
-      <tags>
-        <tag>算法</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>算法：（二）二分查找</title>
-    <url>/2024/07/03/%E7%AE%97%E6%B3%95%EF%BC%9A%EF%BC%88%E4%BA%8C%EF%BC%89%E4%BA%8C%E5%88%86%E6%9F%A5%E6%89%BE/</url>
-    <content><![CDATA[<h1 id="一、基础二分查找"><a href="#一、基础二分查找" class="headerlink" title="一、基础二分查找"></a>一、基础二分查找</h1><p><a href="https://leetcode.cn/problems/binary-search/description/">力扣704：二分查找</a></p>
-<p>左闭右闭区间：</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="type">int</span> <span class="title function_">search</span><span class="params">(<span class="type">int</span>[] nums, <span class="type">int</span> target)</span> &#123;</span><br><span class="line">        <span class="comment">// 避免当 target 小于nums[0] nums[nums.length - 1]时多次循环运算</span></span><br><span class="line">        <span class="keyword">if</span> (target &lt; nums[<span class="number">0</span>] || target &gt; nums[nums.length - <span class="number">1</span>]) &#123;</span><br><span class="line">            <span class="keyword">return</span> -<span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="type">int</span> <span class="variable">left</span> <span class="operator">=</span> <span class="number">0</span>, right = nums.length - <span class="number">1</span>;</span><br><span class="line">        <span class="keyword">while</span> (left &lt;= right) &#123;</span><br><span class="line">            <span class="type">int</span> <span class="variable">mid</span> <span class="operator">=</span> left + ((right - left) &gt;&gt; <span class="number">1</span>);</span><br><span class="line">            <span class="keyword">if</span> (nums[mid] == target) &#123;</span><br><span class="line">                <span class="keyword">return</span> mid;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">else</span> <span class="keyword">if</span> (nums[mid] &lt; target) &#123;</span><br><span class="line">                left = mid + <span class="number">1</span>;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">else</span> &#123; <span class="comment">// nums[mid] &gt; target</span></span><br><span class="line">                right = mid - <span class="number">1</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 未找到目标值</span></span><br><span class="line">        <span class="keyword">return</span> -<span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>左闭右开区间：</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="type">int</span> <span class="title function_">search</span><span class="params">(<span class="type">int</span>[] nums, <span class="type">int</span> target)</span> &#123;</span><br><span class="line">        <span class="type">int</span> <span class="variable">left</span> <span class="operator">=</span> <span class="number">0</span>, right = nums.length;</span><br><span class="line">        <span class="keyword">while</span> (left &lt; right) &#123;</span><br><span class="line">            <span class="type">int</span> <span class="variable">mid</span> <span class="operator">=</span> left + ((right - left) &gt;&gt; <span class="number">1</span>);</span><br><span class="line">            <span class="keyword">if</span> (nums[mid] == target) &#123;</span><br><span class="line">                <span class="keyword">return</span> mid;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">else</span> <span class="keyword">if</span> (nums[mid] &lt; target) &#123;</span><br><span class="line">                left = mid + <span class="number">1</span>;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">else</span> &#123; <span class="comment">// nums[mid] &gt; target</span></span><br><span class="line">                right = mid;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 未找到目标值</span></span><br><span class="line">        <span class="keyword">return</span> -<span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-
-
-<p><strong>left和right的含义（贼他妈重点，区分两个写法的区间到底怎么写）：</strong></p>
-<p>作为<strong>区间</strong>[left,right]或者[left,right)；作为指针指向元素。</p>
-<p>在左闭右闭区间中，left&lt;&#x3D;right，right是有可能指向target的，但是left&lt;right，<strong>right只是边界</strong>，right不可能是target。因此在左闭右闭区间的时候，right&#x3D;arr.length-1，而左闭右开区间right&#x3D;arr.length。</p>
-<img src="%E4%BA%8C%E5%88%86%E7%AE%97%E6%B3%95%E8%8D%89%E7%A8%BF.jpg" style="zoom:120%;">
-
-
-
-
-
-<p><strong>二分查找注意点：</strong></p>
-<ol>
-<li><p><strong>单单只看左闭右闭区间，while循环中到底是left&lt;right还是left&lt;&#x3D;right？</strong></p>
-<p>可以有一个具体的例子，当查找的数字是左边界的时候，left&lt;right会漏掉一次查询。因为left和right共同指向一个位置的时候不满足while条件，所以退出循环。</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 拿草稿纸自己写一下，别只看不动笔的</span></span><br><span class="line"><span class="type">int</span>[] arr = &#123;<span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">13</span>, <span class="number">16</span>, <span class="number">23</span>, <span class="number">24</span>&#125;;</span><br><span class="line">target = <span class="number">2</span>;</span><br></pre></td></tr></table></figure>
-
-
-</li>
-<li><p><strong>int mid &#x3D; left + ((right - left) &gt;&gt; 1)是什么？为什么不是直接相加除2？</strong></p>
-<p>超过int类型的范围以后会变负数。右移运算符&gt;&gt;1相当于转换成二进制除2，需要补一下原码，反码，补码的内容，懒得写了。</p>
-</li>
-</ol>
-<h1 id="二、二分查找寻找插入点"><a href="#二、二分查找寻找插入点" class="headerlink" title="二、二分查找寻找插入点"></a>二、二分查找寻找插入点</h1><p>这个在力扣上也是有题目的：<a href="https://leetcode.cn/problems/search-insert-position/submissions/544277320/">力扣35：二分查找寻找插入点</a></p>
-<p>来看一个最简单的情况</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">int</span>[] arr = &#123;<span class="number">1</span>,<span class="number">3</span>,<span class="number">5</span>&#125;;</span><br><span class="line"><span class="comment">// target = 0 or 2 or 4 or 6</span></span><br></pre></td></tr></table></figure>
-
-<p>其实不难看出就是4种情况，基于mid分两边，左边是target&#x3D;0,2，或者是右边target&#x3D;4,6，因为都是查不到的，那么肯定在左闭右闭的写法中，right和left指针会发生重合，无非就是在看0，2两个情况左右两个指针怎么动罢了，由稿纸一眼法得出，left指针的值就是需要插入的位置</p>
-<p>代码：</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="type">int</span> <span class="title function_">searchInsert</span><span class="params">(<span class="type">int</span>[] nums, <span class="type">int</span> target)</span> &#123;</span><br><span class="line">        <span class="type">int</span> <span class="variable">min</span> <span class="operator">=</span> <span class="number">0</span>;</span><br><span class="line">        <span class="type">int</span> <span class="variable">max</span> <span class="operator">=</span> nums.length - <span class="number">1</span>;</span><br><span class="line">        <span class="type">int</span> mid=<span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">while</span> (min&lt;=max) &#123;</span><br><span class="line">            mid = (max + min) / <span class="number">2</span>;</span><br><span class="line">        </span><br><span class="line">            <span class="keyword">if</span> (nums[mid] &lt; target) &#123;</span><br><span class="line">                <span class="comment">// 说明在target应该在右边</span></span><br><span class="line">                min = mid + <span class="number">1</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> (nums[mid] &gt; target) &#123;</span><br><span class="line">                <span class="comment">// 说明target应该在左边</span></span><br><span class="line">                max = mid - <span class="number">1</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="comment">// 找到插入的位置</span></span><br><span class="line">                <span class="keyword">return</span> mid;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> min;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-
-
-
-
-<h1 id="三、二分查找重复元素的处理"><a href="#三、二分查找重复元素的处理" class="headerlink" title="三、二分查找重复元素的处理"></a>三、二分查找重复元素的处理</h1><h3 id="3-1-重复元素LeftMost"><a href="#3-1-重复元素LeftMost" class="headerlink" title="3.1 重复元素LeftMost"></a>3.1 重复元素LeftMost</h3><p>leftMost：查找元素最左边的索引</p>
-<p>无非就是找到target以后记录索引，而不是return。</p>
-<p>代码：我写的是target一定在arr中存在的情况</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">BinarySearch3</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="type">int</span>[] arr = &#123;<span class="number">1</span>, <span class="number">2</span>, <span class="number">4</span>, <span class="number">4</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>, <span class="number">7</span>, <span class="number">7</span>, <span class="number">8</span>, <span class="number">8</span>&#125;;</span><br><span class="line">        <span class="type">int</span> <span class="variable">left</span> <span class="operator">=</span> <span class="number">0</span>, right = arr.length - <span class="number">1</span>;</span><br><span class="line">        <span class="type">int</span> <span class="variable">target</span> <span class="operator">=</span> <span class="number">8</span>;</span><br><span class="line">        <span class="type">int</span> <span class="variable">temp</span> <span class="operator">=</span> Integer.MAX_VALUE;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// leftMost</span></span><br><span class="line">        <span class="keyword">while</span> (left &lt;= right) &#123;</span><br><span class="line">            <span class="type">int</span> <span class="variable">mid</span> <span class="operator">=</span> (left + right) &gt;&gt; <span class="number">1</span>;</span><br><span class="line">            <span class="keyword">if</span> (target &lt;= arr[mid]) &#123;</span><br><span class="line">                temp = mid;</span><br><span class="line">                right = mid - <span class="number">1</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                left = mid + <span class="number">1</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        System.out.println(temp);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>如果target不存在，这个写法得出来的是target插入的位置</p>
-<h3 id="3-2-重复元素RigthMost"><a href="#3-2-重复元素RigthMost" class="headerlink" title="3.2 重复元素RigthMost"></a>3.2 重复元素RigthMost</h3><p>和上面一样，直接往右边一直找就完事儿了</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">while</span> (left &lt;= right) &#123;</span><br><span class="line">           <span class="type">int</span> <span class="variable">mid</span> <span class="operator">=</span> (left + right) &gt;&gt; <span class="number">1</span>;</span><br><span class="line">           <span class="keyword">if</span> (arr[mid] == target) &#123;</span><br><span class="line">               temp = mid;</span><br><span class="line">               left = mid + <span class="number">1</span>;</span><br><span class="line">           &#125; <span class="keyword">else</span> <span class="keyword">if</span> (target &lt; arr[mid]) &#123;</span><br><span class="line">               right = mid - <span class="number">1</span>;</span><br><span class="line">           &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">               left = mid + <span class="number">1</span>;</span><br><span class="line">           &#125;</span><br><span class="line">     &#125;</span><br></pre></td></tr></table></figure>
-
-
-
-
-
-<h3 id="3-3-重复元素中target不一定存在的情况返回最左边索引"><a href="#3-3-重复元素中target不一定存在的情况返回最左边索引" class="headerlink" title="3.3 重复元素中target不一定存在的情况返回最左边索引"></a>3.3 重复元素中target不一定存在的情况返回最左边索引</h3><p>其实在3.1中那样写if语句不包括target不一定在arr中的情况，因为我默认他可以找到的话，我会一直进行temp&#x3D;mid赋值，然而如果不存在target还进行赋值的话返回的不会是-1</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">BinarySearch4</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="type">int</span>[] arr = &#123;<span class="number">1</span>, <span class="number">2</span>, <span class="number">4</span>, <span class="number">4</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>, <span class="number">7</span>, <span class="number">8</span>&#125;;</span><br><span class="line">        <span class="type">int</span> <span class="variable">left</span> <span class="operator">=</span> <span class="number">0</span>, right = arr.length - <span class="number">1</span>;</span><br><span class="line">        <span class="type">int</span> <span class="variable">target</span> <span class="operator">=</span> <span class="number">4</span>;</span><br><span class="line">        <span class="type">int</span> <span class="variable">temp</span> <span class="operator">=</span> Integer.MAX_VALUE;</span><br><span class="line"></span><br><span class="line">        temp = binarySearch3(arr, left, right, target, temp);</span><br><span class="line"></span><br><span class="line">        System.out.println(temp);</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="type">int</span> <span class="title function_">binarySearch4</span><span class="params">(<span class="type">int</span>[] arr, <span class="type">int</span> left, <span class="type">int</span> right, <span class="type">int</span> target, <span class="type">int</span> temp)</span> &#123;</span><br><span class="line">        <span class="comment">// leftMost</span></span><br><span class="line">        <span class="keyword">while</span> (left &lt;= right) &#123;</span><br><span class="line">            <span class="type">int</span> <span class="variable">mid</span> <span class="operator">=</span> (left + right) &gt;&gt; <span class="number">1</span>;</span><br><span class="line">            <span class="keyword">if</span> (target &lt; arr[mid]) &#123;</span><br><span class="line">                right = mid - <span class="number">1</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> (target &gt; arr[mid]) &#123;</span><br><span class="line">                left = mid + <span class="number">1</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                right = mid - <span class="number">1</span>;</span><br><span class="line">                temp = mid;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (temp == Integer.MAX_VALUE) &#123;</span><br><span class="line">            <span class="keyword">return</span> -<span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> temp;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-
-
-<h3 id="3-4-重复元素中target不一定存在返回时插入位置"><a href="#3-4-重复元素中target不一定存在返回时插入位置" class="headerlink" title="3.4 重复元素中target不一定存在返回时插入位置"></a>3.4 重复元素中target不一定存在返回时插入位置</h3><p>看到3.1的代码就是了。为什么那样写可以在找到重复元素的同时（target存在）可以找到插入的位置？</p>
-<p>原因是因为在找target的过程中，每次都给temp赋值，我们已经知道这段代码永远会去找最左边的值了：</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">if</span> (target &lt;= arr[mid]) &#123;</span><br><span class="line">    temp = mid;</span><br><span class="line">    right = mid - <span class="number">1</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>并且左闭右闭，left&#x3D;right最后一步的时候，mid的值取平均值后和left、right相等，temp&#x3D;mid记录的就是重复元素最左边的位置，刚好这个位置就是插入的位置了。</p>
-<p>寻找插入位置我认为不需要判断leftmost或者rightmost，得到的结果都一样，我改了一下数组，看数组和输出结果就行了，用的都是leftMost的方法</p>
-<img src="%E4%B8%8D%E5%AD%98%E5%9C%A8target%E8%8E%B7%E5%8F%96%E6%8F%92%E5%85%A5%E7%B4%A2%E5%BC%951.png" style="zoom:120%;">
-
-
-
-<img src="%E4%B8%8D%E5%AD%98%E5%9C%A8target%E8%8E%B7%E5%8F%96%E6%8F%92%E5%85%A5%E7%B4%A2%E5%BC%952.png" style="zoom:80%;">
-
-
-
-<h3 id="3-5-练习"><a href="#3-5-练习" class="headerlink" title="3.5 练习"></a>3.5 练习</h3><p><a href="https://leetcode.cn/problems/find-first-and-last-position-of-element-in-sorted-array/description/">力扣34：查找排序数组中元素的第一个位置和最后一个位置</a></p>
-<p>简单死了，就是查一个leftMost和rightMost，返回就行了</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line">   <span class="keyword">public</span> <span class="keyword">static</span> <span class="type">int</span>[] searchRange(<span class="type">int</span>[] nums, <span class="type">int</span> target) &#123;</span><br><span class="line">        <span class="type">int</span> <span class="variable">left</span> <span class="operator">=</span> leftMost(nums, target);</span><br><span class="line">        <span class="type">int</span> <span class="variable">right</span> <span class="operator">=</span> rightMost(nums, target);</span><br><span class="line">        <span class="type">int</span>[] arr = &#123;left, right&#125;;</span><br><span class="line">        <span class="keyword">return</span> arr;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="type">int</span> <span class="title function_">leftMost</span><span class="params">(<span class="type">int</span>[] nums, <span class="type">int</span> target)</span> &#123;</span><br><span class="line">        <span class="type">int</span> <span class="variable">leftMost</span> <span class="operator">=</span> Integer.MAX_VALUE;</span><br><span class="line">        <span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>;</span><br><span class="line">        <span class="type">int</span> <span class="variable">j</span> <span class="operator">=</span> nums.length - <span class="number">1</span>;</span><br><span class="line">        <span class="keyword">while</span> (i &lt;= j) &#123;</span><br><span class="line">            <span class="type">int</span> <span class="variable">mid</span> <span class="operator">=</span> (i + j) &gt;&gt; <span class="number">1</span>;</span><br><span class="line">            <span class="keyword">if</span> (nums[mid] &lt; target) &#123;</span><br><span class="line">                i = mid + <span class="number">1</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> (target &lt; nums[mid]) &#123;</span><br><span class="line">                j = mid - <span class="number">1</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                leftMost = mid;</span><br><span class="line">                j = mid - <span class="number">1</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (leftMost == Integer.MAX_VALUE) &#123;</span><br><span class="line">            <span class="keyword">return</span> -<span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> leftMost;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="type">int</span> <span class="title function_">rightMost</span><span class="params">(<span class="type">int</span>[] nums, <span class="type">int</span> target)</span> &#123;</span><br><span class="line">        <span class="type">int</span> <span class="variable">rightMost</span> <span class="operator">=</span> Integer.MAX_VALUE;</span><br><span class="line">        <span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>;</span><br><span class="line">        <span class="type">int</span> <span class="variable">j</span> <span class="operator">=</span> nums.length - <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">while</span> (i &lt;= j) &#123;</span><br><span class="line">            <span class="type">int</span> <span class="variable">mid</span> <span class="operator">=</span> (i + j) &gt;&gt; <span class="number">1</span>;</span><br><span class="line">            <span class="keyword">if</span> (nums[mid] &lt; target) &#123;</span><br><span class="line">                i = mid + <span class="number">1</span>;</span><br><span class="line">                </span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> (target &lt; nums[mid]) &#123;</span><br><span class="line">                j = mid - <span class="number">1</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                rightMost = mid;</span><br><span class="line">                i = mid + <span class="number">1</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (rightMost == Integer.MAX_VALUE) &#123;</span><br><span class="line">            <span class="keyword">return</span> -<span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> rightMost;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-
-
-
-
-<h3 id="3-6-总结"><a href="#3-6-总结" class="headerlink" title="3.6 总结"></a>3.6 总结</h3><p>在第三节里面，讨论了二分时有重复元素的情况，<strong>使用方法查找重复元素最左边或者最右边的索引，以及通过leftMost的样例代码寻找不存在元素的插入索引位置。</strong></p>
 ]]></content>
       <categories>
         <category>算法</category>

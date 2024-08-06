@@ -1,0 +1,376 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="utf-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Java多线程：二、JMM、happens-before、volatile | 颓废市民黄先生</title><noscript>开启JavaScript才能访问本站哦~</noscript><link rel="icon" href="/img/avatar.ico"><!-- index.css--><link rel="stylesheet" href="/css/index.css?v=1.13.3"><!-- inject head--><link rel="canonical" href="https://samurai-127.github.io/2024/08/04/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9AJMM/"><link rel="stylesheet" href="https://cdn2.codesign.qq.com/icons/7pOrz0WXB5ZWJPX/latest/iconfont.css"><!-- aplayer--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aplayer/1.10.1/APlayer.min.css"><!-- swiper--><!-- fancybox ui--><!-- katex--><!-- Open Graph--><meta name="description" content="文章包括八股的JMM模型、volatile关键字、synchronized关键字、重排序等内容，来，试试看~"><!-- pwa--><meta name="apple-mobile-web-app-capable" content="颓废市民黄先生"><meta name="theme-color" content="var(--efu-main)"><meta name="apple-mobile-web-app-status-bar-style" content="var(--efu-main)"><link rel="bookmark" href="/img/avatar.ico"><link rel="apple-touch-icon" href="/img/avatar.ico" sizes="180x180"><script>console.log(' %c Solitude %c ' + '1.13.3' + ' %c https://github.com/everfu/hexo-theme-solitude',
+    'background:#35495e ; padding: 1px; border-radius: 3px 0 0 3px;  color: #fff',
+    'background:#ff9a9a ; padding: 1px; border-radius: 0 3px 3px 0;  color: #fff',
+    'background:unset ; padding: 1px; border-radius: 0 3px 3px 0;  color: #fff')
+</script><script>(()=>{
+        const saveToLocal = {
+            set: function setWithExpiry(key, value, ttl) {
+                if (ttl === 0)
+                    return
+                const now = new Date()
+                const expiryDay = ttl * 86400000
+                const item = {
+                    value: value,
+                    expiry: now.getTime() + expiryDay
+                }
+                localStorage.setItem(key, JSON.stringify(item))
+            },
+            get: function getWithExpiry(key) {
+                const itemStr = localStorage.getItem(key)
+    
+                if (!itemStr) {
+                    return undefined
+                }
+                const item = JSON.parse(itemStr)
+                const now = new Date()
+    
+                if (now.getTime() > item.expiry) {
+                    localStorage.removeItem(key)
+                    return undefined
+                }
+                return item.value
+            }
+        };
+        window.utils = {
+            saveToLocal: saveToLocal,
+            getCSS: (url, id = false) => new Promise((resolve, reject) => {
+              const link = document.createElement('link')
+              link.rel = 'stylesheet'
+              link.href = url
+              if (id) link.id = id
+              link.onerror = reject
+              link.onload = link.onreadystatechange = function() {
+                const loadState = this.readyState
+                if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+                link.onload = link.onreadystatechange = null
+                resolve()
+              }
+              document.head.appendChild(link)
+            }),
+            getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+              const script = document.createElement('script')
+              script.src = url
+              script.async = true
+              script.onerror = reject
+              script.onload = script.onreadystatechange = function() {
+                const loadState = this.readyState
+                if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+                script.onload = script.onreadystatechange = null
+                resolve()
+              }
+    
+              Object.keys(attr).forEach(key => {
+                script.setAttribute(key, attr[key])
+              })
+    
+              document.head.appendChild(script)
+            }),
+            addGlobalFn: (key, fn, name = false, parent = window) => {
+                const globalFn = parent.globalFn || {}
+                const keyObj = globalFn[key] || {}
+        
+                if (name && keyObj[name]) return
+        
+                name = name || Object.keys(keyObj).length
+                keyObj[name] = fn
+                globalFn[key] = keyObj
+                parent.globalFn = globalFn
+            },
+        }
+    })()</script><!-- global head--><script>const GLOBAL_CONFIG = {
+    root: '/',
+    algolia: undefined,
+    localsearch: {"preload":false,"path":"/search.xml"},
+    runtime: 'false',
+    lazyload: {
+        enable: false,
+        error: '/img/error_load.avif'
+    },
+    copyright: {"limit":50,"author":"作者: 颓废市民黄先生","link":"链接: ","source":"来源: 颓废市民黄先生","info":"著作权归作者所有。 商业转载请联系作者获得授权，非商业转载请注明出处。"},
+    highlight: {"limit":200,"expand":true,"copy":true,"syntax":"highlight.js"},
+    randomlink: false,
+    lang: {"theme":{"dark":"已切换至深色模式","light":"已切换至浅色模式"},"copy":{"success":"复制成功","error":"复制失败"},"backtop":"返回顶部","time":{"day":"天前","hour":"小时前","just":"刚刚","min":"分钟前","month":"个月前"},"day":" 天","f12":"开发者模式已打开，请遵循GPL协议。","totalk":"无需删除空行，直接输入评论即可","search":{"empty":"找不到你查询的内容：${query}","hit":"找到 ${hits} 条结果，用时 ${time} 毫秒","placeholder":"输入关键词快速查找","count":"共 <b>${count}</b> 条结果。"},"barrage":{"title":"热评"}},
+    aside: {
+        sayhello: {
+            morning: '起那么早看博客？',
+            noon: '中午休息一下呗',
+            afternoon: '下午好像在犯困',
+            night: '晚上洗个澡爽一下呗',
+            goodnight: '睡个好觉，保证精力充沛',
+        },
+        sayhello2: [],
+        sayhello3: {
+            prefix: '好久不见，',
+            back: '欢迎再次回来，',
+        },
+    },
+    covercolor: {
+        enable: false
+    },
+    comment: {"avatar":"https://cravatar.cn","commentBarrage":true},
+    lightbox: 'null',
+    post_ai: {"key":"449aa72132adf73ef7084ef83c46792af1edab","talk":null,"randomPost":false},
+    right_menu: {"mode":{"dark":"深色模式","light":"浅色模式"},"img_error":"此图片无法复制与下载","music":{"start":"播放音乐","stop":"暂停音乐"},"barrage":{"open":"显示热评","close":"关闭热评"},"translate":{"translateDelay":0,"defaultEncoding":2}},
+    lure: {"jump":"404 Not Found","back":"被骗了吧（），网页没有404"},
+    expire: false,
+};</script><!-- page-config head--><script id="config-diff">var PAGE_CONFIG = {
+    is_post: true,
+    is_page: false,
+    is_home: false,
+    page: 'string',
+    toc: true,
+    comment: true,
+    ai_text: false
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body id="body" data-type="string"><!-- universe--><canvas id="universe"></canvas><!-- background img--><!-- loading--><!-- console--><!-- sidebar--><div id="sidebar" style="zoom: 1;"><div id="menu-mask" style="display: none;"></div><div id="sidebar-menus"><div class="site-data"><div class="data-item is-center"><div class="data-item-link"><a href="/archives/"><div class="headline">文章</div><div class="length-num">18</div></a></div></div><div class="data-item is-center"><div class="data-item-link"><a href="/categories/"><div class="headline">分类</div><div class="length-num">7</div></a></div></div><div class="data-item is-center"><div class="data-item-link"><a href="/tags/"><div class="headline">标签</div><div class="length-num">12</div></a></div></div></div><span class="sidebar-menu-item-title">功能</span><div class="sidebar-menu-item"><span class="darkmode_switchbutton menu-child" onclick="sco.switchDarkMode()"><i class="solitude st-moon-clear-fill"></i><span>显示模式</span></span></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><span>首页</span></a></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>文库</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="solitude  st-folder-fill"></i><span>文章列表</span></a></li><li><a class="site-page child" href="/categories/"><i class="solitude  st-checkbox-multiple-blank-fill"></i><span>全部分类</span></a></li><li><a class="site-page child" href="/tags/"><i class="solitude  st-price-tag-fill"></i><span>全部标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>我的歌单</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="solitude  st-disc-fill"></i><span>音乐馆</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>关于</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/about/"><i class="solitude  st-contacts-fill"></i><span>关于本站</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/message"><span>留言板</span></a></div></div><span class="sidebar-menu-item-title">标签</span><div class="card-widget card-tags card-archives card-webinfo card-allinfo"><div class="card-tag-cloud"><a href="/tags/docker/">docker<sup>2</sup></a><a href="/tags/%E8%BD%AF%E4%BB%B6%E6%8A%80%E6%9C%AF/">软件技术<sup>5</sup></a><a href="/tags/JDBC/">JDBC<sup>1</sup></a><a href="/tags/Java/">Java<sup>1</sup></a><a href="/tags/git/">git<sup>1</sup></a><a href="/tags/%E5%A4%9A%E7%BA%BF%E7%A8%8B/">多线程<sup>4</sup></a><a href="/tags/%E9%9D%A2%E8%AF%95/">面试<sup>7</sup></a><a href="/tags/mybatis/">mybatis<sup>1</sup></a><a href="/tags/hexo/">hexo<sup>1</sup></a><a href="/tags/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/">操作系统<sup>2</sup></a><a href="/tags/mysql/">mysql<sup>1</sup></a><a href="/tags/%E7%AE%97%E6%B3%95/">算法<sup>4</sup></a></div></div></div></div><!-- keyboard--><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav class="show" id="nav"><div id="nav-group"><div id="blog_name"><a id="site-name" href="/" title="返回博客主页"><span class="title">颓废市民黄先生</span></a></div><div id="page-name-mask"><div id="page-name"><a id="page-name-text" onclick="sco.toTop()">Java多线程：二、JMM、happens-before、volatile</a></div></div><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><span>首页</span></a></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>文库</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="solitude  st-folder-fill"></i><span>文章列表</span></a></li><li><a class="site-page child" href="/categories/"><i class="solitude  st-checkbox-multiple-blank-fill"></i><span>全部分类</span></a></li><li><a class="site-page child" href="/tags/"><i class="solitude  st-price-tag-fill"></i><span>全部标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>我的歌单</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="solitude  st-disc-fill"></i><span>音乐馆</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>关于</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/about/"><i class="solitude  st-contacts-fill"></i><span>关于本站</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/message"><span>留言板</span></a></div></div></div><div id="nav-left"></div><div id="nav-right"><div class="nav-button" id="randomPost_button"><a class="site-page" onclick="toRandomPost()" title="随机一篇文章" href="javascript:void(0);"><i class="solitude st-dice-line"></i></a></div><div class="nav-button" id="search-button"><a class="site-page social-icon search" href="javascript:void(0);" title="搜索"><i class="solitude st-search-line"></i></a></div><div class="nav-button" id="nav-totop" onclick="sco.toTop()"><a class="totopbtn"><i class="solitude st-arrow-up-line"></i><span id="percent">0</span></a></div><div id="toggle-menu"><a class="site-page"><i class="solitude st-menu-line"></i></a></div></div></div></nav><div class="coverdiv" id="coverdiv"><img class="nolazyload" id="post-cover" src="/img/JVM.png" alt="Java多线程：二、JMM、happens-before、volatile"></div><div id="post-info"><div id="post-firstinfo"><div class="meta-firstline"><a class="post-meta-original" title="该文章为转载或翻译文章，注意版权协议">转载或翻译</a><span class="post-meta-categories"><a class="post-meta-categories" href="/categories/Java/">Java</a></span><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E5%A4%9A%E7%BA%BF%E7%A8%8B/"><span class="tags-name tags-punctuation">多线程</span></a><a class="post-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/"><span class="tags-name tags-punctuation">面试</span></a></div></div></div></div><h1 class="post-title">Java多线程：二、JMM、happens-before、volatile</h1><div id="post-meta"><div class="meta-secondline"><span class="post-meta-date" title="发布于 2024-08-04 01:18:05"><i class="post-meta-icon solitude st-calendar-todo-fill"></i><time datetime="2024-08-03T17:18:05.000Z">2024-08-03T17:18:05.000Z</time></span><span class="post-meta-date" title="最后更新于 2024-08-07 01:47:35"><i class="post-meta-icon solitude st-refresh-line"></i><time datetime="2024-08-06T17:47:35.956Z">2024-08-06T17:47:35.956Z</time></span><span class="post-meta-position" title="作者IP归属地为广西"><i class="post-meta-icon solitude st-map-pin-fill"></i><span>广西</span></span><a class="post-meta-pv" href="/2024/08/04/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9AJMM/" title="文章热度"><i class="post-meta-icon solitude st-fire-fill"></i><span id="twikoo_visitors"><i class="solitude st-loading-line"></i></span></a><span class="post-meta-commentcount" title="评论数" onclick="sco.scrollTo('post-comment')"><i class="solitude st-chat-fill"></i><a href="/2024/08/04/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9AJMM/#post-comment"><span class="twikoo-count"><i class="solitude st-loading-line"></i></span></a></span></div></div></div><section class="main-hero-waves-area waves-area"><svg class="waves-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" viewBox="0 24 150 28" preserveAspectRatio="none" shape-rendering="auto"><defs><path id="gentle-wave" d="M -160 44 c 30 0 58 -18 88 -18 s 58 18 88 18 s 58 -18 88 -18 s 58 18 88 18 v 44 h -352 Z"></path></defs><g class="parallax"><use href="#gentle-wave" x="48" y="0"></use><use href="#gentle-wave" x="48" y="3"></use><use href="#gentle-wave" x="48" y="5"></use><use href="#gentle-wave" x="48" y="7"></use></g></svg></section></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><div class="post-ai"><div class="ai-title"><div class="ai-title-left"><i class="ai-title-icon solitude st-robot-fill"></i><div class="ai-title-text">文章摘要</div></div><div class="ai-tag" id="ai-tag">GPT 4</div></div><div class="ai-explanation" style="display: block;"></div><div class="ai-suggestions"></div><div class="ai-bottom"><div class="ai-tips">此内容根据文章生成，仅用于文章内容的解释与总结</div><a class="ai-report" title="投诉" href="https://samurai-127.github.io">投诉</a></div></div><h1 id="一、内存模型（含八股内容）"><a href="#一、内存模型（含八股内容）" class="headerlink" title="一、内存模型（含八股内容）"></a>一、内存模型（含八股内容）</h1><h2 id="1-1-内存模型及并发问题"><a href="#1-1-内存模型及并发问题" class="headerlink" title="1.1 内存模型及并发问题"></a>1.1 内存模型及并发问题</h2><p>Java 内存模型（Java Memory Model，JMM）定义了 Java 程序中的变量、线程如何和主存以及工作内存进行交互的规则。它主要涉及到多线程环境下的共享变量可见性、指令重排等问题，是理解并发编程中的关键概念。</p>
+<p>并发编程的线程之间存在两个问题：</p>
+<ul>
+<li>线程间如何通信？即：线程之间以何种机制来交换信息</li>
+<li>线程间如何同步？即：线程以何种机制来控制不同线程间发生的相对顺序</li>
+</ul>
+<p>有两种并发模型可以解决这两个问题：</p>
+<ul>
+<li>消息传递并发模型</li>
+<li>共享内存并发模型</li>
+</ul>
+<p>这两种模型之间的区别如下图所示：</p>
+<p><img src="jmm-a610752d-ef73-47f2-b02c-6954eb3d62bf.png"></p>
+<p>重要的事情说三遍</p>
+<p><strong>Java 使用的是共享内存并发模型！！！！</strong></p>
+<p><strong>Java 使用的是共享内存并发模型！！！！</strong></p>
+<p><strong>Java 使用的是共享内存并发模型！！！！</strong></p>
+<h2 id="1-2-须知：Java共享内存并发模型"><a href="#1-2-须知：Java共享内存并发模型" class="headerlink" title="1.2 须知：Java共享内存并发模型"></a>1.2 须知：Java共享内存并发模型</h2><p>在共享内存的并发模型里，线程之间共享程序的公共状态，线程之间通过写-读内存中的公共状态来隐式进行通信。典型的共享内存通信方式，就是通过共享对象进行通信。 </p>
+<p>例如线程 A 与 线程 B 之间如果要通信的话，那么就必须经历下面两个步骤： 1. 线程 A 把本地内存 A 更新过得共享变量刷新到主内存中去。 2. 线程 B 到主内存中去读取线程 A 之前更新过的共享变量，<strong>也就是说，线程A和线程B之间一定要通过主存。</strong></p>
+<p><img src="jmm-f02219aa-e762-4df0-ac08-6f4cceb535c2.jpg" alt="共享内存"></p>
+<h2 id="1-3-八股：本地内存和主存有什么区别？"><a href="#1-3-八股：本地内存和主存有什么区别？" class="headerlink" title="1.3 八股：本地内存和主存有什么区别？"></a>1.3 八股：本地内存和主存有什么区别？</h2><p>线程之间的共享变量存在于主存中，每个线程都有一个私有的本地内存，存储了该线程的读、写共享变量的副本。本地内存是 Java 内存模型的一个抽象概念，并不真实存在。它涵盖了缓存、写缓冲区、寄存器等（比如cpu的三级缓存）。</p>
+<h1 id="二、如何保证内存可见性？"><a href="#二、如何保证内存可见性？" class="headerlink" title="二、如何保证内存可见性？"></a>二、如何保证内存可见性？</h1><p>由于java用的是内存共享并发模型，那么我们就按照这个来说。线程的安全问题包括原子性、可见性、活跃性、有序性，这里就先讨论可见性。</p>
+<p>可见性就是指，如果线程A在本地内存中更新了一个变量，那么线程B以及其他线程需要同步修改后的数据。如何同步修改后的数据？此时就是需要JMM，JMM控制主存和本地内存之间的交互，来提供内存可见性保证。</p>
+<p>Java 中的 <code>volatile 关键字</code>可以保证多线程操作共享变量的可见性以及禁止指令重排序，<code>synchronized 关键字</code>不仅保证可见性，同时也保证了原子性（互斥性）。</p>
+<p>在更底层，JMM 通过内存屏障来实现内存的可见性以及禁止重排序。为了程序员更方便地理解，设计者提出了 happens-before 的概念（下文会细讲），它更加简单易懂，从而避免了程序员为了理解内存可见性而去学习复杂的重排序规则，以及这些规则的具体实现方法。</p>
+<h1 id="三、JMM与重排序"><a href="#三、JMM与重排序" class="headerlink" title="三、JMM与重排序"></a>三、JMM与重排序</h1><p>前面提到了，JMM 定义了多线程之间如何互相交互的规则，主要目的是为了解决由于编译器优化、处理器优化和缓存系统等导致的可见性、原子性和有序性。</p>
+<p>那我们接下来就来聊聊重排序以及它所带来的顺序问题。</p>
+<h3 id="3-1-为什么指令重排可以提高性能？"><a href="#3-1-为什么指令重排可以提高性能？" class="headerlink" title="3.1 为什么指令重排可以提高性能？"></a>3.1 为什么指令重排可以提高性能？</h3><p>大家都知道，计算机在执行程序时，为了提高性能，编译器和处理器常常会对指令做重排。</p>
+<p>那可能有小伙伴就要问：<strong>为什么指令重排序可以提高性能？</strong></p>
+<p>简单地说，每一个指令都会包含多个步骤，每个步骤可能使用不同的硬件。因此，<strong>流水线技术</strong>产生了，它的原理是指令 1 还没有执行完，就可以开始执行指令 2，而不用等到指令 1 执行结束后再执行指令 2，这样就大大提高了效率。</p>
+<p>但是，流水线技术最害怕<strong>中断</strong>，恢复中断的代价是比较大的，所以我们要想尽办法不让流水线中断。指令重排就是减少中断的一种技术。</p>
+<p>我们分析一下下面这段代码的执行情况：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">a = b + c;</span><br><span class="line">d = e - f ;</span><br></pre></td></tr></table></figure>
+
+<p>先加载 b、c（<strong>注意，有可能先加载 b，也有可能先加载 c</strong>），但是在执行 <code>add(b,c)</code> 的时候，需要等待 b、c 装载结束才能继续执行，也就是需要增加停顿，那么后面的指令（加载 e 和 f）也会有停顿，这就降低了计算机的执行效率。</p>
+<p>为了减少停顿，我们可以在加载完 b 和 c 后把 e 和 f 也加载了，然后再去执行 <code>add(b,c)</code>，这样做对程序（串行）是没有影响的，但却减少了停顿。</p>
+<p>换句话说，既然 <code>add(b,c)</code> 需要停顿，那还不如去做一些有意义的事情（加载 e 和 f）。</p>
+<p>综上所述，<strong>指令重排对于提高 CPU 性能十分必要，但也带来了乱序的问题。</strong></p>
+<h3 id="3-2-重排序有哪几种？"><a href="#3-2-重排序有哪几种？" class="headerlink" title="3.2 重排序有哪几种？"></a>3.2 重排序有哪几种？</h3><p>指令重排一般分为以下三种：</p>
+<ul>
+<li><strong>编译器优化重排</strong>，编译器在<strong>不改变单线程程序语义</strong>的前提下，重新安排语句的执行顺序。</li>
+<li><strong>指令并行重排</strong>，现代处理器采用了指令级并行技术来将多条指令重叠执行。如果<strong>不存在数据依赖性</strong>(即后一个执行的语句无需依赖前面执行的语句的结果)，处理器可以改变语句对应的机器指令的执行顺序。</li>
+<li><strong>内存系统重排</strong>，由于处理器使用缓存和读写缓存冲区，这使得加载(load)和存储(store)操作看上去可能是在乱序执行，因为三级缓存的存在，导致内存与缓存的数据同步存在时间差。</li>
+</ul>
+<p><strong>指令重排可以保证串行语义一致，但是没有义务保证多线程间的语义也一致</strong>。所以在多线程下，指令重排序可能会导致一些问题。</p>
+<h1 id="四、happens-before-关系模型"><a href="#四、happens-before-关系模型" class="headerlink" title="四、happens-before 关系模型"></a>四、happens-before 关系模型</h1><h2 id="4-1-八股：什么是happens-before-关系模型？"><a href="#4-1-八股：什么是happens-before-关系模型？" class="headerlink" title="4.1 八股：什么是happens-before 关系模型？"></a>4.1 八股：什么是happens-before 关系模型？</h2><p>happens-before 关系的定义如下：</p>
+<ol>
+<li><p><strong>如果一个操作 happens-before 另一个操作，那么第一个操作的执行结果将对第二个操作可见，而且第一个操作的执行顺序排在第二个操作之前。</strong></p>
+</li>
+<li><p><strong>两个操作之间存在 happens-before 关系，并不意味着 Java 平台的具体实现必须要按照 happens-before 关系指定的顺序来执行。如果重排序之后的执行结果，与按 happens-before 关系来执行的结果一致，那么 JMM 也允许这样的重排序。</strong></p>
+</li>
+</ol>
+<p>总之，<strong>如果操作 A happens-before 操作 B，那么操作 A 在内存上所做的操作对操作 B 都是可见的，不管它们在不在一个线程。</strong></p>
+<h2 id="4-2-了解：happens-before-关系有哪些？"><a href="#4-2-了解：happens-before-关系有哪些？" class="headerlink" title="4.2 了解：happens-before 关系有哪些？"></a>4.2 了解：happens-before 关系有哪些？</h2><p>   在 Java 中，有以下天然的 happens-before 关系：</p>
+<ul>
+<li>程序顺序规则：一个线程中的每一个操作，happens-before 于该线程中的任意后续操作。</li>
+<li>监视器锁规则：对一个锁的解锁，happens-before 于随后对这个锁的加锁。</li>
+<li>volatile 变量规则：对一个 volatile 域的写，happens-before 于任意后续对这个 volatile 域的读。</li>
+<li>传递性：如果 A happens-before B，且 B happens-before C，那么 A happens-before C。</li>
+<li>start 规则：如果线程 A 执行操作 <code>ThreadB.start()</code>启动线程 B，那么 A 线程的 <code>ThreadB.start()</code>操作 happens-before 于线程 B 中的任意操作。</li>
+<li>join 规则：如果线程 A 执行操作 <code>ThreadB.join()</code>并成功返回，那么线程 B 中的任意操作 happens-before 于线程 A 从 <code>ThreadB.join()</code>操作成功返回。</li>
+</ul>
+<p>   举例：</p>
+   <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="variable">a</span> <span class="operator">=</span> <span class="number">1</span>; <span class="comment">// A操作</span></span><br><span class="line"><span class="type">int</span> <span class="variable">b</span> <span class="operator">=</span> <span class="number">2</span>; <span class="comment">// B操作</span></span><br><span class="line"><span class="type">int</span> <span class="variable">sum</span> <span class="operator">=</span> a + b;<span class="comment">// C 操作</span></span><br><span class="line">System.out.println(sum);</span><br></pre></td></tr></table></figure>
+
+<p>   根据以上介绍的 happens-before 规则，假如只有一个线程，那么不难得出：</p>
+   <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">1</span>&gt; A happens-before B</span><br><span class="line"><span class="number">2</span>&gt; B happens-before C</span><br><span class="line"><span class="number">3</span>&gt; A happens-before C</span><br></pre></td></tr></table></figure>
+
+<p>   注意，真正在执行指令的时候，其实 JVM 有可能对操作 A &amp; B 进行重排序，因为无论先执行 A 还是 B，他们都对对方是可见的，并且不影响执行结果。</p>
+<p>   如果这里发生了重排序，这在视觉上违背了 happens-before 原则，但是 JMM 是允许这样的重排序的。</p>
+<p>   所以，我们只关心 happens-before 规则，不用关心 JVM 到底是怎样执行的。只要确定操作 A happens-before 操作 B 就行了。</p>
+<p>   重排序有两类，JMM 对这两类重排序有不同的策略：</p>
+<ul>
+<li>会改变程序执行结果的重排序，比如 A -&gt; C，JMM 要求编译器和处理器都禁止这种重排序。</li>
+<li>不会改变程序执行结果的重排序，比如 A -&gt; B，JMM 对编译器和处理器不做要求，允许这种重排序。</li>
+</ul>
+<h1 id="五、volatile关键字"><a href="#五、volatile关键字" class="headerlink" title="五、volatile关键字"></a>五、volatile关键字</h1><h2 id="5-1-八股：volatile关键字的作用"><a href="#5-1-八股：volatile关键字的作用" class="headerlink" title="5.1 八股：volatile关键字的作用"></a>5.1 八股：volatile关键字的作用</h2><p>一旦一个共享变量（类的成员变量、类的静态成员变量）被volatile修饰之后，那么就具备了两层语义： </p>
+<ol>
+<li>保证了不同线程对这个变量进行操作时的可见性，即一个线程修改了某个变量的值，这新值对其他线程来说是立即可见的。 </li>
+<li>禁止进行指令重排序。 </li>
+<li>volatile本质是在告诉jvm当前变量在寄存器（工作内存）中的值是不确定的，需要从主存中读取；synchronized则是锁定当前变量，只有当前线程可以访问该变量，其他线程被阻塞住。 </li>
+<li>volatile仅能使用在变量级别；synchronized则可以使用在变量、方法、和类级别的。</li>
+<li>volatile仅能实现变量的修改可见性，并不能保证原子性；synchronized则可以保证变量的修改 可见性和原子性。</li>
+<li>volatile不会造成线程的阻塞；synchronized可能会造成线程的阻塞。 </li>
+<li>volatile标记的变量不会被编译器优化；synchronized标记的变量可以被编译器优化。</li>
+</ol>
+<h2 id="5-2-八股：volatile禁止指令重排序（volatile和-happens-before）"><a href="#5-2-八股：volatile禁止指令重排序（volatile和-happens-before）" class="headerlink" title="5.2 八股：volatile禁止指令重排序（volatile和 happens-before）"></a>5.2 八股：volatile禁止指令重排序（volatile和 happens-before）</h2><p>在讲 JMM的时候，我们提到了指令重排，相信大家都还有印象，我们来回顾一下重排序需要遵守的规则：</p>
+<ul>
+<li>重排序不会对存在数据依赖关系的操作进行重排序。比如：<code>a=1;b=a;</code> 这个指令序列，因为第二个操作依赖于第一个操作，所以在编译时和处理器运行时这两个操作不会被重排序。</li>
+<li>重排序是为了优化性能，但是不管怎么重排序，单线程下程序的执行结果不能被改变。比如：<code>a=1;b=2;c=a+b</code> 这三个操作，第一步 (a&#x3D;1) 和第二步 (b&#x3D;2) 由于不存在数据依赖关系，所以可能会发生重排序，但是 c&#x3D;a+b 这个操作是不会被重排序的，因为需要保证最终的结果一定是 c&#x3D;a+b&#x3D;3。</li>
+</ul>
+<p>使用 volatile 关键字修饰共享变量可以禁止这种重排序。怎么做到的呢？</p>
+<p>当我们使用 volatile 关键字来修饰一个变量时，Java 内存模型会插入内存屏障（一个处理器指令，可以对 CPU 或编译器重排序做出约束）来确保以下两点：</p>
+<ul>
+<li>写屏障（Write Barrier）：当一个 volatile 变量被写入时，写屏障确保在该屏障之前的所有变量的写入操作都提交到主内存。</li>
+<li>读屏障（Read Barrier）：当读取一个 volatile 变量时，读屏障确保在该屏障之后的所有读操作都从主内存中读取。</li>
+</ul>
+<p>换句话说：</p>
+<ul>
+<li>当程序执行到 volatile 变量的读操作或者写操作时，在其前面操作的更改肯定已经全部进行，且结果对后面的操作可见；在其后面的操作肯定还没有进行；</li>
+<li>在进行指令优化时，不能将 volatile 变量的语句放在其后面执行，也不能把 volatile 变量后面的语句放到其前面执行。</li>
+</ul>
+<h2 id="5-3-volatile不保证原子性"><a href="#5-3-volatile不保证原子性" class="headerlink" title="5.3 volatile不保证原子性"></a>5.3 volatile不保证原子性</h2><p>比如i++操作：</p>
+<p>在Java（以及许多其他编程语言中），i++ 是一个后缀递增操作符，它对变量 i 执行一个复合操作，该操作可以分解为以下三个步骤（尽管在实际执行时这些步骤可能会被优化或合并，但从概念上讲）： </p>
+<ol>
+<li>读取（Load）：首先，从内存中读取变量 i 的当前值。这个值被加载到CPU的寄存器中，供后续操作使用。 </li>
+<li>修改（Increment）：然后，将寄存器中的值增加1。这个步骤是在CPU内部完成的，不涉及内存的读写操作（除了可能涉及的缓存一致性协议）。 </li>
+<li>写回（Store）：最后，将修改后的值写回到内存中变量 i 的位置。这一步确保了内存中 i 的值被更新为新的值。</li>
+</ol>
+<p> 需要注意的是，在多线程环境中，这三个步骤可能会被其他线程的类似操作打断，导致数据不一致的问题。特别是，如果两个线程几乎同时执行对同一个变量的 i++ 操作，它们可能会： 第一个线程读取了 i 的原始值（比如10）。 第二个线程也读取了 i 的相同原始值（因为第一个线程还没有写回新值）。 第一个线程增加1并将结果（11）写回内存。 第二个线程也增加1（基于它读取的旧值10），并将结果（也是11）写回内存，覆盖了第一个线程的结果。 </p>
+<p>这就是为什么在多线程环境中，即使使用了 volatile 关键字来确保变量的可见性，i++ 这样的复合操作也仍然需要额外的同步机制来确保原子性。volatile 保证了每次读取 i 时都会从主内存中获取最新值，但它并不保证 i++ 操作的原子性。</p>
+<p><strong>解决方式：</strong>使用<code>synchronized关键字（重入锁）</code>或者<code>lock接口的实现类ReentrantLock（重入锁）</code>进行加锁，总所周知学线程编程的时候都会学习的两个锁，可以保证原子性</p>
+<h1 id="六、synchronized关键字"><a href="#六、synchronized关键字" class="headerlink" title="六、synchronized关键字"></a>六、synchronized关键字</h1><p>由于我写累了就不写基本用法了，就是修饰静态代码块，同步方法（实例方法），静态方法（类方法）三种用途，不懂的可以自己去查资料</p>
+<p>重点放在关键字保证的线程安全上，<strong>synchronized关键字是允许指令重排的，也就是说，满足了 happens-before模型的结果一致原则的指令重排。</strong></p>
+<p>另外，<strong>synchronized属于重入锁，这部分放到多线程和锁的内容去介绍。</strong></p>
+</article><div class="post-copyright"><div class="post-copyright__author_group"><a class="post-copyright__author_img" href="/about/"><img class="post-copyright__author_img_front" src="/img/avatar.ico"></a><div class="post-copyright__author_name">颓废市民黄先生</div><div class="post-copyright__author_desc">welcome 艾瑞巴蒂</div></div><div class="post-tools" id="post-tools"><div class="post-tools-left"><div id="quit-box" onclick="RemoveRewardMask()"></div></div></div><div class="social-share"><a class="social-share-ico icon-qq" target="_blank" rel="noopener" href="https://connect.qq.com/widget/shareqq/index.html?url=https%3A%2F%2Fsamurai-127.github.io%2F2024%2F08%2F04%2Fjava%25E5%25A4%259A%25E7%25BA%25BF%25E7%25A8%258B%25EF%25BC%259AJMM%2F&amp;title=Java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%BA%8C%E3%80%81JMM%E3%80%81happens-before%E3%80%81volatile&amp;desc=%E6%96%87%E7%AB%A0%E5%8C%85%E6%8B%AC%E5%85%AB%E8%82%A1%E7%9A%84JMM%E6%A8%A1%E5%9E%8B%E3%80%81volatile%E5%85%B3%E9%94%AE%E5%AD%97%E3%80%81synchronized%E5%85%B3%E9%94%AE%E5%AD%97%E3%80%81%E9%87%8D%E6%8E%92%E5%BA%8F%E7%AD%89%E5%86%85%E5%AE%B9%EF%BC%8C%E6%9D%A5%EF%BC%8C%E8%AF%95%E8%AF%95%E7%9C%8B~&amp;summary=%E6%96%87%E7%AB%A0%E5%8C%85%E6%8B%AC%E5%85%AB%E8%82%A1%E7%9A%84JMM%E6%A8%A1%E5%9E%8B%E3%80%81volatile%E5%85%B3%E9%94%AE%E5%AD%97%E3%80%81synchronized%E5%85%B3%E9%94%AE%E5%AD%97%E3%80%81%E9%87%8D%E6%8E%92%E5%BA%8F%E7%AD%89%E5%86%85%E5%AE%B9%EF%BC%8C%E6%9D%A5%EF%BC%8C%E8%AF%95%E8%AF%95%E7%9C%8B~&amp;site=Java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%BA%8C%E3%80%81JMM%E3%80%81happens-before%E3%80%81volatile&amp;pics=%2Fimg%2FJVM.png" title="分享到QQ"><i class="solitude st-qq-fill"></i></a></div><div class="post-copyright__notice"><span class="post-copyright-info">本文是转载或翻译文章，版权归原作者所有。转载本文请联系原作者。</span></div></div><div class="post-tools-right"><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E5%A4%9A%E7%BA%BF%E7%A8%8B/"><span class="tags-punctuation"></span>多线程<span class="tagsPageCount">4</span></a><a class="post-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/"><span class="tags-punctuation"></span>面试<span class="tagsPageCount">7</span></a></div></div></div><nav class="needEndHide pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2024/08/05/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E9%94%81/"><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info">Java多线程：三、多线程锁、java锁的实现</div></div></a></div><div class="next-post pull-right"><a href="/2024/08/03/java-%E7%BA%BF%E7%A8%8B%E6%B1%A0/"><div class="pagination-info"><div class="label">下一篇</div><div class="next_info">Java多线程：一、线程池</div></div></a></div></nav><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="solitude st-chat-fill"></i><span> 评论</span><span class="count"> (<span class="twikoo-count"><i class="solitude st-loading-line"></i></span>)</span></div></div><div class="comment-wrap"><div id="twikoo-wrap"></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="card-content"><div class="card-info-avatar is-center"><div class="author-info__top-group"><div class="author-info__sayhi" id="author-info__sayhi" onclick="sco.changeSayHelloText()">sayhello.morning</div></div></div><div class="avatar-img-group"><img class="avatar-img" alt="头像" src="/img/avatar.jpg"><div class="avatar-sticker"><img class="avatar-sticker-img" src="https://7.isyangs.cn/34/65f2e4e0423cc-34.png" alt="心情贴纸"></div></div><div class="author-info__description_group"><div class="author-info__description">大郞，你来看我的博客啦~</div><div class="author-info__description2">看看有没有对你有帮助的内容呗</div></div><div class="author-info__bottom-group"><a class="author-info__bottom-group-left" href="/about/"><div class="author-info__name">颓废市民黄先生</div><div class="author-info__desc">welcome 艾瑞巴蒂</div></a><div class="card-info-social-icons is-center"><a class="social-icon" target="_blank" rel="noopener" href="https://space.bilibili.com/314882691" title="Bilibili"><i class="solitude  st-bilibili-line"></i></a><a class="social-icon" target="_blank" rel="noopener" href="https://www.douyin.com/user/MS4wLjABAAAAy1FJN9CK4loLwbU-ngonlCdhB5ZT99fq4_Jdg3qJS7w" title="douyin"><i class="solitude  st-douyin-fill"></i></a></div></div></div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="solitude st-menu-line"></i><span>文章目录</span></div><div class="toc-content" id="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B%EF%BC%88%E5%90%AB%E5%85%AB%E8%82%A1%E5%86%85%E5%AE%B9%EF%BC%89"><span class="toc-text">一、内存模型（含八股内容）</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#1-1-%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B%E5%8F%8A%E5%B9%B6%E5%8F%91%E9%97%AE%E9%A2%98"><span class="toc-text">1.1 内存模型及并发问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#1-2-%E9%A1%BB%E7%9F%A5%EF%BC%9AJava%E5%85%B1%E4%BA%AB%E5%86%85%E5%AD%98%E5%B9%B6%E5%8F%91%E6%A8%A1%E5%9E%8B"><span class="toc-text">1.2 须知：Java共享内存并发模型</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#1-3-%E5%85%AB%E8%82%A1%EF%BC%9A%E6%9C%AC%E5%9C%B0%E5%86%85%E5%AD%98%E5%92%8C%E4%B8%BB%E5%AD%98%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-text">1.3 八股：本地内存和主存有什么区别？</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E5%A6%82%E4%BD%95%E4%BF%9D%E8%AF%81%E5%86%85%E5%AD%98%E5%8F%AF%E8%A7%81%E6%80%A7%EF%BC%9F"><span class="toc-text">二、如何保证内存可见性？</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%89%E3%80%81JMM%E4%B8%8E%E9%87%8D%E6%8E%92%E5%BA%8F"><span class="toc-text">三、JMM与重排序</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#3-1-%E4%B8%BA%E4%BB%80%E4%B9%88%E6%8C%87%E4%BB%A4%E9%87%8D%E6%8E%92%E5%8F%AF%E4%BB%A5%E6%8F%90%E9%AB%98%E6%80%A7%E8%83%BD%EF%BC%9F"><span class="toc-text">3.1 为什么指令重排可以提高性能？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-2-%E9%87%8D%E6%8E%92%E5%BA%8F%E6%9C%89%E5%93%AA%E5%87%A0%E7%A7%8D%EF%BC%9F"><span class="toc-text">3.2 重排序有哪几种？</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%9B%9B%E3%80%81happens-before-%E5%85%B3%E7%B3%BB%E6%A8%A1%E5%9E%8B"><span class="toc-text">四、happens-before 关系模型</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#4-1-%E5%85%AB%E8%82%A1%EF%BC%9A%E4%BB%80%E4%B9%88%E6%98%AFhappens-before-%E5%85%B3%E7%B3%BB%E6%A8%A1%E5%9E%8B%EF%BC%9F"><span class="toc-text">4.1 八股：什么是happens-before 关系模型？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#4-2-%E4%BA%86%E8%A7%A3%EF%BC%9Ahappens-before-%E5%85%B3%E7%B3%BB%E6%9C%89%E5%93%AA%E4%BA%9B%EF%BC%9F"><span class="toc-text">4.2 了解：happens-before 关系有哪些？</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%BA%94%E3%80%81volatile%E5%85%B3%E9%94%AE%E5%AD%97"><span class="toc-text">五、volatile关键字</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#5-1-%E5%85%AB%E8%82%A1%EF%BC%9Avolatile%E5%85%B3%E9%94%AE%E5%AD%97%E7%9A%84%E4%BD%9C%E7%94%A8"><span class="toc-text">5.1 八股：volatile关键字的作用</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#5-2-%E5%85%AB%E8%82%A1%EF%BC%9Avolatile%E7%A6%81%E6%AD%A2%E6%8C%87%E4%BB%A4%E9%87%8D%E6%8E%92%E5%BA%8F%EF%BC%88volatile%E5%92%8C-happens-before%EF%BC%89"><span class="toc-text">5.2 八股：volatile禁止指令重排序（volatile和 happens-before）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#5-3-volatile%E4%B8%8D%E4%BF%9D%E8%AF%81%E5%8E%9F%E5%AD%90%E6%80%A7"><span class="toc-text">5.3 volatile不保证原子性</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%85%AD%E3%80%81synchronized%E5%85%B3%E9%94%AE%E5%AD%97"><span class="toc-text">六、synchronized关键字</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="solitude st-map-line"></i><span>最近发布</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2024/08/06/java%EF%BC%9A%E8%AF%A6%E8%A7%A3ConcurrentHashMap/" title="Java多线程：四、详解ConcurrentHashMap构成"><img alt="Java多线程：四、详解ConcurrentHashMap构成" src="/img/ConcurrentHashMap.png"></a><div class="content"><a class="title" href="/2024/08/06/java%EF%BC%9A%E8%AF%A6%E8%A7%A3ConcurrentHashMap/" title="Java多线程：四、详解ConcurrentHashMap构成">Java多线程：四、详解ConcurrentHashMap构成</a><a class="article-recent_post_categories" href="/2024/08/06/java%EF%BC%9A%E8%AF%A6%E8%A7%A3ConcurrentHashMap/">Java</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/08/05/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E9%94%81/" title="Java多线程：三、多线程锁、java锁的实现"><img alt="Java多线程：三、多线程锁、java锁的实现" src="/img/Lock.png"></a><div class="content"><a class="title" href="/2024/08/05/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E9%94%81/" title="Java多线程：三、多线程锁、java锁的实现">Java多线程：三、多线程锁、java锁的实现</a><a class="article-recent_post_categories" href="/2024/08/05/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E9%94%81/">Java</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/08/04/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9AJMM/" title="Java多线程：二、JMM、happens-before、volatile"><img alt="Java多线程：二、JMM、happens-before、volatile" src="/img/JVM.png"></a><div class="content"><a class="title" href="/2024/08/04/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9AJMM/" title="Java多线程：二、JMM、happens-before、volatile">Java多线程：二、JMM、happens-before、volatile</a><a class="article-recent_post_categories" href="/2024/08/04/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9AJMM/">Java</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/08/03/java-%E7%BA%BF%E7%A8%8B%E6%B1%A0/" title="Java多线程：一、线程池"><img alt="Java多线程：一、线程池" src="/img/JUC.png"></a><div class="content"><a class="title" href="/2024/08/03/java-%E7%BA%BF%E7%A8%8B%E6%B1%A0/" title="Java多线程：一、线程池">Java多线程：一、线程池</a><a class="article-recent_post_categories" href="/2024/08/03/java-%E7%BA%BF%E7%A8%8B%E6%B1%A0/">Java</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/07/30/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F%EF%BC%9A%EF%BC%88%E4%BA%8C%EF%BC%89%E4%B8%BA%E4%BB%80%E4%B9%880-1-0-2%E4%B8%8D%E7%AD%89%E4%BA%8E0-3/" title="操作系统：（二）原码，反码，补码，计算丢失精度"><img alt="操作系统：（二）原码，反码，补码，计算丢失精度" src="/img/OSCover2.png"></a><div class="content"><a class="title" href="/2024/07/30/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F%EF%BC%9A%EF%BC%88%E4%BA%8C%EF%BC%89%E4%B8%BA%E4%BB%80%E4%B9%880-1-0-2%E4%B8%8D%E7%AD%89%E4%BA%8E0-3/" title="操作系统：（二）原码，反码，补码，计算丢失精度">操作系统：（二）原码，反码，补码，计算丢失精度</a><a class="article-recent_post_categories" href="/2024/07/30/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F%EF%BC%9A%EF%BC%88%E4%BA%8C%EF%BC%89%E4%B8%BA%E4%BB%80%E4%B9%880-1-0-2%E4%B8%8D%E7%AD%89%E4%BA%8E0-3/">OS</a></div></div></div></div></div></div></main><footer id="footer"><div id="st-footer-bar"><div class="footer-logo"><span>颓废市民黄先生</span></div><div class="footer-bar-description">来自 颓废市民黄先生 的文章</div><a class="footer-bar-link" href="/about/">了解更多</a></div><div id="footer_deal"></div><div id="st-footer"></div><div id="footer-bar"><div class="footer-bar-links"><div class="footer-bar-left"><div class="copyright">© 2024 By&nbsp;<a class="footer-bar-link" href="/">颓废市民黄先生</a></div></div><div class="footer-bar-right"><a class="footer-bar-link" target="_blank" rel="noopener" href="https://github.com/everfu/hexo-theme-solitude" alt="主题">主题</a><a class="footer-bar-link cc" href="/null" aria-label="copyright"><i class="solitude st-copyright-line"></i><i class="solitude st-creative-commons-by-line"></i><i class="solitude st-creative-commons-nc-line"></i><i class="solitude st-creative-commons-nd-line"></i></a></div></div></div><div class="comment-barrage needEndHide"></div></footer></div><!-- right_menu--><div id="rightMenu"><div class="rightMenu-group rightMenu-small"><div class="rightMenu-item" id="menu-backward"><i class="solitude st-arrow-left-line"></i></div><div class="rightMenu-item" id="menu-forward"><i class="solitude st-arrow-right-line"></i></div><div class="rightMenu-item" id="menu-refresh"><i class="solitude st-restart-line"></i></div><div class="rightMenu-item" id="menu-top"><i class="solitude st-arrow-up-line"></i></div></div><div class="rightMenu-group rightMenu-line rightMenuPlugin"><div class="rightMenu-item" id="menu-copytext"><i class="solitude st-copy-fill"></i><span>复制选中文本</span></div><div class="rightMenu-item" id="menu-pastetext"><i class="solitude st-clipboard-fill"></i><span>粘贴文本</span></div><div class="rightMenu-item" id="menu-commenttext"><i class="solitude st-chat-new-fill"></i><span>引用到评论</span></div><div class="rightMenu-item" id="menu-newwindow"><i class="solitude st-window-fill"></i><span>新窗口打开</span></div><div class="rightMenu-item" id="menu-copylink"><i class="solitude st-link-line"></i><span>复制链接地址</span></div><div class="rightMenu-item" id="menu-copyimg"><i class="solitude st-copy-fill"></i><span>复制此图片</span></div><div class="rightMenu-item" id="menu-downloadimg"><i class="solitude st-download-cloud-fill"></i><span>下载此图片</span></div><div class="rightMenu-item" id="menu-search"><i class="solitude st-search-line"></i><span>站内搜索</span></div><div class="rightMenu-item" id="menu-music-toggle"><i class="solitude st-play-fill"></i><span>播放音乐</span></div><div class="rightMenu-item" id="menu-music-back"><i class="solitude st-skip-back-fill"></i><span>切换到上一首</span></div><div class="rightMenu-item" id="menu-music-forward"><i class="solitude st-skip-forward-fill"></i><span>切换到下一首</span></div><div class="rightMenu-item" id="menu-music-copyMusicName"><i class="solitude st-copy-fill"></i><span>复制歌名</span></div></div><div class="rightMenu-group rightMenu-line rightMenuOther"><div class="rightMenu-item" id="menu-randomPost" onclick="toRandomPost()||rm.hideRightMenu()"><i class="solitude st-signal-tower-fill"></i><span>随机短文</span></div><div class="rightMenu-item" onclick="pjax.loadUrl('/categories/')||rm.hideRightMenu()"><i class="solitude st-checkbox-multiple-blank-fill"></i><span>全部分类</span></div><div class="rightMenu-item" onclick="pjax.loadUrl('/tags/')||rm.hideRightMenu()"><i class="solitude st-price-tag-fill"></i><span>全部标签</span></div></div><div class="rightMenu-group rightMenu-line rightMenuOther"><div class="rightMenu-item" id="menu-commentBarrage" onclick="sco.switchCommentBarrage()"><i class="solitude st-chat-fill"></i><span class="menu-commentBarrage-text">关闭热评</span></div><div class="rightMenu-item" id="menu-darkmode" onclick="sco.switchDarkMode()"><i class="solitude st-moon-clear-fill"></i><span class="menu-darkmode-text">深色模式</span></div><div class="rightMenu-item" id="menu-translate"><i class="solitude st-panben-line"></i><span>轉為繁體</span></div></div></div><div id="rightmenu-mask"></div><!-- inject body--><div><script src="/js/utils.js?v=1.13.3"></script><script src="/js/main.js?v=1.13.3"></script><script src="/js/third_party/waterfall.min.js?v=1.13.3"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/pjax/0.2.8/pjax.min.js"></script><script src="/js/third_party/universe.min.js?v=1.13.3"></script><script>dark()
+</script><script src="/js/tw_cn.js?v=1.13.3"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/node-snackbar/0.1.16/snackbar.min.js"></script><script src="/js/third_party/efu_ai.min.js?v=1.13.3"></script><script>var meting_api = 'https://meting.qjqq.cn/?server=:server&type=:type&id=:id&auth=:auth&r=:r';</script><script src="https://cdnjs.cloudflare.com/ajax/libs/aplayer/1.10.1/APlayer.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/meting/2.0.1/Meting.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/pace/1.2.4/pace.min.js"></script><script src="/js/right_menu.js?v=1.13.3"></script><script src="/js/custom.js"></script><div class="js-pjax"><script>(() => {
+    const getCount = () => {
+        const ele = document.querySelectorAll('.twikoo-count')
+        if (!ele) return
+        twikoo.getCommentsCount({
+            envId: 'https://samurai127.cn',
+            region: '',
+            urls: [window.location.pathname],
+            includeReply: false
+        }).then(res => {
+            ele.forEach(item => item.textContent = res[0].count)
+        }).catch(err => {
+            console.error(err)
+        })
+    }
+    const init = () => {
+        twikoo.init(Object.assign({
+            el: '#twikoo-wrap',
+            envId: 'https://samurai127.cn',
+            region: '',
+            path: window.location.pathname,
+            onCommentLoaded: () => {
+                GLOBAL_CONFIG.lightbox && utils.lightbox(document.querySelectorAll('#twikoo .tk-content img:not(.tk-owo-emotion)'))
+            }
+        }, null))
+
+         && getCount()
+        sco.owoBig({
+            body: '.OwO-body',
+            item: '.OwO-items li'
+        })
+
+        true && barrageTwikoo()
+    }
+
+    const loadTwikoo = () => {
+        if (typeof twikoo === 'object') setTimeout(init,0)
+        else utils.getScript('https://cdnjs.cloudflare.com/ajax/libs/twikoo/1.6.36/twikoo.all.min.js').then(init)
+    }
+
+    if ('Twikoo' === 'Twikoo' || false) {
+        if (false) utils.loadComment(document.getElementById('twikoo-wrap'), loadTwikoo)
+        else loadTwikoo()
+    } else {
+        window.loadTwoComment = loadTwikoo
+    }
+})()
+</script><script>async function barrageTwikoo() {
+    await fetch("https://samurai127.cn", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            event: "COMMENT_GET",
+            accessToken: "",
+            url: window.location.pathname
+        })
+    }).then(async res => {
+        if (!res.ok) throw new Error("HTTP error! status: " + res.status)
+        const data = await res.json();
+        const init = () => {
+            initializeCommentBarrage((data.data).map(item => Object.assign({
+                content: item.comment,
+                nick: item.nick,
+                mailMd5: item.mailMd5,
+                id: item.id
+            })))
+        }
+        if (typeof initializeCommentBarrage === "undefined") await utils.getScript('/js/third_party/barrage.min.js?v=1.13.3').then(init)
+        else init()
+    }).catch(error => console.error("An error occurred while fetching comments: ", error))
+}</script><script defer pjax src="https://cdnjs.cloudflare.com/ajax/libs/busuanzi/2.3.0/bsz.pure.mini.min.js"></script></div></div><!-- pjax--><script>const pjax = new Pjax({
+    elements: 'a:not([target="_blank"])',
+    selectors: ['title','#body-wrap','#site-config','meta[name="description"]','.js-pjax','meta[property^="og:"]','#config-diff'],
+    cacheBust: false,
+    analytics: false,
+    scrollRestoration: false
+})
+
+document.querySelectorAll('script[data-pjax]').forEach(item => {
+    const newScript = document.createElement('script')
+    const content = item.text || item.textContent || item.innerHTML || ""
+    Array.from(item.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value))
+    newScript.appendChild(document.createTextNode(content))
+    item.parentNode.replaceChild(newScript, item)
+})
+
+document.addEventListener('pjax:complete', () => {
+    window.refreshFn()
+
+    document.querySelectorAll('script[data-pjax]').forEach(item => {
+        const newScript = document.createElement('script')
+        const content = item.text || item.textContent || item.innerHTML || ""
+        Array.from(item.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value))
+        newScript.appendChild(document.createTextNode(content))
+        item.parentNode.replaceChild(newScript, item)
+    })
+
+    GLOBAL_CONFIG.islazyload && window.lazyLoadInstance.update()
+
+})
+
+document.addEventListener('pjax:error', (e) => {
+    if (e.request.status === 404) {
+        pjax.loadUrl('/404.html')
+    }
+})</script><!-- theme--><script>initTheme = () => {
+    let isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const cachedMode = utils.saveToLocal.get('theme');
+    if (cachedMode === undefined) {
+        const nowMode =
+            isDarkMode ? 'dark' : 'light'
+        document.documentElement.setAttribute('data-theme', nowMode);
+    } else {
+        document.documentElement.setAttribute('data-theme', cachedMode);
+    }
+    typeof rm === 'object' && rm.mode(cachedMode === 'dark' && isDarkMode)
+}
+initTheme()</script><!-- google adsense--><!-- search--><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><button class="search-close-button"><i class="solitude st-close-fill"></i></button></nav><div class="search-wrap"><div class="search-box"><input class="search-box-input" id="search-input" type="text" autocomplete="off" spellcheck="false" autocorrect="off" autocapitalize="off" placeholder="输入关键词快速查找"></div><div id="search-results"><div id="search-hits"></div></div><div id="search-pagination"></div><div id="search-tips"></div></div></div><div id="search-mask"></div></div><script src="/js/search/local.js?v=1.13.3"></script><!-- Tianli-Talk--><span class="needEndHide" id="efuTalk" onclick="togglePostChatContainer(); return false;" title="问答ai"><i class="solitude st-robot-fill"></i><span class="efuTalkTitle">问答ai</span></span><script>var postChatConfig = {
+backgroundColor: "var(--efu-main)",
+bottom: "60px",
+...{"defaultInput":false,"upLoadWeb":true,"userTitle":"小黄同学来也","userDesc":"有什么可以帮助你的？","showInviteLink":"https://ai.tianli0.top/?InviteID=OZ3Z0V2R","blackDom":[".aplayer"]}
+};
+
+let b = true;
+
+document.getElementById('efuTalk').addEventListener('click', function () {
+    this.classList.toggle('on');
+    let efu = this
+    b && setTimeout(() => {
+        document.getElementById('close-button').addEventListener('click', function () {
+            efu.classList.remove('on');
+        })
+    }, 0);
+    b = false
+});</script><script pjax data-postChat_key="449aa72132adf73ef7084ef83c46792af1edab" src="https://ai.tianli0.top/static/public/postChatUser.min.js"></script><!-- music--><div class="needEndHide" id="nav-music" onclick="sco.musicToggle()"><div id="nav-music-hoverTips">音乐已暂停</div><meting-js id="994057368" server="netease" type="playlist" mutex="true" preload="none" data-lrctype="0" order="random" theme="var(--efu-main)"></meting-js></div></body></html><script>const posts=["2024/08/06/java：详解ConcurrentHashMap/","2024/08/05/java多线程：三、锁/","2024/08/04/java多线程：JMM/","2024/08/03/java-线程池/","2024/07/30/操作系统：（二）为什么0-1-0-2不等于0-3/","2024/07/14/搭建博客？本站搭建博客花费了多少精力？/","2024/07/09/算法：（四）递归/","2024/07/06/Java-JDK8函数式接口、lambda表达式、方法引用/","2024/07/06/算法：（三）链表/","2024/07/06/Docker实操/","2024/07/06/centOS部署docker/","2024/07/06/mybatis/","2024/07/06/JDBC 笔记/","2024/07/03/算法：（二）二分查找/","2024/07/03/操作系统：（一）快速学习存储器/","2024/07/03/算法：（一）排序算法/","2024/06/29/数据库-索引/","2024/06/26/git速查/"];function toRandomPost(){ pjax.loadUrl(GLOBAL_CONFIG.root+posts[Math.floor(Math.random()*posts.length)]); }</script>
