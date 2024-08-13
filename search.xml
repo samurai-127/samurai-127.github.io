@@ -646,6 +646,58 @@
       </tags>
   </entry>
   <entry>
+    <title>JVM：详解GC</title>
+    <url>/2024/08/13/JVM%EF%BC%9A%E8%AF%A6%E8%A7%A3GC/</url>
+    <content><![CDATA[<h1 id="一、判断垃圾回收的算法"><a href="#一、判断垃圾回收的算法" class="headerlink" title="一、判断垃圾回收的算法"></a>一、判断垃圾回收的算法</h1><p>先提前说两个算法，分别是：</p>
+<ol>
+<li><p>引用标记算法</p>
+</li>
+<li><p>可达性分析算法</p>
+</li>
+</ol>
+<h2 id="1-引用标记算法"><a href="#1-引用标记算法" class="headerlink" title="1.引用标记算法"></a>1.引用标记算法</h2><p>引用标记算法是在Java对象头（Java对象头在介绍多线程的时候有详细的解释，直达链接：）中开辟空间，记录<strong>被引用的次数（Reference Count）</strong>，如果A变量被其他对象引用时计数器+1，引用A变量的其他变量被删除则-1，如果计数器为0时，则判断A变量需要被回收。</p>
+<p>举个例子：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">String</span> <span class="variable">str</span> <span class="operator">=</span> <span class="string">&quot;我不想上早八&quot;</span>;</span><br></pre></td></tr></table></figure>
+
+<p>此时，在Java虚拟机栈（以下简称栈）开辟一个内存空间记录str，此时堆中的字符串常量池的“我不想上早八”，被引用的次数就是1（Reference Count&#x3D;1），此时我做修改操作：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">String</span> <span class="variable">str</span> <span class="operator">=</span> <span class="string">&quot;其实我想上早七&quot;</span>;</span><br></pre></td></tr></table></figure>
+
+<p>此时，在栈中的变量str原本引用常量池的”我不想上早八”引用次数为0，那么这一块就会被回收。</p>
+<p>引用标记算法的回收机制遍布整个代码运行时期而没有集中于垃圾回收时期，因此不属于”Stop-The-World”的范围。</p>
+<blockquote>
+<p>“Stop The World”是 Java 垃圾收集中的一个重要概念。在垃圾收集过程中，JVM 会暂停所有的用户线程，这种暂停被称为”Stop The World”事件。</p>
+<p>这么做的主要原因是为了防止在垃圾收集过程中，用户线程修改了堆中的对象，导致垃圾收集器无法准确地收集垃圾。</p>
+</blockquote>
+<p><strong>引用标记算法存在的问题：</strong></p>
+<p>无法解决循环依赖的问题，看代码</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ReferenceCountingGC</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> Object instance;  <span class="comment">// 对象属性，用于存储对另一个 ReferenceCountingGC 对象的引用</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">ReferenceCountingGC</span><span class="params">(String name)</span> &#123;</span><br><span class="line">        <span class="comment">// 构造方法</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">testGC</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="comment">// 创建两个 ReferenceCountingGC 对象</span></span><br><span class="line">        <span class="type">ReferenceCountingGC</span> <span class="variable">a</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ReferenceCountingGC</span>(<span class="string">&quot;我爱玩原神&quot;</span>);</span><br><span class="line">        <span class="type">ReferenceCountingGC</span> <span class="variable">b</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ReferenceCountingGC</span>(<span class="string">&quot;那维莱特一次回调比得上3年的陪伴&quot;</span>);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 使 a 和 b 相互引用</span></span><br><span class="line">        a.instance = b;</span><br><span class="line">        b.instance = a;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 将 a 和 b 设置为 null</span></span><br><span class="line">        a = <span class="literal">null</span>;</span><br><span class="line">        b = <span class="literal">null</span>;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 这个位置是垃圾回收的触发点</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在代码中a,b变量相互引用，即使将将 a 和 b 设置为 null，也无法将字符串的引用改变（即Reference Count没有被减到0）。从案例可以知道，这样写永远无法通知GC对这两个字符串进行收集。</p>
+<h2 id="2-可达性分析算法"><a href="#2-可达性分析算法" class="headerlink" title="2.可达性分析算法"></a>2.可达性分析算法</h2><p>现代虚拟机基本都是采用可达性分析算法来判断对象是否存活，可达性算法的原理是以一系列叫做  <strong>GC Root</strong> 的对象为起点出发，引出它们指向的下一个节点，再以下个节点为起点，引出此节点指向的下一个结点。这样通过 GC Root 串成的一条线就叫引用链），直到所有的结点都遍历完毕,如果相关对象不在任意一个以 <strong>GC Root</strong> 为起点的引用链中，则这些对象会被判断为垃圾对象,会被 GC 回收。</p>
+<p><img src="Snipaste_2024-08-13_10-31-47.png"></p>
+<p><strong>a, b 对象可回收，就一定会被回收吗?</strong></p>
+<p>并不是，对象的 finalize 方法给了对象一次垂死挣扎的机会，当对象不可达（可回收）时，当发生GC时，会先判断对象是否执行了 finalize 方法，如果未执行，则会先执行 finalize 方法，我们可以在此方法里将当前对象与 GC Roots 关联，这样执行 finalize 方法之后，GC 会再次判断对象是否可达，如果不可达，则会被回收，如果可达，则不回收！</p>
+<p><strong>注意：</strong> finalize 方法只会被执行一次，如果第一次执行 finalize 方法此对象变成了可达确实不会回收，但如果对象再次被 GC，则会忽略 finalize 方法，对象会被回收！这一点切记!</p>
+<p><strong>GC Roots 到底是什么东西呢，哪些对象可以作为 GC Root 呢？</strong></p>
+<ul>
+<li>虚拟机栈（栈帧中的本地变量表）中引用的对象</li>
+<li>本地方法栈中 JNI（即一般说的 Native 方法）引用的对象</li>
+<li>方法区中类静态属性引用的对象</li>
+<li>方法区中常量引用的对象</li>
+</ul>
+<p>关于这四个例子可以参考：<a href="https://blog.csdn.net/weixin_38007185/article/details/108093716">GC Roots 是什么？哪些对象可以作为 GC Root？看完秒懂！-CSDN博客</a></p>
+<p>二、八股：垃圾收集算法</p>
+<p>阿里八股16题，我们来详细的谈谈：</p>
+<p>1.标记清除算法</p>
+<p>标记清除算法（Mark-Sweep）是最基础的一种垃圾回收算法，它分为 2 部分，先把内存区域中的这些对象进行标记，哪些属于可回收的标记出来（用前面提到的可达性分析法），然后把这些垃圾拎出来清理掉。</p>
+<p><img src="gc-20231227125304.png"></p>
+<p>标记清除算法存在一个缺陷，在垃圾回收以后会产生内存碎片，无法应对需要一口气分配大内存的情况。</p>
+<blockquote>
+<p>内存碎片化是指在内存分配和回收过程中，被释放的内存空间没有被合并成较大的连续空间，而是形成了许多小块的、不连续的内存区域。这会导致在后续需要分配大块连续内存时，系统可能无法找到足够的连续空间，从而影响程序的性能和稳定性。</p>
+</blockquote>
+]]></content>
+  </entry>
+  <entry>
     <title>Java：JDK8函数式接口、lambda表达式、方法引用</title>
     <url>/2024/07/06/Java-JDK8%E5%87%BD%E6%95%B0%E5%BC%8F%E6%8E%A5%E5%8F%A3%E3%80%81lambda%E8%A1%A8%E8%BE%BE%E5%BC%8F%E3%80%81%E6%96%B9%E6%B3%95%E5%BC%95%E7%94%A8/</url>
     <content><![CDATA[<h1 id="一、函数式接口"><a href="#一、函数式接口" class="headerlink" title="一、函数式接口"></a>一、函数式接口</h1><p>只有一个抽象方法的接口就成为函数式接口。同时，引入了一个新的注解：@FunctionalInterface。可以把他它放在一个接口前，表示这个接口是一个函数式接口。这个注解是非必须的，只要接口只包含一个方法的接口，虚拟机会自动判断，不过最好在接口上使用注解 @FunctionalInterface 进行声明。在接口中添加了 @FunctionalInterface 的接口，只允许有一个抽象方法，否则编译器也会报错。</p>
@@ -773,6 +825,83 @@
       </tags>
   </entry>
   <entry>
+    <title>快速复习git</title>
+    <url>/2024/06/26/git%E9%80%9F%E6%9F%A5/</url>
+    <content><![CDATA[<h3 id="1-博客前言"><a href="#1-博客前言" class="headerlink" title="1. 博客前言"></a>1. 博客前言</h3><p>本篇博客记录git常用的命令，用于快速复习。基于命令行，对一个项目进行版本控制（不使用图形化界面，例如idea、vscode等）。</p>
+<h3 id="2-常用命令"><a href="#2-常用命令" class="headerlink" title="2. 常用命令"></a>2. 常用命令</h3><h4 id="2-1-删除git仓库"><a href="#2-1-删除git仓库" class="headerlink" title="2.1 删除git仓库"></a>2.1 删除git仓库</h4><p>​	如果项目是拉取的，或者想要换一个gitee仓库，那么在使用自己的仓库之前需要将之前的删掉。步骤如下：</p>
+<ol>
+<li><p>打开命令行工具,得航到你的项目所在的目录。</p>
+</li>
+<li><p>输入以下命令来取消当前项目与Gitee的关联: </p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">git remote remove origin</span><br></pre></td></tr></table></figure>
+
+<p>这里的”origin”通常是默认的远程仓库名称，但如果你使用了不同的名称，你需要将其替换为实际的远程仓库名。</p>
+</li>
+<li><p>输入以下命令来检查是否已成功取消关联:</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">git remote -V</span><br></pre></td></tr></table></figure></li>
+</ol>
+<p>​		如果没有版本提示，说明就是删除成功了，跳到2.2步</p>
+<h4 id="2-2-提交代码到gitee仓库"><a href="#2-2-提交代码到gitee仓库" class="headerlink" title="2.2 提交代码到gitee仓库"></a>2.2 提交代码到gitee仓库</h4><ol>
+<li><p>项目初始化。右键自己的项目，或者进项目的目录一级，右键打开git bash</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 右键自己的项目，或者进项目的目录一级，右键打开git bash</span></span><br><span class="line">git init</span><br></pre></td></tr></table></figure>
+
+
+
+<p>此时文件夹中多出一个.git文件（需要打开隐藏文件夹开关）</p>
+<img src="init%E5%91%BD%E4%BB%A4.png" style="zoom: 50%;">
+
+
+
+
+</li>
+<li><p>添加远程仓库</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># origin 后面的是自己在gitee上创建的仓库地址</span></span><br><span class="line">git remote add origin https://gitee.com/samurai127/XXX.git</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>查看是否连接成功</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">git remote</span><br></pre></td></tr></table></figure>
+
+<p>提示版本号说明成功绑定</p>
+</li>
+</ol>
+<h4 id="2-3-提交"><a href="#2-3-提交" class="headerlink" title="2.3 提交"></a>2.3 提交</h4><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 将代码提交到本地仓库</span></span><br><span class="line">git add .</span><br><span class="line"></span><br><span class="line"><span class="comment"># 提交</span></span><br><span class="line">git commit -m <span class="string">&#x27;版本备注&#x27;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 将代码推送到远程仓库。如果多人开发，需要把master换成自己的分支，例如dev01</span></span><br><span class="line">git push origin master</span><br></pre></td></tr></table></figure>
+
+<p>至此，在gitee上已经能够看到提交的代码了</p>
+<h4 id="2-4-版本回退"><a href="#2-4-版本回退" class="headerlink" title="2.4 版本回退"></a>2.4 版本回退</h4><p>如果本地的代码被你改的bug一大堆，那么可以尝试恢复到之前交的git仓库的版本。<br>此处推荐使用reset命令进行版本回退（如果想恢复到之前某个提交的版本，且那个版本之后提交的版本我们都不要了，就可以用这种方法）。</p>
+<h5 id="2-4-1-回退到上一个版本"><a href="#2-4-1-回退到上一个版本" class="headerlink" title="2.4.1 回退到上一个版本"></a>2.4.1 回退到上一个版本</h5><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 拉取所有更新，不同步</span></span><br><span class="line">git fetch --all </span><br><span class="line"></span><br><span class="line"><span class="comment"># 本地代码同步线上最新版本(会覆盖本地所有与远程仓库.上同名的文件);</span></span><br><span class="line">git reset --hard origin/ master</span><br><span class="line"></span><br><span class="line"><span class="comment"># 再更新一次 (其实也可以不用，第二二步命令做过了其实)</span></span><br><span class="line">git pull</span><br></pre></td></tr></table></figure>
+
+
+
+<h5 id="2-4-2-回退到指定版本"><a href="#2-4-2-回退到指定版本" class="headerlink" title="2.4.2 回退到指定版本"></a>2.4.2 回退到指定版本</h5><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 查看版本号</span></span><br><span class="line">git logs</span><br><span class="line"><span class="comment"># 回退版本：f42aa0e换成需要的版本号</span></span><br><span class="line">git reset --hard f42aa0e</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="3-管理分支开发"><a href="#3-管理分支开发" class="headerlink" title="3. 管理分支开发"></a>3. 管理分支开发</h3><h4 id="3-1-从其他分支更新本地代码"><a href="#3-1-从其他分支更新本地代码" class="headerlink" title="3.1 从其他分支更新本地代码"></a>3.1 从其他分支更新本地代码</h4><p>假设多人开发，我在dev01，另一个成员在dev02，dev02更新后上传到origin dev02，我需要在本地更新dev02的代码</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">git pull origin dev02:dev01</span><br></pre></td></tr></table></figure>
+
+
+
+<p>看一张图了解原理：</p>
+<img src="pull%E5%91%BD%E4%BB%A4.png" style="zoom: 50%;">
+
+<p><strong>所以：git pull &#x3D; git fetch + git merge</strong></p>
+<h4 id="3-2-绑定远程分支和本地分支"><a href="#3-2-绑定远程分支和本地分支" class="headerlink" title="3.2 绑定远程分支和本地分支"></a>3.2 绑定远程分支和本地分支</h4><p>按照3.1的场景，命令如下</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">git checkout -b dev02 origin/dev02 </span><br></pre></td></tr></table></figure>
+
+<p>这个命令做了如下事情：</p>
+<ol>
+<li><strong>创建本地分支</strong>：如果本地不存在名为 dev02 的分支，这个命令会创建一个新的本地分支 dev02。</li>
+<li><strong>设置上游分支</strong>：新创建的本地 dev02 分支会自动设置为跟踪（tracking）远程仓库 origin 上的 dev02 分支。这意味着当你以后在这个本地分支上执行 git pull 或 git  push（不带参数）时，Git 会知道要与远程的 origin&#x2F;dev02 分支进行交互。</li>
+</ol>
+]]></content>
+      <categories>
+        <category>软件技术</category>
+      </categories>
+      <tags>
+        <tag>软件技术</tag>
+        <tag>git</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>CentOS7部署docker</title>
     <url>/2024/07/06/centOS%E9%83%A8%E7%BD%B2docker/</url>
     <content><![CDATA[<h1 id="0-安装Docker"><a href="#0-安装Docker" class="headerlink" title="0.安装Docker"></a>0.安装Docker</h1><p>Docker 分为 CE 和 EE 两大版本。CE 即社区版（免费，支持周期 7 个月），EE 即企业版，强调安全，付费使用，支持周期 24 个月。</p>
@@ -875,83 +1004,6 @@
       <tags>
         <tag>docker</tag>
         <tag>软件技术</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>快速复习git</title>
-    <url>/2024/06/26/git%E9%80%9F%E6%9F%A5/</url>
-    <content><![CDATA[<h3 id="1-博客前言"><a href="#1-博客前言" class="headerlink" title="1. 博客前言"></a>1. 博客前言</h3><p>本篇博客记录git常用的命令，用于快速复习。基于命令行，对一个项目进行版本控制（不使用图形化界面，例如idea、vscode等）。</p>
-<h3 id="2-常用命令"><a href="#2-常用命令" class="headerlink" title="2. 常用命令"></a>2. 常用命令</h3><h4 id="2-1-删除git仓库"><a href="#2-1-删除git仓库" class="headerlink" title="2.1 删除git仓库"></a>2.1 删除git仓库</h4><p>​	如果项目是拉取的，或者想要换一个gitee仓库，那么在使用自己的仓库之前需要将之前的删掉。步骤如下：</p>
-<ol>
-<li><p>打开命令行工具,得航到你的项目所在的目录。</p>
-</li>
-<li><p>输入以下命令来取消当前项目与Gitee的关联: </p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">git remote remove origin</span><br></pre></td></tr></table></figure>
-
-<p>这里的”origin”通常是默认的远程仓库名称，但如果你使用了不同的名称，你需要将其替换为实际的远程仓库名。</p>
-</li>
-<li><p>输入以下命令来检查是否已成功取消关联:</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">git remote -V</span><br></pre></td></tr></table></figure></li>
-</ol>
-<p>​		如果没有版本提示，说明就是删除成功了，跳到2.2步</p>
-<h4 id="2-2-提交代码到gitee仓库"><a href="#2-2-提交代码到gitee仓库" class="headerlink" title="2.2 提交代码到gitee仓库"></a>2.2 提交代码到gitee仓库</h4><ol>
-<li><p>项目初始化。右键自己的项目，或者进项目的目录一级，右键打开git bash</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 右键自己的项目，或者进项目的目录一级，右键打开git bash</span></span><br><span class="line">git init</span><br></pre></td></tr></table></figure>
-
-
-
-<p>此时文件夹中多出一个.git文件（需要打开隐藏文件夹开关）</p>
-<img src="init%E5%91%BD%E4%BB%A4.png" style="zoom: 50%;">
-
-
-
-
-</li>
-<li><p>添加远程仓库</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># origin 后面的是自己在gitee上创建的仓库地址</span></span><br><span class="line">git remote add origin https://gitee.com/samurai127/XXX.git</span><br></pre></td></tr></table></figure>
-</li>
-<li><p>查看是否连接成功</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">git remote</span><br></pre></td></tr></table></figure>
-
-<p>提示版本号说明成功绑定</p>
-</li>
-</ol>
-<h4 id="2-3-提交"><a href="#2-3-提交" class="headerlink" title="2.3 提交"></a>2.3 提交</h4><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 将代码提交到本地仓库</span></span><br><span class="line">git add .</span><br><span class="line"></span><br><span class="line"><span class="comment"># 提交</span></span><br><span class="line">git commit -m <span class="string">&#x27;版本备注&#x27;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 将代码推送到远程仓库。如果多人开发，需要把master换成自己的分支，例如dev01</span></span><br><span class="line">git push origin master</span><br></pre></td></tr></table></figure>
-
-<p>至此，在gitee上已经能够看到提交的代码了</p>
-<h4 id="2-4-版本回退"><a href="#2-4-版本回退" class="headerlink" title="2.4 版本回退"></a>2.4 版本回退</h4><p>如果本地的代码被你改的bug一大堆，那么可以尝试恢复到之前交的git仓库的版本。<br>此处推荐使用reset命令进行版本回退（如果想恢复到之前某个提交的版本，且那个版本之后提交的版本我们都不要了，就可以用这种方法）。</p>
-<h5 id="2-4-1-回退到上一个版本"><a href="#2-4-1-回退到上一个版本" class="headerlink" title="2.4.1 回退到上一个版本"></a>2.4.1 回退到上一个版本</h5><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 拉取所有更新，不同步</span></span><br><span class="line">git fetch --all </span><br><span class="line"></span><br><span class="line"><span class="comment"># 本地代码同步线上最新版本(会覆盖本地所有与远程仓库.上同名的文件);</span></span><br><span class="line">git reset --hard origin/ master</span><br><span class="line"></span><br><span class="line"><span class="comment"># 再更新一次 (其实也可以不用，第二二步命令做过了其实)</span></span><br><span class="line">git pull</span><br></pre></td></tr></table></figure>
-
-
-
-<h5 id="2-4-2-回退到指定版本"><a href="#2-4-2-回退到指定版本" class="headerlink" title="2.4.2 回退到指定版本"></a>2.4.2 回退到指定版本</h5><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 查看版本号</span></span><br><span class="line">git logs</span><br><span class="line"><span class="comment"># 回退版本：f42aa0e换成需要的版本号</span></span><br><span class="line">git reset --hard f42aa0e</span><br></pre></td></tr></table></figure>
-
-
-
-<h3 id="3-管理分支开发"><a href="#3-管理分支开发" class="headerlink" title="3. 管理分支开发"></a>3. 管理分支开发</h3><h4 id="3-1-从其他分支更新本地代码"><a href="#3-1-从其他分支更新本地代码" class="headerlink" title="3.1 从其他分支更新本地代码"></a>3.1 从其他分支更新本地代码</h4><p>假设多人开发，我在dev01，另一个成员在dev02，dev02更新后上传到origin dev02，我需要在本地更新dev02的代码</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">git pull origin dev02:dev01</span><br></pre></td></tr></table></figure>
-
-
-
-<p>看一张图了解原理：</p>
-<img src="pull%E5%91%BD%E4%BB%A4.png" style="zoom: 50%;">
-
-<p><strong>所以：git pull &#x3D; git fetch + git merge</strong></p>
-<h4 id="3-2-绑定远程分支和本地分支"><a href="#3-2-绑定远程分支和本地分支" class="headerlink" title="3.2 绑定远程分支和本地分支"></a>3.2 绑定远程分支和本地分支</h4><p>按照3.1的场景，命令如下</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">git checkout -b dev02 origin/dev02 </span><br></pre></td></tr></table></figure>
-
-<p>这个命令做了如下事情：</p>
-<ol>
-<li><strong>创建本地分支</strong>：如果本地不存在名为 dev02 的分支，这个命令会创建一个新的本地分支 dev02。</li>
-<li><strong>设置上游分支</strong>：新创建的本地 dev02 分支会自动设置为跟踪（tracking）远程仓库 origin 上的 dev02 分支。这意味着当你以后在这个本地分支上执行 git pull 或 git  push（不带参数）时，Git 会知道要与远程的 origin&#x2F;dev02 分支进行交互。</li>
-</ol>
-]]></content>
-      <categories>
-        <category>软件技术</category>
-      </categories>
-      <tags>
-        <tag>软件技术</tag>
-        <tag>git</tag>
       </tags>
   </entry>
   <entry>
@@ -1065,123 +1117,40 @@
       </tags>
   </entry>
   <entry>
-    <title>Java多线程：二、JMM、happens-before、volatile</title>
-    <url>/2024/08/04/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9AJMM/</url>
-    <content><![CDATA[<h1 id="一、内存模型（含八股内容）"><a href="#一、内存模型（含八股内容）" class="headerlink" title="一、内存模型（含八股内容）"></a>一、内存模型（含八股内容）</h1><h2 id="1-1-内存模型及并发问题"><a href="#1-1-内存模型及并发问题" class="headerlink" title="1.1 内存模型及并发问题"></a>1.1 内存模型及并发问题</h2><p>Java 内存模型（Java Memory Model，JMM）定义了 Java 程序中的变量、线程如何和主存以及工作内存进行交互的规则。它主要涉及到多线程环境下的共享变量可见性、指令重排等问题，是理解并发编程中的关键概念。</p>
-<p>并发编程的线程之间存在两个问题：</p>
+    <title>Java多线程：四、详解ConcurrentHashMap构成</title>
+    <url>/2024/08/06/java%EF%BC%9A%E8%AF%A6%E8%A7%A3ConcurrentHashMap/</url>
+    <content><![CDATA[<h1 id="一、JDK-1-7"><a href="#一、JDK-1-7" class="headerlink" title="一、JDK 1.7"></a>一、JDK 1.7</h1><h2 id="1-1-加锁机制"><a href="#1-1-加锁机制" class="headerlink" title="1.1 加锁机制"></a>1.1 加锁机制</h2><p>ConcurrentHashMap 在 JDK 1.7 中，提供了一种粒度更细的加锁机制，这种机制叫分段锁「Lock Striping」。整个哈希表被分为多个段，每个段都独立锁定。读取操作不需要锁，写入操作仅锁定相关的段。这减小了锁冲突的几率，从而提高了并发性能。</p>
+<p>这种机制的优点：在并发环境下将实现更高的吞吐量，而在单线程环境下只损失非常小的性能。</p>
+<p>可以这样理解分段锁，就是<strong>将数据分段，对每一段数据分配一把锁</strong>。当一个线程占用锁访问其中一个段数据的时候，其他段的数据也能被其他线程访问。</p>
+<p>有些方法需要跨段，比如 <code>size()</code>、<code>isEmpty()</code>、<code>containsValue()</code>，它们可能需要锁定整个表而不仅仅是某个段，这需要按顺序锁定所有段，操作完后，再按顺序释放所有段的锁。如下图：</p>
+<p><img src="map-20230816155810.png" alt="jdk1.7之前的构成图"></p>
+<h2 id="1-2-八股：jdk1-7之前的构成"><a href="#1-2-八股：jdk1-7之前的构成" class="headerlink" title="1.2 八股：jdk1.7之前的构成"></a>1.2 八股：jdk1.7之前的构成</h2><p>敲重点！字体加粗了务必记好。</p>
+<p>ConcurrentHashMap 是由 <strong>Segment 数组结构和 HashEntry 数组</strong>构成的。Segment 是一种可重入的锁 <code>ReentrantLock</code>，HashEntry 则用于存储键值对数据。</p>
+<p>一个 ConcurrentHashMap 里包含<strong>一个 Segment 数组，数组中都是segment对象</strong>，Segment 的结构和 HashMap 类似，是一种数组和链表结构，一个 Segment 里包含一个 <strong>HashEntry 数组</strong>，每个 HashEntry 是一个链表结构的元素，每个 Segment 守护着一个 HashEntry 数组里的元素，当对 HashEntry 数组的数据进行修改时，必须首先获得它对应的 Segment 锁（可重入锁）。</p>
+<p><strong>HashEntry到底是什么？</strong></p>
+<p>我自己搜的时候都在介绍hashentry是数组，但是搜到的都是类似链表的结构，包括在1.1节中的图片看上去都是链表，这是怎么回事？</p>
+<p>其实，<code>HashEntry</code>本身是一个<strong>结构体（或内部类，同样segment也是内部类）</strong>，实际上是每个<code>Segment</code>内部的一个数组，用于封装键值对数据，并可能包含指向下一个<code>HashEntry</code>的引用以形成链表结构，用于处理哈希冲突。但由于哈希冲突的存在，这个数组的每个位置可能不仅仅是一个<code>HashEntry</code>对象，而是一个由<code>HashEntry</code>对象组成的链表（或更复杂的结构，如红黑树，但这在JDK 1.7中不是默认的）。</p>
+<p><code>ConcurrentHashMap</code>使用链表来存储这些具有相同索引值的键值对。具体来说，每个数组位置（在JDK 1.7中实际上是<code>Segment</code>内部的数组，而在JDK 1.8及以后是<code>Node</code>数组）存储的是链表的头节点。如果发生哈希冲突，新的键值对会被添加到这个链表的末尾。</p>
+<p>接下来看看Segment的结构组成：</p>
+<p>单一的 Segment 结构如下：</p>
+<p><img src="map-20230816160155.png"></p>
+<p>像这样的 Segment 对象，在 ConcurrentHashMap 集合中有多少个呢？有 2 的 N 次方个，共同保存在一个名为 segments 的数组当中。 因此整个 ConcurrentHashMap 的结构如下：</p>
+<p><img src="map-20230816160223.png"></p>
+<p>可以说，ConcurrentHashMap 是一个二级哈希表。在一个总的哈希表下面，有若干个子哈希表。</p>
+<p>Case1：不同 Segment 的并发写入（可以并发执行）</p>
+<p><img src="map-20230816160301.png"></p>
+<p>Case2：同一 Segment 的一写一读（可以并发执行）</p>
+<p><img src="map-20230816160316.png"></p>
+<p>Case3：同一 Segment 的并发写入</p>
+<p><img src="map-20230816160331.png"></p>
+<h1 id="二、JDK1-8往后"><a href="#二、JDK1-8往后" class="headerlink" title="二、JDK1.8往后"></a>二、JDK1.8往后</h1><p>而在 JDK 1.8 中，ConcurrentHashMap 主要做了两个优化：</p>
 <ul>
-<li>线程间如何通信？即：线程之间以何种机制来交换信息</li>
-<li>线程间如何同步？即：线程以何种机制来控制不同线程间发生的相对顺序</li>
+<li>同<code>HashMap</code> 一样，链表也会在长度达到 8 的时候转化为红黑树，这样可以提升大量冲突时候的查询效率；</li>
+<li>以某个位置的头结点（链表的头结点或红黑树的 root 结点）为锁，**配合自旋+CAS(乐观锁)**避免不必要的锁开销，进一步提升并发性能。</li>
 </ul>
-<p>有两种并发模型可以解决这两个问题：</p>
-<ul>
-<li>消息传递并发模型</li>
-<li>共享内存并发模型</li>
-</ul>
-<p>这两种模型之间的区别如下图所示：</p>
-<p><img src="jmm-a610752d-ef73-47f2-b02c-6954eb3d62bf.png"></p>
-<p>重要的事情说三遍</p>
-<p><strong>Java 使用的是共享内存并发模型！！！！</strong></p>
-<p><strong>Java 使用的是共享内存并发模型！！！！</strong></p>
-<p><strong>Java 使用的是共享内存并发模型！！！！</strong></p>
-<h2 id="1-2-须知：Java共享内存并发模型"><a href="#1-2-须知：Java共享内存并发模型" class="headerlink" title="1.2 须知：Java共享内存并发模型"></a>1.2 须知：Java共享内存并发模型</h2><p>在共享内存的并发模型里，线程之间共享程序的公共状态，线程之间通过写-读内存中的公共状态来隐式进行通信。典型的共享内存通信方式，就是通过共享对象进行通信。 </p>
-<p>例如线程 A 与 线程 B 之间如果要通信的话，那么就必须经历下面两个步骤： 1. 线程 A 把本地内存 A 更新过得共享变量刷新到主内存中去。 2. 线程 B 到主内存中去读取线程 A 之前更新过的共享变量，<strong>也就是说，线程A和线程B之间一定要通过主存。</strong></p>
-<p><img src="jmm-f02219aa-e762-4df0-ac08-6f4cceb535c2.jpg" alt="共享内存"></p>
-<h2 id="1-3-八股：本地内存和主存有什么区别？"><a href="#1-3-八股：本地内存和主存有什么区别？" class="headerlink" title="1.3 八股：本地内存和主存有什么区别？"></a>1.3 八股：本地内存和主存有什么区别？</h2><p>线程之间的共享变量存在于主存中，每个线程都有一个私有的本地内存，存储了该线程的读、写共享变量的副本。本地内存是 Java 内存模型的一个抽象概念，并不真实存在。它涵盖了缓存、写缓冲区、寄存器等（比如cpu的三级缓存）。</p>
-<h1 id="二、如何保证内存可见性？"><a href="#二、如何保证内存可见性？" class="headerlink" title="二、如何保证内存可见性？"></a>二、如何保证内存可见性？</h1><p>由于java用的是内存共享并发模型，那么我们就按照这个来说。线程的安全问题包括原子性、可见性、活跃性、有序性，这里就先讨论可见性。</p>
-<p>可见性就是指，如果线程A在本地内存中更新了一个变量，那么线程B以及其他线程需要同步修改后的数据。如何同步修改后的数据？此时就是需要JMM，JMM控制主存和本地内存之间的交互，来提供内存可见性保证。</p>
-<p>Java 中的 <code>volatile 关键字</code>可以保证多线程操作共享变量的可见性以及禁止指令重排序，<code>synchronized 关键字</code>不仅保证可见性，同时也保证了原子性（互斥性）。</p>
-<p>在更底层，JMM 通过内存屏障来实现内存的可见性以及禁止重排序。为了程序员更方便地理解，设计者提出了 happens-before 的概念（下文会细讲），它更加简单易懂，从而避免了程序员为了理解内存可见性而去学习复杂的重排序规则，以及这些规则的具体实现方法。</p>
-<h1 id="三、JMM与重排序"><a href="#三、JMM与重排序" class="headerlink" title="三、JMM与重排序"></a>三、JMM与重排序</h1><p>前面提到了，JMM 定义了多线程之间如何互相交互的规则，主要目的是为了解决由于编译器优化、处理器优化和缓存系统等导致的可见性、原子性和有序性。</p>
-<p>那我们接下来就来聊聊重排序以及它所带来的顺序问题。</p>
-<h3 id="3-1-为什么指令重排可以提高性能？"><a href="#3-1-为什么指令重排可以提高性能？" class="headerlink" title="3.1 为什么指令重排可以提高性能？"></a>3.1 为什么指令重排可以提高性能？</h3><p>大家都知道，计算机在执行程序时，为了提高性能，编译器和处理器常常会对指令做重排。</p>
-<p>那可能有小伙伴就要问：<strong>为什么指令重排序可以提高性能？</strong></p>
-<p>简单地说，每一个指令都会包含多个步骤，每个步骤可能使用不同的硬件。因此，<strong>流水线技术</strong>产生了，它的原理是指令 1 还没有执行完，就可以开始执行指令 2，而不用等到指令 1 执行结束后再执行指令 2，这样就大大提高了效率。</p>
-<p>但是，流水线技术最害怕<strong>中断</strong>，恢复中断的代价是比较大的，所以我们要想尽办法不让流水线中断。指令重排就是减少中断的一种技术。</p>
-<p>我们分析一下下面这段代码的执行情况：</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">a = b + c;</span><br><span class="line">d = e - f ;</span><br></pre></td></tr></table></figure>
-
-<p>先加载 b、c（<strong>注意，有可能先加载 b，也有可能先加载 c</strong>），但是在执行 <code>add(b,c)</code> 的时候，需要等待 b、c 装载结束才能继续执行，也就是需要增加停顿，那么后面的指令（加载 e 和 f）也会有停顿，这就降低了计算机的执行效率。</p>
-<p>为了减少停顿，我们可以在加载完 b 和 c 后把 e 和 f 也加载了，然后再去执行 <code>add(b,c)</code>，这样做对程序（串行）是没有影响的，但却减少了停顿。</p>
-<p>换句话说，既然 <code>add(b,c)</code> 需要停顿，那还不如去做一些有意义的事情（加载 e 和 f）。</p>
-<p>综上所述，<strong>指令重排对于提高 CPU 性能十分必要，但也带来了乱序的问题。</strong></p>
-<h3 id="3-2-重排序有哪几种？"><a href="#3-2-重排序有哪几种？" class="headerlink" title="3.2 重排序有哪几种？"></a>3.2 重排序有哪几种？</h3><p>指令重排一般分为以下三种：</p>
-<ul>
-<li><strong>编译器优化重排</strong>，编译器在<strong>不改变单线程程序语义</strong>的前提下，重新安排语句的执行顺序。</li>
-<li><strong>指令并行重排</strong>，现代处理器采用了指令级并行技术来将多条指令重叠执行。如果<strong>不存在数据依赖性</strong>(即后一个执行的语句无需依赖前面执行的语句的结果)，处理器可以改变语句对应的机器指令的执行顺序。</li>
-<li><strong>内存系统重排</strong>，由于处理器使用缓存和读写缓存冲区，这使得加载(load)和存储(store)操作看上去可能是在乱序执行，因为三级缓存的存在，导致内存与缓存的数据同步存在时间差。</li>
-</ul>
-<p><strong>指令重排可以保证串行语义一致，但是没有义务保证多线程间的语义也一致</strong>。所以在多线程下，指令重排序可能会导致一些问题。</p>
-<h1 id="四、happens-before-关系模型"><a href="#四、happens-before-关系模型" class="headerlink" title="四、happens-before 关系模型"></a>四、happens-before 关系模型</h1><h2 id="4-1-八股：什么是happens-before-关系模型？"><a href="#4-1-八股：什么是happens-before-关系模型？" class="headerlink" title="4.1 八股：什么是happens-before 关系模型？"></a>4.1 八股：什么是happens-before 关系模型？</h2><p>happens-before 关系的定义如下：</p>
-<ol>
-<li><p><strong>如果一个操作 happens-before 另一个操作，那么第一个操作的执行结果将对第二个操作可见，而且第一个操作的执行顺序排在第二个操作之前。</strong></p>
-</li>
-<li><p><strong>两个操作之间存在 happens-before 关系，并不意味着 Java 平台的具体实现必须要按照 happens-before 关系指定的顺序来执行。如果重排序之后的执行结果，与按 happens-before 关系来执行的结果一致，那么 JMM 也允许这样的重排序。</strong></p>
-</li>
-</ol>
-<p>总之，<strong>如果操作 A happens-before 操作 B，那么操作 A 在内存上所做的操作对操作 B 都是可见的，不管它们在不在一个线程。</strong></p>
-<h2 id="4-2-了解：happens-before-关系有哪些？"><a href="#4-2-了解：happens-before-关系有哪些？" class="headerlink" title="4.2 了解：happens-before 关系有哪些？"></a>4.2 了解：happens-before 关系有哪些？</h2><p>   在 Java 中，有以下天然的 happens-before 关系：</p>
-<ul>
-<li>程序顺序规则：一个线程中的每一个操作，happens-before 于该线程中的任意后续操作。</li>
-<li>监视器锁规则：对一个锁的解锁，happens-before 于随后对这个锁的加锁。</li>
-<li>volatile 变量规则：对一个 volatile 域的写，happens-before 于任意后续对这个 volatile 域的读。</li>
-<li>传递性：如果 A happens-before B，且 B happens-before C，那么 A happens-before C。</li>
-<li>start 规则：如果线程 A 执行操作 <code>ThreadB.start()</code>启动线程 B，那么 A 线程的 <code>ThreadB.start()</code>操作 happens-before 于线程 B 中的任意操作。</li>
-<li>join 规则：如果线程 A 执行操作 <code>ThreadB.join()</code>并成功返回，那么线程 B 中的任意操作 happens-before 于线程 A 从 <code>ThreadB.join()</code>操作成功返回。</li>
-</ul>
-<p>   举例：</p>
-   <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">int</span> <span class="variable">a</span> <span class="operator">=</span> <span class="number">1</span>; <span class="comment">// A操作</span></span><br><span class="line"><span class="type">int</span> <span class="variable">b</span> <span class="operator">=</span> <span class="number">2</span>; <span class="comment">// B操作</span></span><br><span class="line"><span class="type">int</span> <span class="variable">sum</span> <span class="operator">=</span> a + b;<span class="comment">// C 操作</span></span><br><span class="line">System.out.println(sum);</span><br></pre></td></tr></table></figure>
-
-<p>   根据以上介绍的 happens-before 规则，假如只有一个线程，那么不难得出：</p>
-   <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="number">1</span>&gt; A happens-before B</span><br><span class="line"><span class="number">2</span>&gt; B happens-before C</span><br><span class="line"><span class="number">3</span>&gt; A happens-before C</span><br></pre></td></tr></table></figure>
-
-<p>   注意，真正在执行指令的时候，其实 JVM 有可能对操作 A &amp; B 进行重排序，因为无论先执行 A 还是 B，他们都对对方是可见的，并且不影响执行结果。</p>
-<p>   如果这里发生了重排序，这在视觉上违背了 happens-before 原则，但是 JMM 是允许这样的重排序的。</p>
-<p>   所以，我们只关心 happens-before 规则，不用关心 JVM 到底是怎样执行的。只要确定操作 A happens-before 操作 B 就行了。</p>
-<p>   重排序有两类，JMM 对这两类重排序有不同的策略：</p>
-<ul>
-<li>会改变程序执行结果的重排序，比如 A -&gt; C，JMM 要求编译器和处理器都禁止这种重排序。</li>
-<li>不会改变程序执行结果的重排序，比如 A -&gt; B，JMM 对编译器和处理器不做要求，允许这种重排序。</li>
-</ul>
-<h1 id="五、volatile关键字"><a href="#五、volatile关键字" class="headerlink" title="五、volatile关键字"></a>五、volatile关键字</h1><h2 id="5-1-八股：volatile关键字的作用"><a href="#5-1-八股：volatile关键字的作用" class="headerlink" title="5.1 八股：volatile关键字的作用"></a>5.1 八股：volatile关键字的作用</h2><p>一旦一个共享变量（类的成员变量、类的静态成员变量）被volatile修饰之后，那么就具备了两层语义： </p>
-<ol>
-<li>保证了不同线程对这个变量进行操作时的可见性，即一个线程修改了某个变量的值，这新值对其他线程来说是立即可见的。 </li>
-<li>禁止进行指令重排序。 </li>
-<li>volatile本质是在告诉jvm当前变量在寄存器（工作内存）中的值是不确定的，需要从主存中读取；synchronized则是锁定当前变量，只有当前线程可以访问该变量，其他线程被阻塞住。 </li>
-<li>volatile仅能使用在变量级别；synchronized则可以使用在变量、方法、和类级别的。</li>
-<li>volatile仅能实现变量的修改可见性，并不能保证原子性；synchronized则可以保证变量的修改 可见性和原子性。</li>
-<li>volatile不会造成线程的阻塞；synchronized可能会造成线程的阻塞。 </li>
-<li>volatile标记的变量不会被编译器优化；synchronized标记的变量可以被编译器优化。</li>
-</ol>
-<h2 id="5-2-八股：volatile禁止指令重排序（volatile和-happens-before）"><a href="#5-2-八股：volatile禁止指令重排序（volatile和-happens-before）" class="headerlink" title="5.2 八股：volatile禁止指令重排序（volatile和 happens-before）"></a>5.2 八股：volatile禁止指令重排序（volatile和 happens-before）</h2><p>在讲 JMM的时候，我们提到了指令重排，相信大家都还有印象，我们来回顾一下重排序需要遵守的规则：</p>
-<ul>
-<li>重排序不会对存在数据依赖关系的操作进行重排序。比如：<code>a=1;b=a;</code> 这个指令序列，因为第二个操作依赖于第一个操作，所以在编译时和处理器运行时这两个操作不会被重排序。</li>
-<li>重排序是为了优化性能，但是不管怎么重排序，单线程下程序的执行结果不能被改变。比如：<code>a=1;b=2;c=a+b</code> 这三个操作，第一步 (a&#x3D;1) 和第二步 (b&#x3D;2) 由于不存在数据依赖关系，所以可能会发生重排序，但是 c&#x3D;a+b 这个操作是不会被重排序的，因为需要保证最终的结果一定是 c&#x3D;a+b&#x3D;3。</li>
-</ul>
-<p>使用 volatile 关键字修饰共享变量可以禁止这种重排序。怎么做到的呢？</p>
-<p>当我们使用 volatile 关键字来修饰一个变量时，Java 内存模型会插入内存屏障（一个处理器指令，可以对 CPU 或编译器重排序做出约束）来确保以下两点：</p>
-<ul>
-<li>写屏障（Write Barrier）：当一个 volatile 变量被写入时，写屏障确保在该屏障之前的所有变量的写入操作都提交到主内存。</li>
-<li>读屏障（Read Barrier）：当读取一个 volatile 变量时，读屏障确保在该屏障之后的所有读操作都从主内存中读取。</li>
-</ul>
-<p>换句话说：</p>
-<ul>
-<li>当程序执行到 volatile 变量的读操作或者写操作时，在其前面操作的更改肯定已经全部进行，且结果对后面的操作可见；在其后面的操作肯定还没有进行；</li>
-<li>在进行指令优化时，不能将 volatile 变量的语句放在其后面执行，也不能把 volatile 变量后面的语句放到其前面执行。</li>
-</ul>
-<h2 id="5-3-volatile不保证原子性"><a href="#5-3-volatile不保证原子性" class="headerlink" title="5.3 volatile不保证原子性"></a>5.3 volatile不保证原子性</h2><p>比如i++操作：</p>
-<p>在Java（以及许多其他编程语言中），i++ 是一个后缀递增操作符，它对变量 i 执行一个复合操作，该操作可以分解为以下三个步骤（尽管在实际执行时这些步骤可能会被优化或合并，但从概念上讲）： </p>
-<ol>
-<li>读取（Load）：首先，从内存中读取变量 i 的当前值。这个值被加载到CPU的寄存器中，供后续操作使用。 </li>
-<li>修改（Increment）：然后，将寄存器中的值增加1。这个步骤是在CPU内部完成的，不涉及内存的读写操作（除了可能涉及的缓存一致性协议）。 </li>
-<li>写回（Store）：最后，将修改后的值写回到内存中变量 i 的位置。这一步确保了内存中 i 的值被更新为新的值。</li>
-</ol>
-<p> 需要注意的是，在多线程环境中，这三个步骤可能会被其他线程的类似操作打断，导致数据不一致的问题。特别是，如果两个线程几乎同时执行对同一个变量的 i++ 操作，它们可能会： 第一个线程读取了 i 的原始值（比如10）。 第二个线程也读取了 i 的相同原始值（因为第一个线程还没有写回新值）。 第一个线程增加1并将结果（11）写回内存。 第二个线程也增加1（基于它读取的旧值10），并将结果（也是11）写回内存，覆盖了第一个线程的结果。 </p>
-<p>这就是为什么在多线程环境中，即使使用了 volatile 关键字来确保变量的可见性，i++ 这样的复合操作也仍然需要额外的同步机制来确保原子性。volatile 保证了每次读取 i 时都会从主内存中获取最新值，但它并不保证 i++ 操作的原子性。</p>
-<p><strong>解决方式：</strong>使用<code>synchronized关键字（重入锁）</code>或者<code>lock接口的实现类ReentrantLock（重入锁）</code>进行加锁，总所周知学线程编程的时候都会学习的两个锁，可以保证原子性</p>
-<h1 id="六、synchronized关键字"><a href="#六、synchronized关键字" class="headerlink" title="六、synchronized关键字"></a>六、synchronized关键字</h1><p>由于我写累了就不写基本用法了，就是修饰静态代码块，同步方法（实例方法），静态方法（类方法）三种用途，不懂的可以自己去查资料</p>
-<p>重点放在关键字保证的线程安全上，<strong>synchronized关键字是允许指令重排的，也就是说，满足了 happens-before模型的结果一致原则的指令重排。</strong></p>
-<p>另外，<strong>synchronized属于重入锁，这部分放到多线程和锁的内容去介绍。</strong></p>
+<p><img src="map-20230816155924.png"></p>
+<p>相比 JDK1.7 中的 ConcurrentHashMap，JDK1.8 中的 ConcurrentHashMap 取消了 Segment 分段锁，采用 CAS + synchronized 来保证并发安全性，整个容器只分为一个 Segment，即 table 数组。</p>
+<p>JDK1.8 中的 ConcurrentHashMap 对节点 Node 类中的共享变量，和 JDK1.7 一样，使用 volatile 关键字，保证多线程操作时，变量的可见性。</p>
 ]]></content>
       <categories>
         <category>Java</category>
@@ -1200,7 +1169,7 @@
 <p>这里介绍一下“临界区”的概念。所谓“临界区”，指的是某一块代码区域，它同一时刻只能由一个线程执行。</p>
 </blockquote>
 <p>Java多线程的锁： Java中的锁是Java编程语言中用于实现多线程同步和互斥的机制。 Java提供了多种类型的锁，如synchronized关键字、ReentrantLock类、ReadWriteLock等，用于控制多线程对共享资源的并发访问。</p>
-<p>首先需要明确的一点是：<strong>Java 多线程的锁都是基于对象的</strong>，Java 中的每一个对象都可以作为一个锁。在<a href="https://localhost:4000/">上一节</a>最后一点讲synchronized的时候有提到，synchronized可以修饰静态方法和实例方法，<strong>synchronized在这里其实就是加上了一个类锁。</strong></p>
+<p>首先需要明确的一点是：<strong>Java 多线程的锁都是基于对象的</strong>，Java 中的每一个对象都可以作为一个锁。在<a href="https://rengoku.top/2024/08/04/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9AJMM/">上一节</a>最后一点讲synchronized的时候有提到，synchronized可以修饰静态方法和实例方法，<strong>synchronized在这里其实就是加上了一个类锁。</strong></p>
 <p>Class 对象是一种特殊的 Java 对象，代表了程序中的类和接口。Java 中的每个类型（包括类、接口、数组以及基础类型）在 JVM 中都有一个唯一的 Class 对象与之对应。这个 Class 对象被创建的时机是在 JVM 加载类时，由 JVM 自动完成。</p>
 <p>Class 对象中包含了与类相关的很多信息，如类的名称、类的父类、类实现的接口、类的构造方法、类的方法、类的字段等等。这些信息通常被称为元数据（metadata）。</p>
 <p>可以通过 Class 对象来获取类的元数据，甚至动态地创建类的实例、调用类的方法、访问类的字段等。这就是Java 的反射（Reflection）机制</p>
@@ -1217,7 +1186,7 @@
 <p>这几个我会在第三大节里面介绍，首先先看基本锁的类型</p>
 <h1 id="二、锁的分类"><a href="#二、锁的分类" class="headerlink" title="二、锁的分类"></a>二、锁的分类</h1><p>直接上一个图</p>
 <p><img src="other-bukfsdjavassmtjstd-b2ded433-defd-4535-b767-fd2e5be0b5b9.png"></p>
-<h2 id="1、乐观锁-VS-悲观锁"><a href="#1、乐观锁-VS-悲观锁" class="headerlink" title="1、乐观锁 VS 悲观锁"></a>1、乐观锁 VS 悲观锁</h2><h3 id="八股：乐观锁-VS-悲观锁"><a href="#八股：乐观锁-VS-悲观锁" class="headerlink" title="八股：乐观锁 VS 悲观锁"></a>八股：乐观锁 VS 悲观锁</h3><p>乐观锁与悲观锁是一种广义上的概念，体现了看待线程同步的不同角度。</p>
+<h1 id="1、乐观锁-VS-悲观锁"><a href="#1、乐观锁-VS-悲观锁" class="headerlink" title="1、乐观锁 VS 悲观锁"></a>1、乐观锁 VS 悲观锁</h1><h3 id="八股：乐观锁-VS-悲观锁"><a href="#八股：乐观锁-VS-悲观锁" class="headerlink" title="八股：乐观锁 VS 悲观锁"></a>八股：乐观锁 VS 悲观锁</h3><p>乐观锁与悲观锁是一种广义上的概念，体现了看待线程同步的不同角度。</p>
 <p>先说概念。对于同一个数据的并发操作，悲观锁认为自己在使用数据的时候一定有别的线程来修改数据，因此在获取数据的时候会先加锁，确保数据不会被别的线程修改。<strong>Java 中，synchronized 关键字 是最典型的悲观锁。</strong></p>
 <p>而乐观锁认为自己在使用数据时不会有别的线程修改数据，所以不会加锁，只是在更新数据的时候会去判断之前有没有别的线程更新了这个数据。如果这个数据没有被更新，当前线程将自己修改的数据写入。如果数据已经被其他线程更新，则根据不同的实现方式执行不同的操作（例如报错或者自动重试）。</p>
 <p>乐观锁在 Java 中是通过无锁编程来实现的，最常采用的是<strong>CAS 算法</strong>，<strong>Java 原子类</strong>的递增操作就通过 CAS 自旋实现的。</p>
@@ -1310,7 +1279,7 @@
 <p><strong>自旋锁的实现原理同样也是 CAS</strong>，AtomicInteger 中调用 unsafe 进行自增操作的源码中的 do-while 循环就是一个自旋操作，如果修改数值失败则通过循环来执行自旋，直至修改成功。</p>
 <p><img src="other-bukfsdjavassmtjstd-0756521c-becf-4657-ab42-1973d74e9c73.png"></p>
 <h4 id="自适应自旋锁"><a href="#自适应自旋锁" class="headerlink" title="自适应自旋锁"></a>自适应自旋锁</h4><p><strong>自适应意味着自旋的时间（次数）不再固定，而是由前一次在同一个锁上的自旋时间及锁的拥有者的状态来决定。</strong>如果在同一个锁对象上，自旋刚刚成功获得过锁，并且持有锁的线程正在运行中，那么虚拟机就会认为这次自旋也是很有可能再次成功的，进而它将允许自旋等待更长的时间。如果对于某个锁，自旋很少成功获得过，那在以后尝试获取这个锁时将可能省略掉自旋过程，直接阻塞线程，避免浪费处理器资源。</p>
-<h2 id="3、无锁偏、向锁、轻量级锁、重量级锁"><a href="#3、无锁偏、向锁、轻量级锁、重量级锁" class="headerlink" title="3、无锁偏、向锁、轻量级锁、重量级锁"></a>3、无锁偏、向锁、轻量级锁、重量级锁</h2><p>这四种锁是专门针对 synchronized 的，我们在第三大节：JUC包下的锁中去介绍。</p>
+<h2 id="3、无锁、偏向锁、轻量级锁、重量级锁"><a href="#3、无锁、偏向锁、轻量级锁、重量级锁" class="headerlink" title="3、无锁、偏向锁、轻量级锁、重量级锁"></a>3、无锁、偏向锁、轻量级锁、重量级锁</h2><p>这四种锁是专门针对 synchronized 的，我们在第三大节：JUC包下的锁中去介绍。</p>
 <h2 id="4、可重入锁-VS-不可重入锁"><a href="#4、可重入锁-VS-不可重入锁" class="headerlink" title="4、可重入锁 VS 不可重入锁"></a>4、可重入锁 VS 不可重入锁</h2><p>可重入锁又名递归锁，是指同一个线程在外层方法获取锁的时候，再进入该线程的内层方法会自动获取锁（前提：锁的是同一个对象或者 class），不会因为之前已经获取过还没释放而阻塞。Java 中<code>ReentrantLock</code>和<code>synchronized</code>都是可重入锁，可重入锁的一个优点就是可以一定程度避免死锁。</p>
 <p><strong>为什么可重入锁就可以在嵌套调用时自动获得锁呢？</strong></p>
 <h3 id="（1）实现机制"><a href="#（1）实现机制" class="headerlink" title="（1）实现机制"></a>（1）实现机制</h3><p>可重入锁的实现通常依赖于以下几个关键点：</p>
@@ -1343,11 +1312,11 @@
 <p><code>ReentrantLock</code> 支持非公平锁和公平锁两种。</p>
 <h2 id="6、读写锁和排它锁"><a href="#6、读写锁和排它锁" class="headerlink" title="6、读写锁和排它锁"></a>6、读写锁和排它锁</h2><p> <code>synchronized</code>和<code>ReentrantLock</code>，其实都是“排它锁”。也就是说，这些锁在同一时刻只允许一个线程进行访问。</p>
 <p>而读写锁可以在同一时刻允许多个读线程访问。Java 提供了 <code>ReentrantReadWriteLock</code>类作为读写锁的默认实现，内部维护了两个锁：一个读锁，一个写锁。通过分离读锁和写锁，使得在“读多写少”的环境下，大大地提高了性能。</p>
-<h3 id="（1）介绍一下ReentrantReadWriteLock："><a href="#（1）介绍一下ReentrantReadWriteLock：" class="headerlink" title="（1）介绍一下ReentrantReadWriteLock："></a>（1）介绍一下<strong>ReentrantReadWriteLock</strong>：</h3><p><strong>ReentrantReadWriteLock</strong>：是Java中的一个读写锁实现，它允许多个线程同时读取共享资源（读读可以并发），但在写入时只允许一个线程独占（读写、写读、写写互斥）。这个锁支持重入，即同一个线程可以多次获取相同类型的锁。它提高了读操作的并发性，同时保证了写操作的独占性。</p>
+<h3 id="（1）介绍一下ReentrantReadWriteLock："><a href="#（1）介绍一下ReentrantReadWriteLock：" class="headerlink" title="（1）介绍一下ReentrantReadWriteLock："></a>（1）介绍一下ReentrantReadWriteLock：</h3><p><strong>ReentrantReadWriteLock</strong>：是Java中的一个读写锁实现，它允许多个线程同时读取共享资源（读读可以并发），但在写入时只允许一个线程独占（读写、写读、写写互斥）。这个锁支持重入，即同一个线程可以多次获取相同类型的锁。它提高了读操作的并发性，同时保证了写操作的独占性。</p>
 <p><strong>我相信没学过ReentrantReadWriteLock的人肯定认为和ReentrantLock有什么关系。</strong></p>
 <p>实际上什么关系都没有，ReentrantReadWriteLock和ReentrantLock之间并没有继承关系。它们各自独立实现，服务于不同的锁需求。ReentrantReadWriteLock实现了<code>ReadWriteLock</code>接口。这个接口提供了两个锁对象：读锁（ReadLock）和写锁（WriteLock），分别通过<code>readLock()</code>和<code>writeLock()</code>方法获取。</p>
 <p>好了到这里，又有人想，<code>ReentrantReadWriteLock</code>实现了<code>ReadWriteLock</code>接口，而<code>ReentrantLock</code>实现了<code>Lock</code>接口，那么<code>ReadWriteLock</code>接口和<code>Lock</code>接口是不是继承关系？<strong>实际上也不是，都是JUC包下独立的接口。</strong></p>
-<h3 id="（2）回归正题："><a href="#（2）回归正题：" class="headerlink" title="（2）回归正题："></a><strong>（2）回归正题：</strong></h3><p>排它锁也叫独享锁，如果线程 T 对数据 A 加上排它锁后，则其他线程不能再对 A 加任何类型的锁。获得排它锁的线程既能读数据又能修改数据。</p>
+<h3 id="（2）回归正题："><a href="#（2）回归正题：" class="headerlink" title="（2）回归正题："></a><strong>（2）回归正题：</strong></h3><p><strong>排它锁也叫独享锁</strong>，如果线程 T 对数据 A 加上排它锁后，则其他线程不能再对 A 加任何类型的锁。获得排它锁的线程既能读数据又能修改数据。</p>
 <p>与之对应的，就是共享锁，指该锁可被多个线程所持有。如果线程 T 对数据 A 加上共享锁后，则其他线程只能对 A 再加共享锁，不能加排它锁。获得共享锁的线程只能读数据，不能修改数据。</p>
 <p>独享锁与共享锁也是通过<code>AQS</code>（第三大节介绍）来实现的，通过实现不同的方法，来实现独享或者共享。</p>
 <p>下图为 <code>ReentrantReadWriteLock</code> 的部分源码：</p>
@@ -1374,7 +1343,8 @@
 </ol>
 <p>AQS 是一个用来构建锁和同步器的框架，使用 AQS 能简单且高效地构造出应用广泛的同步器，比如 <strong>ReentrantLock、ReentrantReadWriteLock</strong>等等，都是基于 AQS 的。</p>
 <p>AQS 里面的“资源”是用一个<code>int</code>类型的数据来表示的，有时候业务需求的资源数超出了<code>int</code>的范围，所以在 JDK 1.6 中，多了一个<strong>AQLS</strong>（AbstractQueuedLongSynchronizer）。它的代码跟 AQS 几乎一样，只是把资源的类型变成了<code>long</code>类型。AQS 和 AQLS 都继承了一个类叫<strong>AOS</strong>（AbstractOwnableSynchronizer）。这个类也是在 JDK 1.6 中出现的。</p>
-<h3 id="数据结构"><a href="#数据结构" class="headerlink" title="数据结构"></a>数据结构</h3><h4 id="同步状态status"><a href="#同步状态status" class="headerlink" title="同步状态status"></a>同步状态status</h4><p>AQS 内部使用了一个volatile的变量 state 来作为资源的标识。</p>
+<h3 id="数据结构"><a href="#数据结构" class="headerlink" title="数据结构"></a>数据结构</h3><p>数据结构有两个，同步状态status和节点node</p>
+<h4 id="同步状态status"><a href="#同步状态status" class="headerlink" title="同步状态status"></a>同步状态status</h4><p>AQS 内部使用了一个volatile的变量 state 来作为资源的标识。</p>
 <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * The synchronization state.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">volatile</span> <span class="type">int</span> state;</span><br></pre></td></tr></table></figure>
 
 <p>同时定义了几个获取和改变 state 的 protected 方法，子类可以覆盖这些方法来实现自己的逻辑：</p>
@@ -1408,20 +1378,20 @@
 <p>在 ReentrantLock 的构造方法里，可以传入一个<code>boolean</code>类型的参数，来指定它是否是一个公平锁，默认情况下是非公平的。这个参数一旦实例化后就不能修改，只能通过<code>isFair()</code>方法来查看。</p>
 <p><strong>根据第二大节中的内容，ReentrantLock 是可重入锁、公平锁和非公平锁、排它锁。</strong></p>
 <h2 id="4、synchronized关键字"><a href="#4、synchronized关键字" class="headerlink" title="4、synchronized关键字"></a>4、synchronized关键字</h2><p>在Java中，<code>synchronized</code> 关键字用于控制多个线程对共享资源的访问，其底层实现涉及多种锁状态，这些状态根据竞争情况逐步升级，以提高锁的获取与释放效率。我查到的资料说，在jdk1.6之前所有锁都是操作系统提供的重量级锁，后续对synchronized进行优化，直到现在出现了<strong>四个锁状态</strong>，<strong>由低到高</strong>（即锁的要求越来越高）分别是<strong>无锁状态、偏向锁、轻量级锁状态、重量级锁状态。</strong></p>
-<h3 id="无锁状态"><a href="#无锁状态" class="headerlink" title="无锁状态"></a>无锁状态</h3><p><strong>定义</strong>：<br>无锁状态是指没有对资源进行锁定，所有的线程都能访问并尝试修改同一个资源，但同时只有一个线程能修改成功。无锁的特点是修改操作会在循环内进行，线程会不断地尝试修改共享资源。如果没有冲突就修改成功并退出，否则就会继续循环尝试。</p>
+<h3 id="（1）无锁状态"><a href="#（1）无锁状态" class="headerlink" title="（1）无锁状态"></a>（1）无锁状态</h3><p><strong>定义</strong>：<br>无锁状态是指没有对资源进行锁定，所有的线程都能访问并尝试修改同一个资源，但同时只有一个线程能修改成功。无锁的特点是修改操作会在循环内进行，线程会不断地尝试修改共享资源。如果没有冲突就修改成功并退出，否则就会继续循环尝试。</p>
 <p><strong>特点</strong>：</p>
 <ul>
 <li>无需使用锁机制，适用于线程冲突较少的场景。</li>
 <li>线程通过自旋（CAS）来尝试访问资源，直至成功。</li>
 </ul>
-<h3 id="偏向锁状态"><a href="#偏向锁状态" class="headerlink" title="偏向锁状态"></a>偏向锁状态</h3><p><strong>定义</strong>：<br>偏向锁是指当一段同步代码一直被同一个线程所访问时，即不存在多个线程的竞争时，那么该线程在后续访问时便会自动获得锁，从而降低获取锁带来的消耗，即提高性能。</p>
+<h3 id="（2）偏向锁状态"><a href="#（2）偏向锁状态" class="headerlink" title="（2）偏向锁状态"></a>（2）偏向锁状态</h3><p><strong>定义</strong>：<br>偏向锁是指当一段同步代码一直被同一个线程所访问时，即不存在多个线程的竞争时，那么该线程在后续访问时便会自动获得锁，从而降低获取锁带来的消耗，即提高性能。</p>
 <p><strong>特点</strong>：</p>
 <ul>
 <li>偏向锁的目标是减少无竞争且只有一个线程使用锁的情况下的性能消耗。</li>
-<li>JVM使用CAS操作把线程ID记录到对象的Mark Word（等下介绍）当中，并修改标识位，当前线程就拥有了这把锁。</li>
+<li>JVM使用CAS操作把线程ID记录到对象的<strong>Mark Word（等下介绍）</strong>当中，并修改标识位，当前线程就拥有了这把锁。</li>
 <li>偏向锁只有遇到其他线程尝试竞争偏向锁时，持有偏向锁的线程才会释放锁。</li>
 </ul>
-<h3 id="轻量级锁状态"><a href="#轻量级锁状态" class="headerlink" title="轻量级锁状态"></a>轻量级锁状态</h3><p><strong>定义</strong>：<br>轻量级锁是指当锁是偏向锁的时候，却被另外的线程所访问，此时偏向锁就会升级为轻量级锁。其他线程会通过自旋的形式尝试获取锁，线程不会阻塞，从而提高性能。</p>
+<h3 id="（3）轻量级锁状态"><a href="#（3）轻量级锁状态" class="headerlink" title="（3）轻量级锁状态"></a>（3）轻量级锁状态</h3><p><strong>定义</strong>：<br>轻量级锁是指当锁是偏向锁的时候，却被另外的线程所访问，此时偏向锁就会升级为轻量级锁。其他线程会通过自旋的形式尝试获取锁，线程不会阻塞，从而提高性能。</p>
 <p><strong>特点</strong>：</p>
 <ul>
 <li>轻量级锁是介于偏向锁和重量级锁之间的锁实现。</li>
@@ -1429,14 +1399,14 @@
 <li>适用于线程竞争不激烈且同步块执行时间较短的场景。</li>
 <li>如果多个线程竞争锁，轻量级锁可能会升级为重量级锁。</li>
 </ul>
-<h3 id="重量级锁状态"><a href="#重量级锁状态" class="headerlink" title="重量级锁状态"></a>重量级锁状态</h3><p><strong>定义</strong>：<br>重量级锁是指当多个线程竞争同一个锁时，锁的状态会升级为重量级锁。此时，除了锁的拥有者外，其余线程都会处于阻塞状态。</p>
+<h3 id="（4）重量级锁状态"><a href="#（4）重量级锁状态" class="headerlink" title="（4）重量级锁状态"></a>（4）重量级锁状态</h3><p><strong>定义</strong>：<br>重量级锁是指当多个线程竞争同一个锁时，锁的状态会升级为重量级锁。此时，除了锁的拥有者外，其余线程都会处于阻塞状态。</p>
 <p><strong>特点</strong>：</p>
 <ul>
 <li>重量级锁通过对象内部的监视器锁（monitor）实现，依赖于操作系统的Mutex Lock。</li>
 <li>线程阻塞和唤醒的开销较大，适用于线程竞争激烈的场景。</li>
 <li>当轻量级锁的自旋次数达到一定阈值时，如果仍未获得锁，则会升级为重量级锁。</li>
 </ul>
-<p>好，现在看到这里大部分的无锁偏、向锁、轻量级锁、重量级锁内容就可以解释清楚了，但是博客写到这里的时候，我就在思考，<strong>synchronized的锁底层并没有使用AQS这样的抽象队列同步器，为什么synchronized可以实现可重入锁，排它锁的功能？</strong></p>
+<h3 id="引发问题"><a href="#引发问题" class="headerlink" title="引发问题"></a>引发问题</h3><p>好，现在看到这里大部分的无锁偏、向锁、轻量级锁、重量级锁内容就可以解释清楚了，但是博客写到这里的时候，我就在思考，<strong>synchronized的锁底层并没有使用AQS这样的抽象队列同步器，为什么synchronized可以实现可重入锁，排它锁的功能？</strong></p>
 <p>首先我们需要了解，java中的锁存放在哪里，上面的提到的Mark Word是什么？</p>
 <h3 id="Java锁的位置、什么是Mark-Word？"><a href="#Java锁的位置、什么是Mark-Word？" class="headerlink" title="Java锁的位置、什么是Mark Word？"></a>Java锁的位置、什么是Mark Word？</h3><p>首先我们来看看一个对象的“锁”是存放在什么地方的。</p>
 <p>每个 Java 对象都有一个对象头。如果是非数组类型，则用 2 个字宽来存储对象头，如果是数组，则会用 3 个字宽来存储对象头。在 32 位处理器中，一个字宽是 32 位；在 64 位虚拟机中，一个字宽是 64 位。对象头的内容如下表所示：</p>
@@ -1536,9 +1506,9 @@
 <p>我们再把这三个方法说得细致一些：当一个线程调用了一个对象的 <code>wait()</code> 方法时，它会释放该对象的监视器锁，并进入该对象的等待集合中等待。直到其他线程调用了该对象的 <code>notify()</code> 或 <code>notifyAll()</code> 方法，并且当前线程重新获得了该对象的监视器锁之后，它才会从 <code>wait()</code> 方法返回，并继续执行。这也就是<strong>重量级锁</strong>中我们说到的内容。</p>
 <p>由于 <code>notify()</code> 和 <code>notifyAll()</code> 是用来唤醒等待在该对象监视器上的线程的，因此它们必须在持有该对象监视器锁的同步代码块或同步方法中调用。否则，编译器会报错，因为如果没有持有监视器锁，那么线程就没有权限调用这些方法。</p>
 <p><img src="Snipaste_2024-08-07_01-22-20.png"></p>
-<p>如果还没有获取到锁就尝试解锁，运行后就会抛出非法的锁状态异常。这里的代码抛出该异常正是这个原因：wait（）方法内部有一步重要的操作：先解锁，再阻塞等待。</p>
-<p>因此，在使用wait（） 前，必须先加锁，把wait（）写到synchronized代码块内部。 同时，Java也规定调用notify（）也必须在synchronized代码块中。</p>
-<p>并且，加锁的锁对象必须要与调用wait（）的锁对象是同一个。如果加锁对象与调用wait（）的对象不是同一个，也会抛出<code>IllgalMonitorStateException</code> 异常。</p>
+<p>如果还没有获取到锁就尝试解锁，运行后就会抛出非法的锁状态异常。这里的代码抛出该异常正是这个原因：wait方法内部有一步重要的操作：先解锁，再阻塞等待。</p>
+<p>因此，在使用wait方法 前，必须先加锁，把wait方法写到synchronized代码块内部。 同时，Java也规定调用notify方法也必须在synchronized代码块中。</p>
+<p>并且，加锁的锁对象必须要与调用wait方法的锁对象是同一个。如果加锁对象与调用wait方法的对象不是同一个，也会抛出<code>IllgalMonitorStateException</code> 异常。</p>
 <h2 id="5、ReentrantReadWriteLock"><a href="#5、ReentrantReadWriteLock" class="headerlink" title="5、ReentrantReadWriteLock"></a>5、ReentrantReadWriteLock</h2><p><code>ReentrantReadWriteLock</code>是 <code>ReadWriteLock</code> 接口的默认实现。它与 ReentrantLock 的功能类似，同样是可重入的，支持非公平锁和公平锁。不同的是，它还支持”读写锁“。</p>
 <blockquote>
 <p>在这里只介绍内部结构，可重入锁、非公平锁和公平锁看第二大节</p>
@@ -1547,53 +1517,10 @@
 <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 内部结构</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> ReentrantReadWriteLock.ReadLock readerLock;</span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> ReentrantReadWriteLock.WriteLock writerLock;</span><br><span class="line"><span class="keyword">final</span> Sync sync;</span><br><span class="line"><span class="keyword">abstract</span> <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">Sync</span> <span class="keyword">extends</span> <span class="title class_">AbstractQueuedSynchronizer</span> &#123;</span><br><span class="line">    <span class="comment">// 具体实现</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">class</span> <span class="title class_">NonfairSync</span> <span class="keyword">extends</span> <span class="title class_">Sync</span> &#123;</span><br><span class="line">    <span class="comment">// 具体实现</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">class</span> <span class="title class_">FairSync</span> <span class="keyword">extends</span> <span class="title class_">Sync</span> &#123;</span><br><span class="line">    <span class="comment">// 具体实现</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">ReadLock</span> <span class="keyword">implements</span> <span class="title class_">Lock</span>, java.io.Serializable &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> Sync sync;</span><br><span class="line">    <span class="keyword">protected</span> <span class="title function_">ReadLock</span><span class="params">(ReentrantReadWriteLock lock)</span> &#123;</span><br><span class="line">            sync = lock.sync;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 具体实现</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">WriteLock</span> <span class="keyword">implements</span> <span class="title class_">Lock</span>, java.io.Serializable &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> Sync sync;</span><br><span class="line">    <span class="keyword">protected</span> <span class="title function_">WriteLock</span><span class="params">(ReentrantReadWriteLock lock)</span> &#123;</span><br><span class="line">            sync = lock.sync;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 具体实现</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 构造方法，初始化两个锁</span></span><br><span class="line"><span class="keyword">public</span> <span class="title function_">ReentrantReadWriteLock</span><span class="params">(<span class="type">boolean</span> fair)</span> &#123;</span><br><span class="line">    sync = fair ? <span class="keyword">new</span> <span class="title class_">FairSync</span>() : <span class="keyword">new</span> <span class="title class_">NonfairSync</span>();</span><br><span class="line">    readerLock = <span class="keyword">new</span> <span class="title class_">ReadLock</span>(<span class="built_in">this</span>);</span><br><span class="line">    writerLock = <span class="keyword">new</span> <span class="title class_">WriteLock</span>(<span class="built_in">this</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 获取读锁和写锁的方法</span></span><br><span class="line"><span class="keyword">public</span> ReentrantReadWriteLock.WriteLock <span class="title function_">writeLock</span><span class="params">()</span> &#123; <span class="keyword">return</span> writerLock; &#125;</span><br><span class="line"><span class="keyword">public</span> ReentrantReadWriteLock.ReadLock  <span class="title function_">readLock</span><span class="params">()</span>  &#123; <span class="keyword">return</span> readerLock; &#125;</span><br></pre></td></tr></table></figure>
 
 <p>可以看到，它同样是内部维护了两个同步器。且维护了两个 Lock 的实现类 ReadLock 和 WriteLock。从源码可以发现，这两个内部类用的是外部类的同步器。</p>
-<h2 id="6、拓展：StampedLock"><a href="#6、拓展：StampedLock" class="headerlink" title="6、拓展：StampedLock"></a>6、拓展：StampedLock</h2><p><code>StampedLock</code> 类是 Java 8 才发布的，也是 Doug Lea 大神所写，有人称它为锁的性能之王。</p>
+<h2 id="6、拓展：StampedLock"><a href="#6、拓展：StampedLock" class="headerlink" title="6、拓展：StampedLock"></a>6、拓展：StampedLock</h2><p>在第一大节的结尾，有提到这个锁，对于普通学习多线程的同学来说我认为见的都很少，但是我看的博客有介绍这个锁的性能，所以我也就简单的说说~</p>
+<p><code>StampedLock</code> 类是 Java 8 才发布的，也是 Doug Lea 大神所写，有人称它为锁的性能之王。</p>
 <p>StampedLock 没有实现 Lock 接口和 ReadWriteLock 接口，但它实现了“读写锁”的功能，并且性能比 ReentrantReadWriteLock 更高。StampedLock 还把读锁分为了“乐观读锁”和“悲观读锁”两种。</p>
-<p>感兴趣可以自行搜索，博客面向八股介绍比较常见的锁。</p>
-]]></content>
-      <categories>
-        <category>Java</category>
-      </categories>
-      <tags>
-        <tag>多线程</tag>
-        <tag>面试</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>Java多线程：四、详解ConcurrentHashMap构成</title>
-    <url>/2024/08/06/java%EF%BC%9A%E8%AF%A6%E8%A7%A3ConcurrentHashMap/</url>
-    <content><![CDATA[<h1 id="一、JDK-1-7"><a href="#一、JDK-1-7" class="headerlink" title="一、JDK 1.7"></a>一、JDK 1.7</h1><h2 id="1-1-加锁机制"><a href="#1-1-加锁机制" class="headerlink" title="1.1 加锁机制"></a>1.1 加锁机制</h2><p>ConcurrentHashMap 在 JDK 1.7 中，提供了一种粒度更细的加锁机制，这种机制叫分段锁「Lock Striping」。整个哈希表被分为多个段，每个段都独立锁定。读取操作不需要锁，写入操作仅锁定相关的段。这减小了锁冲突的几率，从而提高了并发性能。</p>
-<p>这种机制的优点：在并发环境下将实现更高的吞吐量，而在单线程环境下只损失非常小的性能。</p>
-<p>可以这样理解分段锁，就是<strong>将数据分段，对每一段数据分配一把锁</strong>。当一个线程占用锁访问其中一个段数据的时候，其他段的数据也能被其他线程访问。</p>
-<p>有些方法需要跨段，比如 <code>size()</code>、<code>isEmpty()</code>、<code>containsValue()</code>，它们可能需要锁定整个表而不仅仅是某个段，这需要按顺序锁定所有段，操作完后，再按顺序释放所有段的锁。如下图：</p>
-<p><img src="map-20230816155810.png" alt="jdk1.7之前的构成图"></p>
-<h2 id="1-2-八股：jdk1-7之前的构成"><a href="#1-2-八股：jdk1-7之前的构成" class="headerlink" title="1.2 八股：jdk1.7之前的构成"></a>1.2 八股：jdk1.7之前的构成</h2><p>敲重点！字体加粗了务必记好。</p>
-<p>ConcurrentHashMap 是由 <strong>Segment 数组结构和 HashEntry 数组</strong>构成的。Segment 是一种可重入的锁 <code>ReentrantLock</code>，HashEntry 则用于存储键值对数据。</p>
-<p>一个 ConcurrentHashMap 里包含<strong>一个 Segment 数组，数组中都是segment对象</strong>，Segment 的结构和 HashMap 类似，是一种数组和链表结构，一个 Segment 里包含一个 <strong>HashEntry 数组</strong>，每个 HashEntry 是一个链表结构的元素，每个 Segment 守护着一个 HashEntry 数组里的元素，当对 HashEntry 数组的数据进行修改时，必须首先获得它对应的 Segment 锁（可重入锁）。</p>
-<p><strong>HashEntry到底是什么？</strong></p>
-<p>我自己搜的时候都在介绍hashentry是数组，但是搜到的都是类似链表的结构，包括在1.1节中的图片看上去都是链表，这是怎么回事？</p>
-<p>其实，<code>HashEntry</code>本身是一个<strong>结构体（或内部类，同样segment也是内部类）</strong>，实际上是每个<code>Segment</code>内部的一个数组，用于封装键值对数据，并可能包含指向下一个<code>HashEntry</code>的引用以形成链表结构，用于处理哈希冲突。但由于哈希冲突的存在，这个数组的每个位置可能不仅仅是一个<code>HashEntry</code>对象，而是一个由<code>HashEntry</code>对象组成的链表（或更复杂的结构，如红黑树，但这在JDK 1.7中不是默认的）。</p>
-<p><code>ConcurrentHashMap</code>使用链表来存储这些具有相同索引值的键值对。具体来说，每个数组位置（在JDK 1.7中实际上是<code>Segment</code>内部的数组，而在JDK 1.8及以后是<code>Node</code>数组）存储的是链表的头节点。如果发生哈希冲突，新的键值对会被添加到这个链表的末尾。</p>
-<p>接下来看看Segment的结构组成：</p>
-<p>单一的 Segment 结构如下：</p>
-<p><img src="map-20230816160155.png"></p>
-<p>像这样的 Segment 对象，在 ConcurrentHashMap 集合中有多少个呢？有 2 的 N 次方个，共同保存在一个名为 segments 的数组当中。 因此整个 ConcurrentHashMap 的结构如下：</p>
-<p><img src="map-20230816160223.png"></p>
-<p>可以说，ConcurrentHashMap 是一个二级哈希表。在一个总的哈希表下面，有若干个子哈希表。</p>
-<p>Case1：不同 Segment 的并发写入（可以并发执行）</p>
-<p><img src="map-20230816160301.png"></p>
-<p>Case2：同一 Segment 的一写一读（可以并发执行）</p>
-<p><img src="map-20230816160316.png"></p>
-<p>Case3：同一 Segment 的并发写入</p>
-<p><img src="map-20230816160331.png"></p>
-<h1 id="二、JDK1-8往后"><a href="#二、JDK1-8往后" class="headerlink" title="二、JDK1.8往后"></a>二、JDK1.8往后</h1><p>而在 JDK 1.8 中，ConcurrentHashMap 主要做了两个优化：</p>
-<ul>
-<li>同<code>HashMap</code> 一样，链表也会在长度达到 8 的时候转化为红黑树，这样可以提升大量冲突时候的查询效率；</li>
-<li>以某个位置的头结点（链表的头结点或红黑树的 root 结点）为锁，**配合自旋+CAS(乐观锁)**避免不必要的锁开销，进一步提升并发性能。</li>
-</ul>
-<p><img src="map-20230816155924.png"></p>
-<p>相比 JDK1.7 中的 ConcurrentHashMap，JDK1.8 中的 ConcurrentHashMap 取消了 Segment 分段锁，采用 CAS + synchronized 来保证并发安全性，整个容器只分为一个 Segment，即 table 数组。</p>
-<p>JDK1.8 中的 ConcurrentHashMap 对节点 Node 类中的共享变量，和 JDK1.7 一样，使用 volatile 关键字，保证多线程操作时，变量的可见性。</p>
+<p>感兴趣可以自行搜索，在这里的博客就只介绍面向八股的比较常见的锁啦</p>
 ]]></content>
       <categories>
         <category>Java</category>
@@ -2274,6 +2201,133 @@
       <tags>
         <tag>软件技术</tag>
         <tag>hexo</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Java多线程：二、JMM、happens-before、volatile</title>
+    <url>/2024/08/04/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9AJMM/</url>
+    <content><![CDATA[<h1 id="一、内存模型（含八股内容）"><a href="#一、内存模型（含八股内容）" class="headerlink" title="一、内存模型（含八股内容）"></a>一、内存模型（含八股内容）</h1><h2 id="1-1-内存模型及并发问题"><a href="#1-1-内存模型及并发问题" class="headerlink" title="1.1 内存模型及并发问题"></a>1.1 内存模型及并发问题</h2><p>Java 内存模型（Java Memory Model，JMM）定义了 Java 程序中的变量、线程如何和主存以及工作内存进行交互的规则。它主要涉及到多线程环境下的共享变量可见性、指令重排等问题，是理解并发编程中的关键概念。</p>
+<p>并发编程的线程之间存在两个问题：</p>
+<ul>
+<li>线程间如何通信？即：线程之间以何种机制来交换信息</li>
+<li>线程间如何同步？即：线程以何种机制来控制不同线程间发生的相对顺序</li>
+</ul>
+<p>有两种并发模型可以解决这两个问题：</p>
+<ul>
+<li>消息传递并发模型</li>
+<li>共享内存并发模型</li>
+</ul>
+<p>这两种模型之间的区别如下图所示：</p>
+<p><img src="jmm-a610752d-ef73-47f2-b02c-6954eb3d62bf.png"></p>
+<p>重要的事情说三遍</p>
+<p><strong>Java 使用的是共享内存并发模型！！！！</strong></p>
+<p><strong>Java 使用的是共享内存并发模型！！！！</strong></p>
+<p><strong>Java 使用的是共享内存并发模型！！！！</strong></p>
+<h2 id="1-2-须知：Java共享内存并发模型"><a href="#1-2-须知：Java共享内存并发模型" class="headerlink" title="1.2 须知：Java共享内存并发模型"></a>1.2 须知：Java共享内存并发模型</h2><p>在共享内存的并发模型里，线程之间共享程序的公共状态，线程之间通过写-读内存中的公共状态来隐式进行通信。典型的共享内存通信方式，就是通过共享对象进行通信。 </p>
+<p>例如线程 A 与 线程 B 之间如果要通信的话，那么就必须经历下面两个步骤： 1. 线程 A 把本地内存 A 更新过得共享变量刷新到主内存中去。 2. 线程 B 到主内存中去读取线程 A 之前更新过的共享变量，<strong>也就是说，线程A和线程B之间一定要通过主存。</strong></p>
+<p><img src="jmm-f02219aa-e762-4df0-ac08-6f4cceb535c2.jpg" alt="共享内存"></p>
+<h2 id="1-3-八股：本地内存和主存有什么区别？"><a href="#1-3-八股：本地内存和主存有什么区别？" class="headerlink" title="1.3 八股：本地内存和主存有什么区别？"></a>1.3 八股：本地内存和主存有什么区别？</h2><p>线程之间的共享变量存在于主存中，每个线程都有一个私有的本地内存，存储了该线程的读、写共享变量的副本。本地内存是 Java 内存模型的一个抽象概念，并不真实存在。它涵盖了缓存、写缓冲区、寄存器等（比如cpu的三级缓存）。</p>
+<h1 id="二、如何保证内存可见性？"><a href="#二、如何保证内存可见性？" class="headerlink" title="二、如何保证内存可见性？"></a>二、如何保证内存可见性？</h1><p>由于java用的是内存共享并发模型，那么我们就按照这个来说。线程的安全问题包括原子性、可见性、活跃性、有序性，这里就先讨论可见性。</p>
+<p>可见性就是指，如果线程A在本地内存中更新了一个变量，那么线程B以及其他线程需要同步修改后的数据。如何同步修改后的数据？此时就是需要JMM，JMM控制主存和本地内存之间的交互，来提供内存可见性保证。</p>
+<p>Java 中的 <code>volatile 关键字</code>可以保证多线程操作共享变量的可见性以及禁止指令重排序，<code>synchronized 关键字</code>不仅保证可见性，同时也保证了原子性（互斥性）。</p>
+<p>在更底层，JMM 通过内存屏障来实现内存的可见性以及禁止重排序。为了程序员更方便地理解，设计者提出了 happens-before 的概念（下文会细讲），它更加简单易懂，从而避免了程序员为了理解内存可见性而去学习复杂的重排序规则，以及这些规则的具体实现方法。</p>
+<h1 id="三、JMM与重排序"><a href="#三、JMM与重排序" class="headerlink" title="三、JMM与重排序"></a>三、JMM与重排序</h1><p>前面提到了，JMM 定义了多线程之间如何互相交互的规则，主要目的是为了解决由于编译器优化、处理器优化和缓存系统等导致的可见性、原子性和有序性。</p>
+<p>那我们接下来就来聊聊重排序以及它所带来的顺序问题。</p>
+<h3 id="3-1-为什么指令重排可以提高性能？"><a href="#3-1-为什么指令重排可以提高性能？" class="headerlink" title="3.1 为什么指令重排可以提高性能？"></a>3.1 为什么指令重排可以提高性能？</h3><p>大家都知道，计算机在执行程序时，为了提高性能，编译器和处理器常常会对指令做重排。</p>
+<p>那可能有小伙伴就要问：<strong>为什么指令重排序可以提高性能？</strong></p>
+<p>简单地说，每一个指令都会包含多个步骤，每个步骤可能使用不同的硬件。因此，<strong>流水线技术</strong>产生了，它的原理是指令 1 还没有执行完，就可以开始执行指令 2，而不用等到指令 1 执行结束后再执行指令 2，这样就大大提高了效率。</p>
+<p>但是，流水线技术最害怕<strong>中断</strong>，恢复中断的代价是比较大的，所以我们要想尽办法不让流水线中断。指令重排就是减少中断的一种技术。</p>
+<p>我们分析一下下面这段代码的执行情况：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">a = b + c;</span><br><span class="line">d = e - f ;</span><br></pre></td></tr></table></figure>
+
+<p>先加载 b、c（<strong>注意，有可能先加载 b，也有可能先加载 c</strong>），但是在执行 <code>add(b,c)</code> 的时候，需要等待 b、c 装载结束才能继续执行，也就是需要增加停顿，那么后面的指令（加载 e 和 f）也会有停顿，这就降低了计算机的执行效率。</p>
+<p>为了减少停顿，我们可以在加载完 b 和 c 后把 e 和 f 也加载了，然后再去执行 <code>add(b,c)</code>，这样做对程序（串行）是没有影响的，但却减少了停顿。</p>
+<p>换句话说，既然 <code>add(b,c)</code> 需要停顿，那还不如去做一些有意义的事情（加载 e 和 f）。</p>
+<p>综上所述，<strong>指令重排对于提高 CPU 性能十分必要，但也带来了乱序的问题。</strong></p>
+<h3 id="3-2-重排序有哪几种？"><a href="#3-2-重排序有哪几种？" class="headerlink" title="3.2 重排序有哪几种？"></a>3.2 重排序有哪几种？</h3><p>指令重排一般分为以下三种：</p>
+<ul>
+<li><strong>编译器优化重排</strong>，编译器在<strong>不改变单线程程序语义</strong>的前提下，重新安排语句的执行顺序。</li>
+<li><strong>指令并行重排</strong>，现代处理器采用了指令级并行技术来将多条指令重叠执行。如果<strong>不存在数据依赖性</strong>(即后一个执行的语句无需依赖前面执行的语句的结果)，处理器可以改变语句对应的机器指令的执行顺序。</li>
+<li><strong>内存系统重排</strong>，由于处理器使用缓存和读写缓存冲区，这使得加载(load)和存储(store)操作看上去可能是在乱序执行，因为三级缓存的存在，导致内存与缓存的数据同步存在时间差。</li>
+</ul>
+<p><strong>指令重排可以保证串行语义一致，但是没有义务保证多线程间的语义也一致</strong>。所以在多线程下，指令重排序可能会导致一些问题。</p>
+<h1 id="四、happens-before-关系模型"><a href="#四、happens-before-关系模型" class="headerlink" title="四、happens-before 关系模型"></a>四、happens-before 关系模型</h1><h2 id="4-1-八股：什么是happens-before-关系模型？"><a href="#4-1-八股：什么是happens-before-关系模型？" class="headerlink" title="4.1 八股：什么是happens-before 关系模型？"></a>4.1 八股：什么是happens-before 关系模型？</h2><p>happens-before 关系的定义如下：</p>
+<ol>
+<li><p><strong>如果一个操作 happens-before 另一个操作，那么第一个操作的执行结果将对第二个操作可见，而且第一个操作的执行顺序排在第二个操作之前。</strong></p>
+</li>
+<li><p><strong>两个操作之间存在 happens-before 关系，并不意味着 Java 平台的具体实现必须要按照 happens-before 关系指定的顺序来执行。如果重排序之后的执行结果，与按 happens-before 关系来执行的结果一致，那么 JMM 也允许这样的重排序。</strong></p>
+</li>
+</ol>
+<p>总之，<strong>如果操作 A happens-before 操作 B，那么操作 A 在内存上所做的操作对操作 B 都是可见的，不管它们在不在一个线程。</strong></p>
+<h2 id="4-2-了解：happens-before-关系有哪些？"><a href="#4-2-了解：happens-before-关系有哪些？" class="headerlink" title="4.2 了解：happens-before 关系有哪些？"></a>4.2 了解：happens-before 关系有哪些？</h2><p>   在 Java 中，有以下天然的 happens-before 关系：</p>
+<ul>
+<li>程序顺序规则：一个线程中的每一个操作，happens-before 于该线程中的任意后续操作。</li>
+<li>监视器锁规则：对一个锁的解锁，happens-before 于随后对这个锁的加锁。</li>
+<li>volatile 变量规则：对一个 volatile 域的写，happens-before 于任意后续对这个 volatile 域的读。</li>
+<li>传递性：如果 A happens-before B，且 B happens-before C，那么 A happens-before C。</li>
+<li>start 规则：如果线程 A 执行操作 <code>ThreadB.start()</code>启动线程 B，那么 A 线程的 <code>ThreadB.start()</code>操作 happens-before 于线程 B 中的任意操作。</li>
+<li>join 规则：如果线程 A 执行操作 <code>ThreadB.join()</code>并成功返回，那么线程 B 中的任意操作 happens-before 于线程 A 从 <code>ThreadB.join()</code>操作成功返回。</li>
+</ul>
+<p>   举例：</p>
+   <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">int</span> <span class="variable">a</span> <span class="operator">=</span> <span class="number">1</span>; <span class="comment">// A操作</span></span><br><span class="line"><span class="type">int</span> <span class="variable">b</span> <span class="operator">=</span> <span class="number">2</span>; <span class="comment">// B操作</span></span><br><span class="line"><span class="type">int</span> <span class="variable">sum</span> <span class="operator">=</span> a + b;<span class="comment">// C 操作</span></span><br><span class="line">System.out.println(sum);</span><br></pre></td></tr></table></figure>
+
+<p>   根据以上介绍的 happens-before 规则，假如只有一个线程，那么不难得出：</p>
+   <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="number">1</span>&gt; A happens-before B</span><br><span class="line"><span class="number">2</span>&gt; B happens-before C</span><br><span class="line"><span class="number">3</span>&gt; A happens-before C</span><br></pre></td></tr></table></figure>
+
+<p>   注意，真正在执行指令的时候，其实 JVM 有可能对操作 A &amp; B 进行重排序，因为无论先执行 A 还是 B，他们都对对方是可见的，并且不影响执行结果。</p>
+<p>   如果这里发生了重排序，这在视觉上违背了 happens-before 原则，但是 JMM 是允许这样的重排序的。</p>
+<p>   所以，我们只关心 happens-before 规则，不用关心 JVM 到底是怎样执行的。只要确定操作 A happens-before 操作 B 就行了。</p>
+<p>   重排序有两类，JMM 对这两类重排序有不同的策略：</p>
+<ul>
+<li>会改变程序执行结果的重排序，比如 A -&gt; C，JMM 要求编译器和处理器都禁止这种重排序。</li>
+<li>不会改变程序执行结果的重排序，比如 A -&gt; B，JMM 对编译器和处理器不做要求，允许这种重排序。</li>
+</ul>
+<h1 id="五、volatile关键字"><a href="#五、volatile关键字" class="headerlink" title="五、volatile关键字"></a>五、volatile关键字</h1><h2 id="5-1-八股：volatile关键字的作用"><a href="#5-1-八股：volatile关键字的作用" class="headerlink" title="5.1 八股：volatile关键字的作用"></a>5.1 八股：volatile关键字的作用</h2><p>一旦一个共享变量（类的成员变量、类的静态成员变量）被volatile修饰之后，那么就具备了两层语义： </p>
+<ol>
+<li>保证了不同线程对这个变量进行操作时的可见性，即一个线程修改了某个变量的值，这新值对其他线程来说是立即可见的。 </li>
+<li>禁止进行指令重排序。 </li>
+<li>volatile本质是在告诉jvm当前变量在寄存器（工作内存）中的值是不确定的，需要从主存中读取；synchronized则是锁定当前变量，只有当前线程可以访问该变量，其他线程被阻塞住。 </li>
+<li>volatile仅能使用在变量级别；synchronized则可以使用在变量、方法、和类级别的。</li>
+<li>volatile仅能实现变量的修改可见性，并不能保证原子性；synchronized则可以保证变量的修改 可见性和原子性。</li>
+<li>volatile不会造成线程的阻塞；synchronized可能会造成线程的阻塞。 </li>
+<li>volatile标记的变量不会被编译器优化；synchronized标记的变量可以被编译器优化。</li>
+</ol>
+<h2 id="5-2-八股：volatile禁止指令重排序（volatile和-happens-before）"><a href="#5-2-八股：volatile禁止指令重排序（volatile和-happens-before）" class="headerlink" title="5.2 八股：volatile禁止指令重排序（volatile和 happens-before）"></a>5.2 八股：volatile禁止指令重排序（volatile和 happens-before）</h2><p>在讲 JMM的时候，我们提到了指令重排，相信大家都还有印象，我们来回顾一下重排序需要遵守的规则：</p>
+<ul>
+<li>重排序不会对存在数据依赖关系的操作进行重排序。比如：<code>a=1;b=a;</code> 这个指令序列，因为第二个操作依赖于第一个操作，所以在编译时和处理器运行时这两个操作不会被重排序。</li>
+<li>重排序是为了优化性能，但是不管怎么重排序，单线程下程序的执行结果不能被改变。比如：<code>a=1;b=2;c=a+b</code> 这三个操作，第一步 (a&#x3D;1) 和第二步 (b&#x3D;2) 由于不存在数据依赖关系，所以可能会发生重排序，但是 c&#x3D;a+b 这个操作是不会被重排序的，因为需要保证最终的结果一定是 c&#x3D;a+b&#x3D;3。</li>
+</ul>
+<p>使用 volatile 关键字修饰共享变量可以禁止这种重排序。怎么做到的呢？</p>
+<p>当我们使用 volatile 关键字来修饰一个变量时，Java 内存模型会插入内存屏障（一个处理器指令，可以对 CPU 或编译器重排序做出约束）来确保以下两点：</p>
+<ul>
+<li>写屏障（Write Barrier）：当一个 volatile 变量被写入时，写屏障确保在该屏障之前的所有变量的写入操作都提交到主内存。</li>
+<li>读屏障（Read Barrier）：当读取一个 volatile 变量时，读屏障确保在该屏障之后的所有读操作都从主内存中读取。</li>
+</ul>
+<p>换句话说：</p>
+<ul>
+<li>当程序执行到 volatile 变量的读操作或者写操作时，在其前面操作的更改肯定已经全部进行，且结果对后面的操作可见；在其后面的操作肯定还没有进行；</li>
+<li>在进行指令优化时，不能将 volatile 变量的语句放在其后面执行，也不能把 volatile 变量后面的语句放到其前面执行。</li>
+</ul>
+<h2 id="5-3-volatile不保证原子性"><a href="#5-3-volatile不保证原子性" class="headerlink" title="5.3 volatile不保证原子性"></a>5.3 volatile不保证原子性</h2><p>比如i++操作：</p>
+<p>在Java（以及许多其他编程语言中），i++ 是一个后缀递增操作符，它对变量 i 执行一个复合操作，该操作可以分解为以下三个步骤（尽管在实际执行时这些步骤可能会被优化或合并，但从概念上讲）： </p>
+<ol>
+<li>读取（Load）：首先，从内存中读取变量 i 的当前值。这个值被加载到CPU的寄存器中，供后续操作使用。 </li>
+<li>修改（Increment）：然后，将寄存器中的值增加1。这个步骤是在CPU内部完成的，不涉及内存的读写操作（除了可能涉及的缓存一致性协议）。 </li>
+<li>写回（Store）：最后，将修改后的值写回到内存中变量 i 的位置。这一步确保了内存中 i 的值被更新为新的值。</li>
+</ol>
+<p> 需要注意的是，在多线程环境中，这三个步骤可能会被其他线程的类似操作打断，导致数据不一致的问题。特别是，如果两个线程几乎同时执行对同一个变量的 i++ 操作，它们可能会： 第一个线程读取了 i 的原始值（比如10）。 第二个线程也读取了 i 的相同原始值（因为第一个线程还没有写回新值）。 第一个线程增加1并将结果（11）写回内存。 第二个线程也增加1（基于它读取的旧值10），并将结果（也是11）写回内存，覆盖了第一个线程的结果。 </p>
+<p>这就是为什么在多线程环境中，即使使用了 volatile 关键字来确保变量的可见性，i++ 这样的复合操作也仍然需要额外的同步机制来确保原子性。volatile 保证了每次读取 i 时都会从主内存中获取最新值，但它并不保证 i++ 操作的原子性。</p>
+<p><strong>解决方式：</strong>使用<code>synchronized关键字（重入锁）</code>或者<code>lock接口的实现类ReentrantLock（重入锁）</code>进行加锁，总所周知学线程编程的时候都会学习的两个锁，可以保证原子性</p>
+<h1 id="六、synchronized关键字"><a href="#六、synchronized关键字" class="headerlink" title="六、synchronized关键字"></a>六、synchronized关键字</h1><p>由于我写累了就不写基本用法了，就是修饰静态代码块，同步方法（实例方法），静态方法（类方法）三种用途，不懂的可以自己去查资料</p>
+<p>重点放在关键字保证的线程安全上，<strong>synchronized关键字是允许指令重排的，也就是说，满足了 happens-before模型的结果一致原则的指令重排。</strong></p>
+<p>另外，<strong>synchronized属于重入锁，这部分放到多线程和锁的内容去介绍。</strong></p>
+]]></content>
+      <categories>
+        <category>Java</category>
+      </categories>
+      <tags>
+        <tag>多线程</tag>
+        <tag>面试</tag>
       </tags>
   </entry>
   <entry>
