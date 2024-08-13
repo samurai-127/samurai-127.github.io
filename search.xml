@@ -648,14 +648,15 @@
   <entry>
     <title>JVM：详解GC</title>
     <url>/2024/08/13/JVM%EF%BC%9A%E8%AF%A6%E8%A7%A3GC/</url>
-    <content><![CDATA[<h1 id="一、判断垃圾回收的算法"><a href="#一、判断垃圾回收的算法" class="headerlink" title="一、判断垃圾回收的算法"></a>一、判断垃圾回收的算法</h1><p>先提前说两个算法，分别是：</p>
+    <content><![CDATA[<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>据我看到的面试题有：判断垃圾回收的算法有什么，以及是什么原理，垃圾收集算法有什么，常见的垃圾回收器有什么，什么是STW等，所以这篇博客基于GC给大家介绍，如果有其他面试题可以在评论区发言，博客可修改内容，可添加。</p>
+<h1 id="一、判断垃圾回收的算法"><a href="#一、判断垃圾回收的算法" class="headerlink" title="一、判断垃圾回收的算法"></a>一、判断垃圾回收的算法</h1><p>先提前说两个算法，分别是：</p>
 <ol>
 <li><p>引用标记算法</p>
 </li>
 <li><p>可达性分析算法</p>
 </li>
 </ol>
-<h2 id="1-引用标记算法"><a href="#1-引用标记算法" class="headerlink" title="1.引用标记算法"></a>1.引用标记算法</h2><p>引用标记算法是在Java对象头（Java对象头在介绍多线程的时候有详细的解释，直达链接：）中开辟空间，记录<strong>被引用的次数（Reference Count）</strong>，如果A变量被其他对象引用时计数器+1，引用A变量的其他变量被删除则-1，如果计数器为0时，则判断A变量需要被回收。</p>
+<h2 id="1-引用标记算法"><a href="#1-引用标记算法" class="headerlink" title="1.引用标记算法"></a>1.引用标记算法</h2><p>引用标记算法是在Java对象头（Java对象头在介绍多线程的时候有详细的解释，直达链接：<a href="https://rengoku.top/2024/08/05/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E9%94%81/">Java多线程：三、多线程锁、java锁的实现</a>）中开辟空间，记录<strong>被引用的次数（Reference Count）</strong>，如果A变量被其他对象引用时计数器+1，引用A变量的其他变量被删除则-1，如果计数器为0时，则判断A变量需要被回收。</p>
 <p>举个例子：</p>
 <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">String</span> <span class="variable">str</span> <span class="operator">=</span> <span class="string">&quot;我不想上早八&quot;</span>;</span><br></pre></td></tr></table></figure>
 
@@ -686,16 +687,249 @@
 <li>方法区中常量引用的对象</li>
 </ul>
 <p>关于这四个例子可以参考：<a href="https://blog.csdn.net/weixin_38007185/article/details/108093716">GC Roots 是什么？哪些对象可以作为 GC Root？看完秒懂！-CSDN博客</a></p>
-<p>二、八股：垃圾收集算法</p>
-<p>阿里八股16题，我们来详细的谈谈：</p>
-<p>1.标记清除算法</p>
-<p>标记清除算法（Mark-Sweep）是最基础的一种垃圾回收算法，它分为 2 部分，先把内存区域中的这些对象进行标记，哪些属于可回收的标记出来（用前面提到的可达性分析法），然后把这些垃圾拎出来清理掉。</p>
-<p><img src="gc-20231227125304.png"></p>
+<h1 id="二、八股：垃圾收集算法"><a href="#二、八股：垃圾收集算法" class="headerlink" title="二、八股：垃圾收集算法"></a>二、八股：垃圾收集算法</h1><p>阿里八股16题，我们来详细的谈谈：</p>
+<h2 id="1-标记清除算法"><a href="#1-标记清除算法" class="headerlink" title="1.标记清除算法"></a>1.标记清除算法</h2><p>标记清除算法（Mark-Sweep）是最基础的一种垃圾回收算法，它分为 2 部分，先把内存区域中的这些对象进行标记，哪些属于可回收的标记出来（用前面提到的可达性分析法），然后把这些垃圾拎出来清理掉。</p>
+<p><img src="gc-20231227125304.png" alt="标记清除算法"></p>
 <p>标记清除算法存在一个缺陷，在垃圾回收以后会产生内存碎片，无法应对需要一口气分配大内存的情况。</p>
 <blockquote>
 <p>内存碎片化是指在内存分配和回收过程中，被释放的内存空间没有被合并成较大的连续空间，而是形成了许多小块的、不连续的内存区域。这会导致在后续需要分配大块连续内存时，系统可能无法找到足够的连续空间，从而影响程序的性能和稳定性。</p>
 </blockquote>
+<h2 id="2-复制算法"><a href="#2-复制算法" class="headerlink" title="2.复制算法"></a>2.复制算法</h2><p>复制算法（Copying）是在标记清除算法上演化而来的，用于解决标记清除算法的内存碎片问题。它将可用内存按容量划分为大小相等的两块，每次只使用其中的一块。</p>
+<p>当这一块的内存用完了，就将还存活着的对象复制到另外一块上面，然后再把已使用过的内存空间一次清理掉。这样就保证了内存的连续性，逻辑清晰，运行高效。</p>
+<p><img src="gc-20231227125751.png"></p>
+<p>但是也是存在一个大缺陷，相当于一大堆的内存我只能当一半用。</p>
+<h2 id="3-标记整理算法"><a href="#3-标记整理算法" class="headerlink" title="3.标记整理算法"></a>3.标记整理算法</h2><p>标记整理算法（Mark-Compact），标记过程仍然与标记清除算法一样，但后续步骤不是直接对可回收对象进行清理，而是让所有存活的对象都向一端移动，再清理掉端边界以外的内存区域。</p>
+<p><img src="gc-20231227130011.png"></p>
+<p>标记整理算法一方面在标记-清除算法上做了升级，解决了内存碎片的问题，也规避了复制算法只能利用一半内存区域的弊端。看起来很美好，但内存变动更频繁，需要整理所有存活对象的引用地址，在效率上比复制算法差很多。</p>
+<h2 id="4-分代收集算法"><a href="#4-分代收集算法" class="headerlink" title="4.分代收集算法"></a>4.分代收集算法</h2><h3 id="4-1-分代收集算法组合拳"><a href="#4-1-分代收集算法组合拳" class="headerlink" title="4.1 分代收集算法组合拳"></a>4.1 分代收集算法组合拳</h3><p>分代收集算法（Generational Collection）严格来说并不是一种思想或理论，而是融合上述 3 种基础的算法思想，而产生的针对不同情况所采用不同算法的一套组合拳。</p>
+<p>根据对象存活周期的不同会将内存划分为几块，一般是把 <strong>Java 堆分为新生代和老年代</strong>，这样就可以根据各个年代的特点采用最适当的收集算法。</p>
+<p><img src="gc-20231227131241.png"></p>
+<p>在新生代中，每次垃圾收集时都发现有大批对象死去，只有少量存活，那就选用复制算法，只需要付出少量存活对象的复制成本就可以完成收集。</p>
+<p>老年代中因为对象存活率高、没有额外空间对它进行分配担保，就必须使用标记清理或者标记整理算法来进行回收。</p>
+<blockquote>
+<p>这里提到了新生代和永久代，在JVM运行时数据区中也提到了一个”代“叫永久代，还记得永久代是什么吗？</p>
+<p>永久代也叫方法区，在jdk8之后被代替成了元空间，运行时常量池放在元空间中，而字符串常量池在堆中。</p>
+</blockquote>
+<h3 id="4-2-新生代和老年代"><a href="#4-2-新生代和老年代" class="headerlink" title="4.2 新生代和老年代"></a>4.2 新生代和老年代</h3><p>堆主要分为 2 个区域，年轻代与老年代，其中年轻代又分 Eden 区和 Survivor 区，其中 Survivor 区又分 From 和 To 两个区。</p>
+<p><img src="gc-20231227132701.png"></p>
+<h4 id="4-2-1-Eden-区"><a href="#4-2-1-Eden-区" class="headerlink" title="4.2.1 Eden 区"></a>4.2.1 Eden 区</h4><p>据 IBM 公司之前的研究表明，有将近 98% 的对象是朝生夕死，所以针对这一现状，大多数情况下，对象会在新生代 Eden 区中进行分配，当 Eden 区没有足够空间进行分配时，JVM 会发起一次 Minor GC，Minor GC 相比 Major GC 更频繁，回收速度也更快。</p>
+<p>通过 Minor GC 之后，Eden 区中绝大部分对象会被回收，而那些无需回收的存活对象，将会进到 Survivor 的 From 区，如果 From 区不够，则直接进入 To 区。</p>
+<p><strong>什么是Minor GC和Major GC？</strong></p>
+<p>Minor GC是新生代的GC，Major GC是老年代的GC</p>
+<p><strong>Survivor区的from和to角色切换</strong></p>
+<ol>
+<li>初始状态<ul>
+<li>在JVM启动时，两个Survivor区中的一个被指定为from区，另一个为to区。这个初始分配是任意的，但一旦确定，它们将在后续的GC过程中交替使用。</li>
+</ul>
+</li>
+<li>Minor GC过程<ul>
+<li>当Eden区满或JVM认为需要执行Minor GC时，GC过程开始。</li>
+<li>此时，from区存储着上一次GC后存活下来的对象。</li>
+<li>GC扫描Eden区和from区，将存活的对象复制到to区。</li>
+<li>如果对象的年龄（即经历Minor GC的次数）达到一定程度（默认是15次，但可以通过参数<code>-XX:MaxTenuringThreshold</code>来设定），则这些对象可能会被移动到老年代（Old Generation）。</li>
+<li>GC完成后，Eden区和from区的内容被清空，然后这两个区域的角色互换：原来的to区变为新的from区，原来的from区变为新的to区。</li>
+</ul>
+</li>
+<li>持续交替<ul>
+<li>上述过程在每次Minor GC时都会重复，导致Survivor区的from和to角色持续交替。</li>
+</ul>
+</li>
+</ol>
+<h4 id="4-2-2-Survivor-区"><a href="#4-2-2-Survivor-区" class="headerlink" title="4.2.2 Survivor 区"></a>4.2.2 Survivor 区</h4><p>Survivor 区相当于是 Eden 区和 Old 区的一个缓冲，类似于我们交通灯中的黄灯。</p>
+<p><strong>为啥需要 Survivor 区？</strong></p>
+<p>不就是新生代到老年代吗，直接 Eden 到 Old 不好了吗，为啥要这么复杂。</p>
+<p>如果没有 Survivor 区，Eden 区每进行一次 Minor GC，存活的对象就会被送到老年代，老年代很快就会被填满。而有很多对象虽然一次 Minor GC 没有消灭，但其实也并不会蹦跶多久，或许第二次，第三次就需要被清除。</p>
+<p>这时候移入老年区，很明显不是一个明智的决定。</p>
+<p>所以，Survivor 的存在意义就是减少被送到老年代的对象，进而减少 Major GC 的发生。Survivor 的预筛选保证，只有经历 16 次 Minor GC 还能在新生代中存活的对象，才会被送到老年代。</p>
+<p><strong>Survivor 区为啥划分为两块？</strong></p>
+<p>设置两个 Survivor 区最大的好处就是解决内存碎片化，我们先假设一下，Survivor 只有一个区域会怎样。</p>
+<p>Minor GC 执行后，Eden 区被清空，存活的对象放到了 Survivor 区，而之前 Survivor 区中的对象，可能也有一些是需要被清除的。那么问题来了，这时候我们怎么清除它们？</p>
+<p>在这种场景下，我们只能标记清除，而我们知道标记清除最大的问题就是内存碎片，在新生代这种经常会消亡的区域，采用标记清除必然会让内存产生严重的碎片化。</p>
+<p>但因为 Survivor 有 2 个区域，所以每次 Minor GC，会将之前 Eden 区和 From 区中的存活对象复制到 To 区域。第二次 Minor GC 时，From 与 To 职责兑换，这时候会将 Eden 区和 To 区中的存活对象再复制到 From 区域，以此反复。</p>
+<p>这种机制最大的好处就是，整个过程中，永远有一个 Survivor space 是空的，另一个非空的 Survivor space 是无碎片的。</p>
+<p>那么，Survivor 为什么不分更多块呢？比方说分成三个、四个、五个？</p>
+<p>显然，如果 Survivor 区再细分下去，每一块的空间就会比较小，容易导致 Survivor 区满，两块 Survivor 区可能是经过权衡之后的最佳方案。</p>
+<h4 id="4-2-3-Old-区"><a href="#4-2-3-Old-区" class="headerlink" title="4.2.3 Old 区"></a>4.2.3 Old 区</h4><p>老年代占据着 2&#x2F;3 的堆内存空间，只有在 Major GC 的时候才会进行清理，每次 GC 都会触发“Stop-The-World”。内存越大，STW 的时间也越长，所以内存也不仅仅是越大就越好。</p>
+<p>由于复制算法在对象存活率较高的老年代会进行很多次的复制操作，效率很低，所以老年代这里采用的是标记整理算法。</p>
+<h2 id="5-组合拳如何体现？"><a href="#5-组合拳如何体现？" class="headerlink" title="5.组合拳如何体现？"></a>5.组合拳如何体现？</h2><p>对于前三种收集算法，我们采用分代收集将前三种混合。</p>
+<p><strong>新生代，主要采用复制算法</strong>，我相信聪明的你能看得出来，<strong>Survivor 区的from和to区就是复制算法中提到的，将内存一分为二的部分。</strong></p>
+<p><strong>老年代，采用标记整理算法</strong>，理由有这些（ai部分）：</p>
+<ol>
+<li><strong>存活率高</strong>：老年代中的对象通常已经经过了多次垃圾回收周期，存活率较高。这意味着在每次垃圾回收时，只有少数对象会被回收，而大部分对象都会保留下来。如果使用复制算法，需要将存活的对象复制到另一块内存区域，这将导致大量的数据复制操作，不仅效率低下，还会增加系统的停顿时间。</li>
+<li><strong>内存空间</strong>：老年代通常占据堆内存的大部分空间，以容纳更多的长时间存活对象。如果采用复制算法，需要为老年代分配同样大小的额外内存空间作为复制的目标区域，这在很多情况下是不现实的，因为这将极大地增加内存的使用量。</li>
+<li><strong>内存碎片</strong>：虽然复制算法可以避免内存碎片的产生，但在老年代中，内存碎片的问题并不像新生代那样严重。老年代中的对象通常较大，且存活时间较长，因此内存碎片对性能的影响相对较小。相比之下，减少内存碎片并不是老年代选择垃圾收集算法的主要考虑因素。</li>
+<li><strong>算法适用性</strong>：不同的垃圾收集算法适用于不同的场景。复制算法由于其简单性和高效性，在新生代中得到了广泛应用。然而，在老年代中，由于对象的特性和内存空间的需求，更适合采用其他类型的垃圾收集算法，如标记-清除、标记-整理或混合使用多种算法（如G1收集器中的混合收集策略，G1收集器下文介绍）。</li>
+</ol>
+<h1 id="三、垃圾收集器"><a href="#三、垃圾收集器" class="headerlink" title="三、垃圾收集器"></a>三、垃圾收集器</h1><p>垃圾收集器在这篇博客有8种，我把总览放出来，然后讲几个比较常用的：<a href="https://blog.csdn.net/weixin_44772566/article/details/136248892">一文彻底搞懂八种JVM垃圾回收器_说一下 jvm 有哪些垃圾回收器?-CSDN博客</a></p>
+<p><img src="b7066e4374f7d7397613068ac5fdf5b1.png" alt="常用的垃圾收集器"></p>
+<h2 id="1-CMS收集器"><a href="#1-CMS收集器" class="headerlink" title="1.CMS收集器"></a>1.CMS收集器</h2><p><strong>CMS垃圾收集器旨在降低STW的时间，允许垃圾回收器进行垃圾回收的同时，与应用程序并发进行。</strong></p>
+<h3 id="1-1-步骤"><a href="#1-1-步骤" class="headerlink" title="1.1 步骤"></a>1.1 步骤</h3><p>CMS 垃圾收集器通过三色标记算法，实现了垃圾回收线程与用户线程的并发执行，从而极大地降低了系统响应时间，提高了强交互应用程序的体验。它的运行过程分为 4 个步骤，包括：</p>
+<ul>
+<li>初始标记</li>
+<li>并发标记</li>
+<li>重新标记</li>
+<li>并发清除</li>
+</ul>
+<p><strong>初始标记</strong>，指的是寻找所有被 GCRoots 引用的对象，该阶段需要「Stop the World」。这个步骤仅仅只是标记一下 GC Roots 能直接关联到的对象，并不需要做整个引用的扫描，因此速度很快。</p>
+<p><strong>并发标记</strong>，指的是对「初始标记阶段」标记的对象进行整个引用链的扫描，该阶段不需要「Stop the World」。 对整个引用链做扫描需要花费非常多的时间，因此通过垃圾回收线程与用户线程并发执行，可以降低垃圾回收的时间。</p>
+<p>这也是 CMS 能极大降低 GC 停顿时间的核心原因，但这也带来了一些问题，即：并发标记的时候，引用可能发生变化，因此可能发生漏标（本应该回收的垃圾没有被回收）和多标（本不应该回收的垃圾被回收）了。</p>
+<p><strong>重新标记</strong>，指的是对「并发标记」阶段出现的问题进行校正，该阶段需要「Stop the World」。正如并发标记阶段说到的，由于垃圾回收算法和用户线程并发执行，虽然能降低响应时间，但是会发生漏标和多标的问题。所以对于 CMS 来说，它需要在这个阶段做一些校验，解决并发标记阶段发生的问题。</p>
+<p><strong>并发清除</strong>，指的是将标记为垃圾的对象进行清除，该阶段不需要「Stop the World」。 在这个阶段，垃圾回收线程与用户线程可以并发执行，因此并不影响用户的响应时间。</p>
+<p><strong>注：</strong><br>收集区域： 老年代（见图常用的垃圾收集器。标记清除和标记整理也是用于老年代的垃圾收集算法，可以回看）<br>使用算法： 标记清除法+标记整理法<br>搜集方式： 多线程</p>
+<h3 id="1-2-优劣势"><a href="#1-2-优劣势" class="headerlink" title="1.2 优劣势"></a>1.2 优劣势</h3><p>优点总结就是支持垃圾回收和程序执行的并发，降低STW时间，详细的可以参考以下内容：</p>
+<p>并发标记和清除：CMS 垃圾收集器采用了并发标记和清除的方式，允许在垃圾收集过程中与应用程序并发执行。这意味着垃圾收集过程中只有一小部分时间需要暂停应用程序线程。<br>低停顿时间：由于并发执行的特性，CMS 垃圾收集器能够在较短的时间内完成垃圾回收操作，从而减少了应用程序的停顿时间。通常情况下，CMS 垃圾收集器能够将停顿时间控制在几百毫秒甚至更低。<br>老年代收集：CMS 垃圾收集器主要针对老年代进行垃圾回收，对于新生代则通常使用 ParNew 收集器。这种分代收集的方式能够更好地适应不同内存区域的特点和垃圾回收需求。</p>
+<blockquote>
+<p>这里提到了ParNew收集器，那么我也写一下，本来不想写来着（）</p>
+</blockquote>
+<p>劣势从算法考虑，无非就是会产生内存碎片，以及在垃圾收集与应用程序并发执行的过程中，应用程序也会一直产生垃圾，这个垃圾称为浮游垃圾，这部分只能等到下一次gc来处理，另外这两个并发的话，如果cpu的核心数（对线程的处理能力低）那么CMS的性能肯定会大打折扣。</p>
+<h2 id="2-ParNew收集器"><a href="#2-ParNew收集器" class="headerlink" title="2.ParNew收集器"></a>2.ParNew收集器</h2><p>在上边提到的CMS收集器是针对老年代的，而ParNew收集器针对新生代的部分进行垃圾回收，通常和CMS收集器共同进行gc。查到的资料有显示，ParNew收集器是唯一的一个可以和CMS收集器打配合的。</p>
+<p><strong>垃圾收集流程</strong><br>ParNew 收集器和 Parallel Scavenge 收集器在工作流程上确实非常相似，都是并行垃圾收集器。</p>
+<ol>
+<li><p>停止应用程序线程（Stop the World）：在进行垃圾收集之前，ParNew 收集器会暂停所有的用户线程。这一阶段被称为停止应用程序线程，以确保在垃圾收集过程中对象的状态不会被修改，保证垃圾回收的准确性。</p>
+</li>
+<li><p>多线程并行执行垃圾收集：一旦应用程序线程暂停，ParNew 收集器会启动多个线程并行执行垃圾回收操作。这些线程会同时在新生代中扫描和清理不再使用的对象，以释放内存空间。</p>
+</li>
+<li><p>暂停用户线程：在整个垃圾收集过程中，用户线程会一直处于暂停状态，直到垃圾收集完成。这个阶段也被称为“Stop the World”，在此期间应用程序无法执行任何操作。</p>
+</li>
+<li><p>恢复用户线程：当垃圾收集完成后，ParNew 收集器会恢复用户线程的执行。此时，垃圾已经被清理，堆中的内存空间得到了释放，用户线程可以继续执行。</p>
+</li>
+</ol>
+<p>ParNew 收集器的工作流程与 Parallel Scavenge 收集器类似，都是通过停止应用程序线程，然后利用多线程并行执行垃圾回收操作，最后恢复用户线程的执行。这种并行执行的方式能够提高垃圾收集的效率，同时在暂停用户线程期间确保垃圾收集的准确性。</p>
+<p><strong>注：</strong><br>收集区域： 新生代<br>使用算法： 标记复制法<br>搜集方式： 多线程。</p>
+<p>正常来说，ParNew收集器和CMS收集器是一起打配合的，他俩在分类来说都是分代收集器，一个作用于新生代，一个作用于老年代。</p>
+<h2 id="3-G1收集器"><a href="#3-G1收集器" class="headerlink" title="3.G1收集器"></a>3.G1收集器</h2><p>G1 垃圾收集器摒弃了传统的物理分区方式，而是将整个内存分成若干个大小不同的 Region 区域。每个 Region 在逻辑上组合成各个分代，这样做的好处是可以以 Region 为单位进行更细粒度的垃圾回收。G1 垃圾收集器在进行垃圾回收时，可以针对单个或多个 Region 进行回收，从而提高了收集效率和性能。</p>
+<p>下面介绍一下G1的相关内容：</p>
+<p><strong>分代：</strong>相信大家还记得我们上一讲中的年轻代和老年代，G1 也是基于这个思想进行设计的。<strong>G1舍弃分代，转变为分区，</strong>将堆内存分为多个大小相等的区域（Region），每个区域都可以是 Eden 区、Survivor 区或者 Old 区。</p>
+<p><img src="gc-collector-20231228213824.png" alt="G1收集器分区"></p>
+<p>可以通过 <code>-XX:G1HeapRegionSize=n</code> 来设置 Region 的大小，可以设定为 1M、2M、4M、8M、16M、32M（不能超过）。</p>
+<p>G1 有专门分配大对象的 Region 叫 Humongous 区，而不是让大对象直接进入老年代的 Region 中。在 G1 中，大对象的判定规则就是一个大对象超过了一个 Region 大小的 50%，比如每个 Region 是 2M，只要一个对象超过了 1M，就会被放入 Humongous 中，而且一个大对象如果太大，可能会横跨多个 Region 来存放。</p>
+<p>G1 会根据各个区域的垃圾回收情况来决定下一次垃圾回收的区域，这样就避免了对整个堆内存进行垃圾回收，从而降低了垃圾回收的时间。</p>
+<p>在进行老年代的垃圾回收时，G1 使用标记-整理算法。这个过程分为两个阶段：标记存活的对象和整理（压缩）堆空间。通过整理，G1 能够避免内存碎片化，提高内存利用率。年轻代的垃圾回收（Minor GC）使用复制算法，因为年轻代的对象通常是朝生夕死的。</p>
+<p><img src="gc-collector-20231230100404.png"></p>
+<p><strong>STW：</strong>G1 也是基于「标记-清除」算法，因此在进行垃圾回收的时候，仍然需要「Stop the World」。不过，G1 在停顿时间上添加了预测机制，用户可以指定期望停顿时间。</p>
+<p><strong>接下来介绍G1的三种回收机制：</strong></p>
+<p><img src="gc-collector-20231228215108.png"></p>
+<p>当 Eden 区的内存空间无法支持新对象的内存分配时，G1 会触发 Young GC。</p>
+<p>当需要分配对象到 Humongous 区域或者堆内存的空间占比超过 <code>-XX:G1HeapWastePercent</code> 设置的 InitiatingHeapOccupancyPercent 值时，G1 会触发一次 concurrent marking，它的作用就是计算老年代中有多少空间需要被回收，当发现垃圾的占比达到 <code>-XX:G1HeapWastePercent</code> 中所设置的 G1HeapWastePercent 比例时，在下次 Young GC 后会触发一次 Mixed GC。</p>
+<p>Mixed GC 是指回收年轻代的 Region 以及一部分老年代中的 Region。Mixed GC 和 Young GC 一样，采用的也是复制算法。</p>
+<p>在 Mixed GC 过程中，如果发现老年代空间还是不足，此时如果 G1HeapWastePercent 设定过低，可能引发 Full GC。<code>-XX:G1HeapWastePercent</code> 默认是 5，意味着只有 5% 的堆是“浪费”的。如果浪费的堆的百分比大于 G1HeapWastePercent，则运行 Full GC。</p>
+<p><strong>注：</strong><br>收集区域： 整个堆内存<br>使用算法： 标记复制法<br>搜集方式： 多线程</p>
+<h2 id="4-ZGC"><a href="#4-ZGC" class="headerlink" title="4.ZGC"></a>4.ZGC</h2><p>参考一开始的博客链接。</p>
+<h1 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h1><p>判断是否需要进行垃圾回收的算法有<strong>引用标记算法和可达性分析算法</strong>，前者使用Java对象头的Reference Count属性，后者依靠引用关系，解决前者不能解决循环依赖的问题；垃圾收集算法有标记清除算法（存在内存碎片化问题）、复制算法（内存分割出去不划算）、标记整理算法（需要改动引用对象地址，效率低）、分代收集算法（前三种的组合拳），其中学习了stop-to-world是什么，新生代和老年代是什么，复习了Java对象头和永久代，JVM运行时数据区。</p>
+<p>垃圾收集器介绍了CMS、ParNew、G1，ZGC去搜资料看看</p>
 ]]></content>
+      <categories>
+        <category>Java</category>
+      </categories>
+      <tags>
+        <tag>JVM</tag>
+        <tag>面试</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>CentOS7部署docker</title>
+    <url>/2024/07/06/centOS%E9%83%A8%E7%BD%B2docker/</url>
+    <content><![CDATA[<h1 id="0-安装Docker"><a href="#0-安装Docker" class="headerlink" title="0.安装Docker"></a>0.安装Docker</h1><p>Docker 分为 CE 和 EE 两大版本。CE 即社区版（免费，支持周期 7 个月），EE 即企业版，强调安全，付费使用，支持周期 24 个月。</p>
+<p>Docker CE 分为 <code>stable</code> <code>test</code> 和 <code>nightly</code> 三个更新频道。</p>
+<p>官方网站上有各种环境下的 <a href="https://docs.docker.com/install/">安装指南</a>，这里主要介绍 Docker CE 在 CentOS上的安装。</p>
+<h1 id="1-CentOS安装Docker"><a href="#1-CentOS安装Docker" class="headerlink" title="1.CentOS安装Docker"></a>1.CentOS安装Docker</h1><p>Docker CE 支持 64 位版本 CentOS 7，并且要求内核版本不低于 3.10， CentOS 7 满足最低内核的要求，所以我们在CentOS 7安装Docker。</p>
+<h2 id="1-1-卸载（可选）"><a href="#1-1-卸载（可选）" class="headerlink" title="1.1.卸载（可选）"></a>1.1.卸载（可选）</h2><p>如果之前安装过旧版本的Docker，可以使用下面命令卸载：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">yum remove docker \</span><br><span class="line">                  docker-client \</span><br><span class="line">                  docker-client-latest \</span><br><span class="line">                  docker-common \</span><br><span class="line">                  docker-latest \</span><br><span class="line">                  docker-latest-logrotate \</span><br><span class="line">                  docker-logrotate \</span><br><span class="line">                  docker-selinux \</span><br><span class="line">                  docker-engine-selinux \</span><br><span class="line">                  docker-engine \</span><br><span class="line">                  docker-ce</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="1-2-安装docker"><a href="#1-2-安装docker" class="headerlink" title="1.2.安装docker"></a>1.2.安装docker</h2><p>首先需要大家虚拟机联网，安装yum工具</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">yum install -y yum-utils \</span><br><span class="line">           device-mapper-persistent-data \</span><br><span class="line">           lvm2 --skip-broken</span><br></pre></td></tr></table></figure>
+
+
+
+<p>然后更新本地镜像源：</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">设置docker镜像源</span></span><br><span class="line">yum-config-manager \</span><br><span class="line">    --add-repo \</span><br><span class="line">    https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo</span><br><span class="line">    </span><br><span class="line">sed -i &#x27;s/download.docker.com/mirrors.aliyun.com\/docker-ce/g&#x27; /etc/yum.repos.d/docker-ce.repo</span><br><span class="line"></span><br><span class="line">yum makecache fast</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<p>然后输入命令：</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">yum install -y docker-ce</span><br></pre></td></tr></table></figure>
+
+<p>docker-ce为社区免费版本。稍等片刻，docker即可安装成功。</p>
+<h2 id="1-3-启动docker"><a href="#1-3-启动docker" class="headerlink" title="1.3.启动docker"></a>1.3.启动docker</h2><p>Docker应用需要用到各种端口，逐一去修改防火墙设置。非常麻烦，因此建议大家直接关闭防火墙！</p>
+<p>启动docker前，一定要关闭防火墙后！！</p>
+<p>启动docker前，一定要关闭防火墙后！！</p>
+<p>启动docker前，一定要关闭防火墙后！！</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 关闭</span></span><br><span class="line">systemctl stop firewalld</span><br><span class="line"><span class="comment"># 禁止开机启动防火墙</span></span><br><span class="line">systemctl <span class="built_in">disable</span> firewalld</span><br></pre></td></tr></table></figure>
+
+
+
+<p>通过命令启动docker：</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">systemctl start docker  <span class="comment"># 启动docker服务</span></span><br><span class="line"></span><br><span class="line">systemctl stop docker  <span class="comment"># 停止docker服务</span></span><br><span class="line"></span><br><span class="line">systemctl restart docker  <span class="comment"># 重启docker服务</span></span><br></pre></td></tr></table></figure>
+
+
+
+<p>然后输入命令，可以查看docker版本：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">docker -v</span><br></pre></td></tr></table></figure>
+
+<p>如图：</p>
+<p><img src="image-20210418154704436.png"></p>
+<h2 id="1-4-配置镜像加速"><a href="#1-4-配置镜像加速" class="headerlink" title="1.4.配置镜像加速"></a>1.4.配置镜像加速</h2><p>docker官方镜像仓库网速较差，我们需要设置国内镜像服务：</p>
+<p>参考阿里云的镜像加速文档：<a href="https://cr.console.aliyun.com/cn-hangzhou/instances/mirrors">https://cr.console.aliyun.com/cn-hangzhou/instances/mirrors</a></p>
+<h1 id="2-CentOS7安装DockerCompose"><a href="#2-CentOS7安装DockerCompose" class="headerlink" title="2.CentOS7安装DockerCompose"></a>2.CentOS7安装DockerCompose</h1><h2 id="2-1-下载"><a href="#2-1-下载" class="headerlink" title="2.1.下载"></a>2.1.下载</h2><p>Linux下需要通过命令下载：</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 安装</span></span><br><span class="line">curl -L https://github.com/docker/compose/releases/download/1.23.1/docker-compose-`<span class="built_in">uname</span> -s`-`<span class="built_in">uname</span> -m` &gt; /usr/local/bin/docker-compose</span><br></pre></td></tr></table></figure>
+
+<p>如果下载速度较慢，或者下载失败，联系博主给你一份</p>
+<p><img src="image-20210417133020614.png"></p>
+<p>上传到<code>/usr/local/bin/</code>目录也可以。</p>
+<h2 id="2-2-修改文件权限"><a href="#2-2-修改文件权限" class="headerlink" title="2.2.修改文件权限"></a>2.2.修改文件权限</h2><p>修改文件权限：</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 修改权限</span></span><br><span class="line"><span class="built_in">chmod</span> +x /usr/local/bin/docker-compose</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="2-3-Base自动补全命令："><a href="#2-3-Base自动补全命令：" class="headerlink" title="2.3.Base自动补全命令："></a>2.3.Base自动补全命令：</h2><figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 补全命令</span></span><br><span class="line">curl -L https://raw.githubusercontent.com/docker/compose/1.29.1/contrib/completion/bash/docker-compose &gt; /etc/bash_completion.d/docker-compose</span><br></pre></td></tr></table></figure>
+
+<p>如果这里出现错误，需要修改自己的hosts文件：</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="built_in">echo</span> <span class="string">&quot;199.232.68.133 raw.githubusercontent.com&quot;</span> &gt;&gt; /etc/hosts</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<h1 id="3-Docker镜像仓库"><a href="#3-Docker镜像仓库" class="headerlink" title="3.Docker镜像仓库"></a>3.Docker镜像仓库</h1><p>搭建镜像仓库可以基于Docker官方提供的DockerRegistry来实现。</p>
+<p>官网地址：<a href="https://hub.docker.com/_/registry">https://hub.docker.com/_/registry</a></p>
+<h2 id="3-1-简化版镜像仓库"><a href="#3-1-简化版镜像仓库" class="headerlink" title="3.1.简化版镜像仓库"></a>3.1.简化版镜像仓库</h2><p>Docker官方的Docker Registry是一个基础版本的Docker镜像仓库，具备仓库管理的完整功能，但是没有图形化界面。</p>
+<p>搭建方式比较简单，命令如下：</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">docker run -d \</span><br><span class="line">    --restart=always \</span><br><span class="line">    --name registry	\</span><br><span class="line">    -p 5000:5000 \</span><br><span class="line">    -v registry-data:/var/lib/registry \</span><br><span class="line">    registry</span><br></pre></td></tr></table></figure>
+
+
+
+<p>命令中挂载了一个数据卷registry-data到容器内的&#x2F;var&#x2F;lib&#x2F;registry 目录，这是私有镜像库存放数据的目录。</p>
+<p>访问<a href="http://yourip:5000/v2/_catalog">http://YourIp:5000/v2/_catalog</a> 可以查看当前私有镜像服务中包含的镜像</p>
+<h2 id="3-2-带有图形化界面版本"><a href="#3-2-带有图形化界面版本" class="headerlink" title="3.2.带有图形化界面版本"></a>3.2.带有图形化界面版本</h2><p>使用DockerCompose部署带有图象界面的DockerRegistry，命令如下：</p>
+<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">version:</span> <span class="string">&#x27;3.0&#x27;</span></span><br><span class="line"><span class="attr">services:</span></span><br><span class="line">  <span class="attr">registry:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">registry</span></span><br><span class="line">    <span class="attr">volumes:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">./registry-data:/var/lib/registry</span></span><br><span class="line">  <span class="attr">ui:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">joxit/docker-registry-ui:static</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="number">8080</span><span class="string">:80</span></span><br><span class="line">    <span class="attr">environment:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">REGISTRY_TITLE=传智教育私有仓库</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">REGISTRY_URL=http://registry:5000</span></span><br><span class="line">    <span class="attr">depends_on:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">registry</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="3-3-配置Docker信任地址"><a href="#3-3-配置Docker信任地址" class="headerlink" title="3.3.配置Docker信任地址"></a>3.3.配置Docker信任地址</h2><p>我们的私服采用的是http协议，默认不被Docker信任，所以需要做一个配置：</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 打开要修改的文件</span></span><br><span class="line">vi /etc/docker/daemon.json</span><br><span class="line"><span class="comment"># 添加内容：</span></span><br><span class="line"><span class="string">&quot;insecure-registries&quot;</span>:[<span class="string">&quot;http://192.168.150.101:8080&quot;</span>]</span><br><span class="line"><span class="comment"># 重加载</span></span><br><span class="line">systemctl daemon-reload</span><br><span class="line"><span class="comment"># 重启docker</span></span><br><span class="line">systemctl restart docker</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+
+
+
+
+
+
+]]></content>
+      <categories>
+        <category>软件技术</category>
+      </categories>
+      <tags>
+        <tag>docker</tag>
+        <tag>软件技术</tag>
+      </tags>
   </entry>
   <entry>
     <title>Java：JDK8函数式接口、lambda表达式、方法引用</title>
@@ -902,111 +1136,6 @@
       </tags>
   </entry>
   <entry>
-    <title>CentOS7部署docker</title>
-    <url>/2024/07/06/centOS%E9%83%A8%E7%BD%B2docker/</url>
-    <content><![CDATA[<h1 id="0-安装Docker"><a href="#0-安装Docker" class="headerlink" title="0.安装Docker"></a>0.安装Docker</h1><p>Docker 分为 CE 和 EE 两大版本。CE 即社区版（免费，支持周期 7 个月），EE 即企业版，强调安全，付费使用，支持周期 24 个月。</p>
-<p>Docker CE 分为 <code>stable</code> <code>test</code> 和 <code>nightly</code> 三个更新频道。</p>
-<p>官方网站上有各种环境下的 <a href="https://docs.docker.com/install/">安装指南</a>，这里主要介绍 Docker CE 在 CentOS上的安装。</p>
-<h1 id="1-CentOS安装Docker"><a href="#1-CentOS安装Docker" class="headerlink" title="1.CentOS安装Docker"></a>1.CentOS安装Docker</h1><p>Docker CE 支持 64 位版本 CentOS 7，并且要求内核版本不低于 3.10， CentOS 7 满足最低内核的要求，所以我们在CentOS 7安装Docker。</p>
-<h2 id="1-1-卸载（可选）"><a href="#1-1-卸载（可选）" class="headerlink" title="1.1.卸载（可选）"></a>1.1.卸载（可选）</h2><p>如果之前安装过旧版本的Docker，可以使用下面命令卸载：</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">yum remove docker \</span><br><span class="line">                  docker-client \</span><br><span class="line">                  docker-client-latest \</span><br><span class="line">                  docker-common \</span><br><span class="line">                  docker-latest \</span><br><span class="line">                  docker-latest-logrotate \</span><br><span class="line">                  docker-logrotate \</span><br><span class="line">                  docker-selinux \</span><br><span class="line">                  docker-engine-selinux \</span><br><span class="line">                  docker-engine \</span><br><span class="line">                  docker-ce</span><br></pre></td></tr></table></figure>
-
-
-
-<h2 id="1-2-安装docker"><a href="#1-2-安装docker" class="headerlink" title="1.2.安装docker"></a>1.2.安装docker</h2><p>首先需要大家虚拟机联网，安装yum工具</p>
-<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">yum install -y yum-utils \</span><br><span class="line">           device-mapper-persistent-data \</span><br><span class="line">           lvm2 --skip-broken</span><br></pre></td></tr></table></figure>
-
-
-
-<p>然后更新本地镜像源：</p>
-<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">设置docker镜像源</span></span><br><span class="line">yum-config-manager \</span><br><span class="line">    --add-repo \</span><br><span class="line">    https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo</span><br><span class="line">    </span><br><span class="line">sed -i &#x27;s/download.docker.com/mirrors.aliyun.com\/docker-ce/g&#x27; /etc/yum.repos.d/docker-ce.repo</span><br><span class="line"></span><br><span class="line">yum makecache fast</span><br></pre></td></tr></table></figure>
-
-
-
-
-
-<p>然后输入命令：</p>
-<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">yum install -y docker-ce</span><br></pre></td></tr></table></figure>
-
-<p>docker-ce为社区免费版本。稍等片刻，docker即可安装成功。</p>
-<h2 id="1-3-启动docker"><a href="#1-3-启动docker" class="headerlink" title="1.3.启动docker"></a>1.3.启动docker</h2><p>Docker应用需要用到各种端口，逐一去修改防火墙设置。非常麻烦，因此建议大家直接关闭防火墙！</p>
-<p>启动docker前，一定要关闭防火墙后！！</p>
-<p>启动docker前，一定要关闭防火墙后！！</p>
-<p>启动docker前，一定要关闭防火墙后！！</p>
-<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 关闭</span></span><br><span class="line">systemctl stop firewalld</span><br><span class="line"><span class="comment"># 禁止开机启动防火墙</span></span><br><span class="line">systemctl <span class="built_in">disable</span> firewalld</span><br></pre></td></tr></table></figure>
-
-
-
-<p>通过命令启动docker：</p>
-<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">systemctl start docker  <span class="comment"># 启动docker服务</span></span><br><span class="line"></span><br><span class="line">systemctl stop docker  <span class="comment"># 停止docker服务</span></span><br><span class="line"></span><br><span class="line">systemctl restart docker  <span class="comment"># 重启docker服务</span></span><br></pre></td></tr></table></figure>
-
-
-
-<p>然后输入命令，可以查看docker版本：</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">docker -v</span><br></pre></td></tr></table></figure>
-
-<p>如图：</p>
-<p><img src="image-20210418154704436.png"></p>
-<h2 id="1-4-配置镜像加速"><a href="#1-4-配置镜像加速" class="headerlink" title="1.4.配置镜像加速"></a>1.4.配置镜像加速</h2><p>docker官方镜像仓库网速较差，我们需要设置国内镜像服务：</p>
-<p>参考阿里云的镜像加速文档：<a href="https://cr.console.aliyun.com/cn-hangzhou/instances/mirrors">https://cr.console.aliyun.com/cn-hangzhou/instances/mirrors</a></p>
-<h1 id="2-CentOS7安装DockerCompose"><a href="#2-CentOS7安装DockerCompose" class="headerlink" title="2.CentOS7安装DockerCompose"></a>2.CentOS7安装DockerCompose</h1><h2 id="2-1-下载"><a href="#2-1-下载" class="headerlink" title="2.1.下载"></a>2.1.下载</h2><p>Linux下需要通过命令下载：</p>
-<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 安装</span></span><br><span class="line">curl -L https://github.com/docker/compose/releases/download/1.23.1/docker-compose-`<span class="built_in">uname</span> -s`-`<span class="built_in">uname</span> -m` &gt; /usr/local/bin/docker-compose</span><br></pre></td></tr></table></figure>
-
-<p>如果下载速度较慢，或者下载失败，联系博主给你一份</p>
-<p><img src="image-20210417133020614.png"></p>
-<p>上传到<code>/usr/local/bin/</code>目录也可以。</p>
-<h2 id="2-2-修改文件权限"><a href="#2-2-修改文件权限" class="headerlink" title="2.2.修改文件权限"></a>2.2.修改文件权限</h2><p>修改文件权限：</p>
-<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 修改权限</span></span><br><span class="line"><span class="built_in">chmod</span> +x /usr/local/bin/docker-compose</span><br></pre></td></tr></table></figure>
-
-
-
-<h2 id="2-3-Base自动补全命令："><a href="#2-3-Base自动补全命令：" class="headerlink" title="2.3.Base自动补全命令："></a>2.3.Base自动补全命令：</h2><figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 补全命令</span></span><br><span class="line">curl -L https://raw.githubusercontent.com/docker/compose/1.29.1/contrib/completion/bash/docker-compose &gt; /etc/bash_completion.d/docker-compose</span><br></pre></td></tr></table></figure>
-
-<p>如果这里出现错误，需要修改自己的hosts文件：</p>
-<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="built_in">echo</span> <span class="string">&quot;199.232.68.133 raw.githubusercontent.com&quot;</span> &gt;&gt; /etc/hosts</span><br></pre></td></tr></table></figure>
-
-
-
-
-
-<h1 id="3-Docker镜像仓库"><a href="#3-Docker镜像仓库" class="headerlink" title="3.Docker镜像仓库"></a>3.Docker镜像仓库</h1><p>搭建镜像仓库可以基于Docker官方提供的DockerRegistry来实现。</p>
-<p>官网地址：<a href="https://hub.docker.com/_/registry">https://hub.docker.com/_/registry</a></p>
-<h2 id="3-1-简化版镜像仓库"><a href="#3-1-简化版镜像仓库" class="headerlink" title="3.1.简化版镜像仓库"></a>3.1.简化版镜像仓库</h2><p>Docker官方的Docker Registry是一个基础版本的Docker镜像仓库，具备仓库管理的完整功能，但是没有图形化界面。</p>
-<p>搭建方式比较简单，命令如下：</p>
-<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">docker run -d \</span><br><span class="line">    --restart=always \</span><br><span class="line">    --name registry	\</span><br><span class="line">    -p 5000:5000 \</span><br><span class="line">    -v registry-data:/var/lib/registry \</span><br><span class="line">    registry</span><br></pre></td></tr></table></figure>
-
-
-
-<p>命令中挂载了一个数据卷registry-data到容器内的&#x2F;var&#x2F;lib&#x2F;registry 目录，这是私有镜像库存放数据的目录。</p>
-<p>访问<a href="http://yourip:5000/v2/_catalog">http://YourIp:5000/v2/_catalog</a> 可以查看当前私有镜像服务中包含的镜像</p>
-<h2 id="3-2-带有图形化界面版本"><a href="#3-2-带有图形化界面版本" class="headerlink" title="3.2.带有图形化界面版本"></a>3.2.带有图形化界面版本</h2><p>使用DockerCompose部署带有图象界面的DockerRegistry，命令如下：</p>
-<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">version:</span> <span class="string">&#x27;3.0&#x27;</span></span><br><span class="line"><span class="attr">services:</span></span><br><span class="line">  <span class="attr">registry:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">registry</span></span><br><span class="line">    <span class="attr">volumes:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">./registry-data:/var/lib/registry</span></span><br><span class="line">  <span class="attr">ui:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">joxit/docker-registry-ui:static</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="number">8080</span><span class="string">:80</span></span><br><span class="line">    <span class="attr">environment:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">REGISTRY_TITLE=传智教育私有仓库</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">REGISTRY_URL=http://registry:5000</span></span><br><span class="line">    <span class="attr">depends_on:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">registry</span></span><br></pre></td></tr></table></figure>
-
-
-
-<h2 id="3-3-配置Docker信任地址"><a href="#3-3-配置Docker信任地址" class="headerlink" title="3.3.配置Docker信任地址"></a>3.3.配置Docker信任地址</h2><p>我们的私服采用的是http协议，默认不被Docker信任，所以需要做一个配置：</p>
-<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 打开要修改的文件</span></span><br><span class="line">vi /etc/docker/daemon.json</span><br><span class="line"><span class="comment"># 添加内容：</span></span><br><span class="line"><span class="string">&quot;insecure-registries&quot;</span>:[<span class="string">&quot;http://192.168.150.101:8080&quot;</span>]</span><br><span class="line"><span class="comment"># 重加载</span></span><br><span class="line">systemctl daemon-reload</span><br><span class="line"><span class="comment"># 重启docker</span></span><br><span class="line">systemctl restart docker</span><br></pre></td></tr></table></figure>
-
-
-
-
-
-
-
-
-
-
-
-]]></content>
-      <categories>
-        <category>软件技术</category>
-      </categories>
-      <tags>
-        <tag>docker</tag>
-        <tag>软件技术</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>Java多线程：一、线程池</title>
     <url>/2024/08/03/java-%E7%BA%BF%E7%A8%8B%E6%B1%A0/</url>
     <content><![CDATA[<h1 id="前言："><a href="#前言：" class="headerlink" title="前言："></a>前言：</h1><p>全文了解线程池干货，<strong>要想看面试题直接看标题中带有八股的就行了。</strong></p>
@@ -1112,52 +1241,135 @@
         <category>Java</category>
       </categories>
       <tags>
-        <tag>多线程</tag>
         <tag>面试</tag>
+        <tag>多线程</tag>
       </tags>
   </entry>
   <entry>
-    <title>Java多线程：四、详解ConcurrentHashMap构成</title>
-    <url>/2024/08/06/java%EF%BC%9A%E8%AF%A6%E8%A7%A3ConcurrentHashMap/</url>
-    <content><![CDATA[<h1 id="一、JDK-1-7"><a href="#一、JDK-1-7" class="headerlink" title="一、JDK 1.7"></a>一、JDK 1.7</h1><h2 id="1-1-加锁机制"><a href="#1-1-加锁机制" class="headerlink" title="1.1 加锁机制"></a>1.1 加锁机制</h2><p>ConcurrentHashMap 在 JDK 1.7 中，提供了一种粒度更细的加锁机制，这种机制叫分段锁「Lock Striping」。整个哈希表被分为多个段，每个段都独立锁定。读取操作不需要锁，写入操作仅锁定相关的段。这减小了锁冲突的几率，从而提高了并发性能。</p>
-<p>这种机制的优点：在并发环境下将实现更高的吞吐量，而在单线程环境下只损失非常小的性能。</p>
-<p>可以这样理解分段锁，就是<strong>将数据分段，对每一段数据分配一把锁</strong>。当一个线程占用锁访问其中一个段数据的时候，其他段的数据也能被其他线程访问。</p>
-<p>有些方法需要跨段，比如 <code>size()</code>、<code>isEmpty()</code>、<code>containsValue()</code>，它们可能需要锁定整个表而不仅仅是某个段，这需要按顺序锁定所有段，操作完后，再按顺序释放所有段的锁。如下图：</p>
-<p><img src="map-20230816155810.png" alt="jdk1.7之前的构成图"></p>
-<h2 id="1-2-八股：jdk1-7之前的构成"><a href="#1-2-八股：jdk1-7之前的构成" class="headerlink" title="1.2 八股：jdk1.7之前的构成"></a>1.2 八股：jdk1.7之前的构成</h2><p>敲重点！字体加粗了务必记好。</p>
-<p>ConcurrentHashMap 是由 <strong>Segment 数组结构和 HashEntry 数组</strong>构成的。Segment 是一种可重入的锁 <code>ReentrantLock</code>，HashEntry 则用于存储键值对数据。</p>
-<p>一个 ConcurrentHashMap 里包含<strong>一个 Segment 数组，数组中都是segment对象</strong>，Segment 的结构和 HashMap 类似，是一种数组和链表结构，一个 Segment 里包含一个 <strong>HashEntry 数组</strong>，每个 HashEntry 是一个链表结构的元素，每个 Segment 守护着一个 HashEntry 数组里的元素，当对 HashEntry 数组的数据进行修改时，必须首先获得它对应的 Segment 锁（可重入锁）。</p>
-<p><strong>HashEntry到底是什么？</strong></p>
-<p>我自己搜的时候都在介绍hashentry是数组，但是搜到的都是类似链表的结构，包括在1.1节中的图片看上去都是链表，这是怎么回事？</p>
-<p>其实，<code>HashEntry</code>本身是一个<strong>结构体（或内部类，同样segment也是内部类）</strong>，实际上是每个<code>Segment</code>内部的一个数组，用于封装键值对数据，并可能包含指向下一个<code>HashEntry</code>的引用以形成链表结构，用于处理哈希冲突。但由于哈希冲突的存在，这个数组的每个位置可能不仅仅是一个<code>HashEntry</code>对象，而是一个由<code>HashEntry</code>对象组成的链表（或更复杂的结构，如红黑树，但这在JDK 1.7中不是默认的）。</p>
-<p><code>ConcurrentHashMap</code>使用链表来存储这些具有相同索引值的键值对。具体来说，每个数组位置（在JDK 1.7中实际上是<code>Segment</code>内部的数组，而在JDK 1.8及以后是<code>Node</code>数组）存储的是链表的头节点。如果发生哈希冲突，新的键值对会被添加到这个链表的末尾。</p>
-<p>接下来看看Segment的结构组成：</p>
-<p>单一的 Segment 结构如下：</p>
-<p><img src="map-20230816160155.png"></p>
-<p>像这样的 Segment 对象，在 ConcurrentHashMap 集合中有多少个呢？有 2 的 N 次方个，共同保存在一个名为 segments 的数组当中。 因此整个 ConcurrentHashMap 的结构如下：</p>
-<p><img src="map-20230816160223.png"></p>
-<p>可以说，ConcurrentHashMap 是一个二级哈希表。在一个总的哈希表下面，有若干个子哈希表。</p>
-<p>Case1：不同 Segment 的并发写入（可以并发执行）</p>
-<p><img src="map-20230816160301.png"></p>
-<p>Case2：同一 Segment 的一写一读（可以并发执行）</p>
-<p><img src="map-20230816160316.png"></p>
-<p>Case3：同一 Segment 的并发写入</p>
-<p><img src="map-20230816160331.png"></p>
-<h1 id="二、JDK1-8往后"><a href="#二、JDK1-8往后" class="headerlink" title="二、JDK1.8往后"></a>二、JDK1.8往后</h1><p>而在 JDK 1.8 中，ConcurrentHashMap 主要做了两个优化：</p>
+    <title>Java多线程：二、JMM、happens-before、volatile</title>
+    <url>/2024/08/04/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9AJMM/</url>
+    <content><![CDATA[<h1 id="一、内存模型（含八股内容）"><a href="#一、内存模型（含八股内容）" class="headerlink" title="一、内存模型（含八股内容）"></a>一、内存模型（含八股内容）</h1><h2 id="1-1-内存模型及并发问题"><a href="#1-1-内存模型及并发问题" class="headerlink" title="1.1 内存模型及并发问题"></a>1.1 内存模型及并发问题</h2><p>Java 内存模型（Java Memory Model，JMM）定义了 Java 程序中的变量、线程如何和主存以及工作内存进行交互的规则。它主要涉及到多线程环境下的共享变量可见性、指令重排等问题，是理解并发编程中的关键概念。</p>
+<p>并发编程的线程之间存在两个问题：</p>
 <ul>
-<li>同<code>HashMap</code> 一样，链表也会在长度达到 8 的时候转化为红黑树，这样可以提升大量冲突时候的查询效率；</li>
-<li>以某个位置的头结点（链表的头结点或红黑树的 root 结点）为锁，**配合自旋+CAS(乐观锁)**避免不必要的锁开销，进一步提升并发性能。</li>
+<li>线程间如何通信？即：线程之间以何种机制来交换信息</li>
+<li>线程间如何同步？即：线程以何种机制来控制不同线程间发生的相对顺序</li>
 </ul>
-<p><img src="map-20230816155924.png"></p>
-<p>相比 JDK1.7 中的 ConcurrentHashMap，JDK1.8 中的 ConcurrentHashMap 取消了 Segment 分段锁，采用 CAS + synchronized 来保证并发安全性，整个容器只分为一个 Segment，即 table 数组。</p>
-<p>JDK1.8 中的 ConcurrentHashMap 对节点 Node 类中的共享变量，和 JDK1.7 一样，使用 volatile 关键字，保证多线程操作时，变量的可见性。</p>
+<p>有两种并发模型可以解决这两个问题：</p>
+<ul>
+<li>消息传递并发模型</li>
+<li>共享内存并发模型</li>
+</ul>
+<p>这两种模型之间的区别如下图所示：</p>
+<p><img src="jmm-a610752d-ef73-47f2-b02c-6954eb3d62bf.png"></p>
+<p>重要的事情说三遍</p>
+<p><strong>Java 使用的是共享内存并发模型！！！！</strong></p>
+<p><strong>Java 使用的是共享内存并发模型！！！！</strong></p>
+<p><strong>Java 使用的是共享内存并发模型！！！！</strong></p>
+<h2 id="1-2-须知：Java共享内存并发模型"><a href="#1-2-须知：Java共享内存并发模型" class="headerlink" title="1.2 须知：Java共享内存并发模型"></a>1.2 须知：Java共享内存并发模型</h2><p>在共享内存的并发模型里，线程之间共享程序的公共状态，线程之间通过写-读内存中的公共状态来隐式进行通信。典型的共享内存通信方式，就是通过共享对象进行通信。 </p>
+<p>例如线程 A 与 线程 B 之间如果要通信的话，那么就必须经历下面两个步骤： 1. 线程 A 把本地内存 A 更新过得共享变量刷新到主内存中去。 2. 线程 B 到主内存中去读取线程 A 之前更新过的共享变量，<strong>也就是说，线程A和线程B之间一定要通过主存。</strong></p>
+<p><img src="jmm-f02219aa-e762-4df0-ac08-6f4cceb535c2.jpg" alt="共享内存"></p>
+<h2 id="1-3-八股：本地内存和主存有什么区别？"><a href="#1-3-八股：本地内存和主存有什么区别？" class="headerlink" title="1.3 八股：本地内存和主存有什么区别？"></a>1.3 八股：本地内存和主存有什么区别？</h2><p>线程之间的共享变量存在于主存中，每个线程都有一个私有的本地内存，存储了该线程的读、写共享变量的副本。本地内存是 Java 内存模型的一个抽象概念，并不真实存在。它涵盖了缓存、写缓冲区、寄存器等（比如cpu的三级缓存）。</p>
+<h1 id="二、如何保证内存可见性？"><a href="#二、如何保证内存可见性？" class="headerlink" title="二、如何保证内存可见性？"></a>二、如何保证内存可见性？</h1><p>由于java用的是内存共享并发模型，那么我们就按照这个来说。线程的安全问题包括原子性、可见性、活跃性、有序性，这里就先讨论可见性。</p>
+<p>可见性就是指，如果线程A在本地内存中更新了一个变量，那么线程B以及其他线程需要同步修改后的数据。如何同步修改后的数据？此时就是需要JMM，JMM控制主存和本地内存之间的交互，来提供内存可见性保证。</p>
+<p>Java 中的 <code>volatile 关键字</code>可以保证多线程操作共享变量的可见性以及禁止指令重排序，<code>synchronized 关键字</code>不仅保证可见性，同时也保证了原子性（互斥性）。</p>
+<p>在更底层，JMM 通过内存屏障来实现内存的可见性以及禁止重排序。为了程序员更方便地理解，设计者提出了 happens-before 的概念（下文会细讲），它更加简单易懂，从而避免了程序员为了理解内存可见性而去学习复杂的重排序规则，以及这些规则的具体实现方法。</p>
+<h1 id="三、JMM与重排序"><a href="#三、JMM与重排序" class="headerlink" title="三、JMM与重排序"></a>三、JMM与重排序</h1><p>前面提到了，JMM 定义了多线程之间如何互相交互的规则，主要目的是为了解决由于编译器优化、处理器优化和缓存系统等导致的可见性、原子性和有序性。</p>
+<p>那我们接下来就来聊聊重排序以及它所带来的顺序问题。</p>
+<h3 id="3-1-为什么指令重排可以提高性能？"><a href="#3-1-为什么指令重排可以提高性能？" class="headerlink" title="3.1 为什么指令重排可以提高性能？"></a>3.1 为什么指令重排可以提高性能？</h3><p>大家都知道，计算机在执行程序时，为了提高性能，编译器和处理器常常会对指令做重排。</p>
+<p>那可能有小伙伴就要问：<strong>为什么指令重排序可以提高性能？</strong></p>
+<p>简单地说，每一个指令都会包含多个步骤，每个步骤可能使用不同的硬件。因此，<strong>流水线技术</strong>产生了，它的原理是指令 1 还没有执行完，就可以开始执行指令 2，而不用等到指令 1 执行结束后再执行指令 2，这样就大大提高了效率。</p>
+<p>但是，流水线技术最害怕<strong>中断</strong>，恢复中断的代价是比较大的，所以我们要想尽办法不让流水线中断。指令重排就是减少中断的一种技术。</p>
+<p>我们分析一下下面这段代码的执行情况：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">a = b + c;</span><br><span class="line">d = e - f ;</span><br></pre></td></tr></table></figure>
+
+<p>先加载 b、c（<strong>注意，有可能先加载 b，也有可能先加载 c</strong>），但是在执行 <code>add(b,c)</code> 的时候，需要等待 b、c 装载结束才能继续执行，也就是需要增加停顿，那么后面的指令（加载 e 和 f）也会有停顿，这就降低了计算机的执行效率。</p>
+<p>为了减少停顿，我们可以在加载完 b 和 c 后把 e 和 f 也加载了，然后再去执行 <code>add(b,c)</code>，这样做对程序（串行）是没有影响的，但却减少了停顿。</p>
+<p>换句话说，既然 <code>add(b,c)</code> 需要停顿，那还不如去做一些有意义的事情（加载 e 和 f）。</p>
+<p>综上所述，<strong>指令重排对于提高 CPU 性能十分必要，但也带来了乱序的问题。</strong></p>
+<h3 id="3-2-重排序有哪几种？"><a href="#3-2-重排序有哪几种？" class="headerlink" title="3.2 重排序有哪几种？"></a>3.2 重排序有哪几种？</h3><p>指令重排一般分为以下三种：</p>
+<ul>
+<li><strong>编译器优化重排</strong>，编译器在<strong>不改变单线程程序语义</strong>的前提下，重新安排语句的执行顺序。</li>
+<li><strong>指令并行重排</strong>，现代处理器采用了指令级并行技术来将多条指令重叠执行。如果<strong>不存在数据依赖性</strong>(即后一个执行的语句无需依赖前面执行的语句的结果)，处理器可以改变语句对应的机器指令的执行顺序。</li>
+<li><strong>内存系统重排</strong>，由于处理器使用缓存和读写缓存冲区，这使得加载(load)和存储(store)操作看上去可能是在乱序执行，因为三级缓存的存在，导致内存与缓存的数据同步存在时间差。</li>
+</ul>
+<p><strong>指令重排可以保证串行语义一致，但是没有义务保证多线程间的语义也一致</strong>。所以在多线程下，指令重排序可能会导致一些问题。</p>
+<h1 id="四、happens-before-关系模型"><a href="#四、happens-before-关系模型" class="headerlink" title="四、happens-before 关系模型"></a>四、happens-before 关系模型</h1><h2 id="4-1-八股：什么是happens-before-关系模型？"><a href="#4-1-八股：什么是happens-before-关系模型？" class="headerlink" title="4.1 八股：什么是happens-before 关系模型？"></a>4.1 八股：什么是happens-before 关系模型？</h2><p>happens-before 关系的定义如下：</p>
+<ol>
+<li><p><strong>如果一个操作 happens-before 另一个操作，那么第一个操作的执行结果将对第二个操作可见，而且第一个操作的执行顺序排在第二个操作之前。</strong></p>
+</li>
+<li><p><strong>两个操作之间存在 happens-before 关系，并不意味着 Java 平台的具体实现必须要按照 happens-before 关系指定的顺序来执行。如果重排序之后的执行结果，与按 happens-before 关系来执行的结果一致，那么 JMM 也允许这样的重排序。</strong></p>
+</li>
+</ol>
+<p>总之，<strong>如果操作 A happens-before 操作 B，那么操作 A 在内存上所做的操作对操作 B 都是可见的，不管它们在不在一个线程。</strong></p>
+<h2 id="4-2-了解：happens-before-关系有哪些？"><a href="#4-2-了解：happens-before-关系有哪些？" class="headerlink" title="4.2 了解：happens-before 关系有哪些？"></a>4.2 了解：happens-before 关系有哪些？</h2><p>   在 Java 中，有以下天然的 happens-before 关系：</p>
+<ul>
+<li>程序顺序规则：一个线程中的每一个操作，happens-before 于该线程中的任意后续操作。</li>
+<li>监视器锁规则：对一个锁的解锁，happens-before 于随后对这个锁的加锁。</li>
+<li>volatile 变量规则：对一个 volatile 域的写，happens-before 于任意后续对这个 volatile 域的读。</li>
+<li>传递性：如果 A happens-before B，且 B happens-before C，那么 A happens-before C。</li>
+<li>start 规则：如果线程 A 执行操作 <code>ThreadB.start()</code>启动线程 B，那么 A 线程的 <code>ThreadB.start()</code>操作 happens-before 于线程 B 中的任意操作。</li>
+<li>join 规则：如果线程 A 执行操作 <code>ThreadB.join()</code>并成功返回，那么线程 B 中的任意操作 happens-before 于线程 A 从 <code>ThreadB.join()</code>操作成功返回。</li>
+</ul>
+<p>   举例：</p>
+   <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">int</span> <span class="variable">a</span> <span class="operator">=</span> <span class="number">1</span>; <span class="comment">// A操作</span></span><br><span class="line"><span class="type">int</span> <span class="variable">b</span> <span class="operator">=</span> <span class="number">2</span>; <span class="comment">// B操作</span></span><br><span class="line"><span class="type">int</span> <span class="variable">sum</span> <span class="operator">=</span> a + b;<span class="comment">// C 操作</span></span><br><span class="line">System.out.println(sum);</span><br></pre></td></tr></table></figure>
+
+<p>   根据以上介绍的 happens-before 规则，假如只有一个线程，那么不难得出：</p>
+   <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="number">1</span>&gt; A happens-before B</span><br><span class="line"><span class="number">2</span>&gt; B happens-before C</span><br><span class="line"><span class="number">3</span>&gt; A happens-before C</span><br></pre></td></tr></table></figure>
+
+<p>   注意，真正在执行指令的时候，其实 JVM 有可能对操作 A &amp; B 进行重排序，因为无论先执行 A 还是 B，他们都对对方是可见的，并且不影响执行结果。</p>
+<p>   如果这里发生了重排序，这在视觉上违背了 happens-before 原则，但是 JMM 是允许这样的重排序的。</p>
+<p>   所以，我们只关心 happens-before 规则，不用关心 JVM 到底是怎样执行的。只要确定操作 A happens-before 操作 B 就行了。</p>
+<p>   重排序有两类，JMM 对这两类重排序有不同的策略：</p>
+<ul>
+<li>会改变程序执行结果的重排序，比如 A -&gt; C，JMM 要求编译器和处理器都禁止这种重排序。</li>
+<li>不会改变程序执行结果的重排序，比如 A -&gt; B，JMM 对编译器和处理器不做要求，允许这种重排序。</li>
+</ul>
+<h1 id="五、volatile关键字"><a href="#五、volatile关键字" class="headerlink" title="五、volatile关键字"></a>五、volatile关键字</h1><h2 id="5-1-八股：volatile关键字的作用"><a href="#5-1-八股：volatile关键字的作用" class="headerlink" title="5.1 八股：volatile关键字的作用"></a>5.1 八股：volatile关键字的作用</h2><p>一旦一个共享变量（类的成员变量、类的静态成员变量）被volatile修饰之后，那么就具备了两层语义： </p>
+<ol>
+<li>保证了不同线程对这个变量进行操作时的可见性，即一个线程修改了某个变量的值，这新值对其他线程来说是立即可见的。 </li>
+<li>禁止进行指令重排序。 </li>
+<li>volatile本质是在告诉jvm当前变量在寄存器（工作内存）中的值是不确定的，需要从主存中读取；synchronized则是锁定当前变量，只有当前线程可以访问该变量，其他线程被阻塞住。 </li>
+<li>volatile仅能使用在变量级别；synchronized则可以使用在变量、方法、和类级别的。</li>
+<li>volatile仅能实现变量的修改可见性，并不能保证原子性；synchronized则可以保证变量的修改 可见性和原子性。</li>
+<li>volatile不会造成线程的阻塞；synchronized可能会造成线程的阻塞。 </li>
+<li>volatile标记的变量不会被编译器优化；synchronized标记的变量可以被编译器优化。</li>
+</ol>
+<h2 id="5-2-八股：volatile禁止指令重排序（volatile和-happens-before）"><a href="#5-2-八股：volatile禁止指令重排序（volatile和-happens-before）" class="headerlink" title="5.2 八股：volatile禁止指令重排序（volatile和 happens-before）"></a>5.2 八股：volatile禁止指令重排序（volatile和 happens-before）</h2><p>在讲 JMM的时候，我们提到了指令重排，相信大家都还有印象，我们来回顾一下重排序需要遵守的规则：</p>
+<ul>
+<li>重排序不会对存在数据依赖关系的操作进行重排序。比如：<code>a=1;b=a;</code> 这个指令序列，因为第二个操作依赖于第一个操作，所以在编译时和处理器运行时这两个操作不会被重排序。</li>
+<li>重排序是为了优化性能，但是不管怎么重排序，单线程下程序的执行结果不能被改变。比如：<code>a=1;b=2;c=a+b</code> 这三个操作，第一步 (a&#x3D;1) 和第二步 (b&#x3D;2) 由于不存在数据依赖关系，所以可能会发生重排序，但是 c&#x3D;a+b 这个操作是不会被重排序的，因为需要保证最终的结果一定是 c&#x3D;a+b&#x3D;3。</li>
+</ul>
+<p>使用 volatile 关键字修饰共享变量可以禁止这种重排序。怎么做到的呢？</p>
+<p>当我们使用 volatile 关键字来修饰一个变量时，Java 内存模型会插入内存屏障（一个处理器指令，可以对 CPU 或编译器重排序做出约束）来确保以下两点：</p>
+<ul>
+<li>写屏障（Write Barrier）：当一个 volatile 变量被写入时，写屏障确保在该屏障之前的所有变量的写入操作都提交到主内存。</li>
+<li>读屏障（Read Barrier）：当读取一个 volatile 变量时，读屏障确保在该屏障之后的所有读操作都从主内存中读取。</li>
+</ul>
+<p>换句话说：</p>
+<ul>
+<li>当程序执行到 volatile 变量的读操作或者写操作时，在其前面操作的更改肯定已经全部进行，且结果对后面的操作可见；在其后面的操作肯定还没有进行；</li>
+<li>在进行指令优化时，不能将 volatile 变量的语句放在其后面执行，也不能把 volatile 变量后面的语句放到其前面执行。</li>
+</ul>
+<h2 id="5-3-volatile不保证原子性"><a href="#5-3-volatile不保证原子性" class="headerlink" title="5.3 volatile不保证原子性"></a>5.3 volatile不保证原子性</h2><p>比如i++操作：</p>
+<p>在Java（以及许多其他编程语言中），i++ 是一个后缀递增操作符，它对变量 i 执行一个复合操作，该操作可以分解为以下三个步骤（尽管在实际执行时这些步骤可能会被优化或合并，但从概念上讲）： </p>
+<ol>
+<li>读取（Load）：首先，从内存中读取变量 i 的当前值。这个值被加载到CPU的寄存器中，供后续操作使用。 </li>
+<li>修改（Increment）：然后，将寄存器中的值增加1。这个步骤是在CPU内部完成的，不涉及内存的读写操作（除了可能涉及的缓存一致性协议）。 </li>
+<li>写回（Store）：最后，将修改后的值写回到内存中变量 i 的位置。这一步确保了内存中 i 的值被更新为新的值。</li>
+</ol>
+<p> 需要注意的是，在多线程环境中，这三个步骤可能会被其他线程的类似操作打断，导致数据不一致的问题。特别是，如果两个线程几乎同时执行对同一个变量的 i++ 操作，它们可能会： 第一个线程读取了 i 的原始值（比如10）。 第二个线程也读取了 i 的相同原始值（因为第一个线程还没有写回新值）。 第一个线程增加1并将结果（11）写回内存。 第二个线程也增加1（基于它读取的旧值10），并将结果（也是11）写回内存，覆盖了第一个线程的结果。 </p>
+<p>这就是为什么在多线程环境中，即使使用了 volatile 关键字来确保变量的可见性，i++ 这样的复合操作也仍然需要额外的同步机制来确保原子性。volatile 保证了每次读取 i 时都会从主内存中获取最新值，但它并不保证 i++ 操作的原子性。</p>
+<p><strong>解决方式：</strong>使用<code>synchronized关键字（重入锁）</code>或者<code>lock接口的实现类ReentrantLock（重入锁）</code>进行加锁，总所周知学线程编程的时候都会学习的两个锁，可以保证原子性</p>
+<h1 id="六、synchronized关键字"><a href="#六、synchronized关键字" class="headerlink" title="六、synchronized关键字"></a>六、synchronized关键字</h1><p>由于我写累了就不写基本用法了，就是修饰静态代码块，同步方法（实例方法），静态方法（类方法）三种用途，不懂的可以自己去查资料</p>
+<p>重点放在关键字保证的线程安全上，<strong>synchronized关键字是允许指令重排的，也就是说，满足了 happens-before模型的结果一致原则的指令重排。</strong></p>
+<p>另外，<strong>synchronized属于重入锁，这部分放到多线程和锁的内容去介绍。</strong></p>
 ]]></content>
       <categories>
         <category>Java</category>
       </categories>
       <tags>
-        <tag>多线程</tag>
         <tag>面试</tag>
+        <tag>多线程</tag>
       </tags>
   </entry>
   <entry>
@@ -1526,8 +1738,52 @@
         <category>Java</category>
       </categories>
       <tags>
-        <tag>多线程</tag>
         <tag>面试</tag>
+        <tag>多线程</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Java多线程：四、详解ConcurrentHashMap构成</title>
+    <url>/2024/08/06/java%EF%BC%9A%E8%AF%A6%E8%A7%A3ConcurrentHashMap/</url>
+    <content><![CDATA[<h1 id="一、JDK-1-7"><a href="#一、JDK-1-7" class="headerlink" title="一、JDK 1.7"></a>一、JDK 1.7</h1><h2 id="1-1-加锁机制"><a href="#1-1-加锁机制" class="headerlink" title="1.1 加锁机制"></a>1.1 加锁机制</h2><p>ConcurrentHashMap 在 JDK 1.7 中，提供了一种粒度更细的加锁机制，这种机制叫分段锁「Lock Striping」。整个哈希表被分为多个段，每个段都独立锁定。读取操作不需要锁，写入操作仅锁定相关的段。这减小了锁冲突的几率，从而提高了并发性能。</p>
+<p>这种机制的优点：在并发环境下将实现更高的吞吐量，而在单线程环境下只损失非常小的性能。</p>
+<p>可以这样理解分段锁，就是<strong>将数据分段，对每一段数据分配一把锁</strong>。当一个线程占用锁访问其中一个段数据的时候，其他段的数据也能被其他线程访问。</p>
+<p>有些方法需要跨段，比如 <code>size()</code>、<code>isEmpty()</code>、<code>containsValue()</code>，它们可能需要锁定整个表而不仅仅是某个段，这需要按顺序锁定所有段，操作完后，再按顺序释放所有段的锁。如下图：</p>
+<p><img src="map-20230816155810.png" alt="jdk1.7之前的构成图"></p>
+<h2 id="1-2-八股：jdk1-7之前的构成"><a href="#1-2-八股：jdk1-7之前的构成" class="headerlink" title="1.2 八股：jdk1.7之前的构成"></a>1.2 八股：jdk1.7之前的构成</h2><p>敲重点！字体加粗了务必记好。</p>
+<p>ConcurrentHashMap 是由 <strong>Segment 数组结构和 HashEntry 数组</strong>构成的。Segment 是一种可重入的锁 <code>ReentrantLock</code>，HashEntry 则用于存储键值对数据。</p>
+<p>一个 ConcurrentHashMap 里包含<strong>一个 Segment 数组，数组中都是segment对象</strong>，Segment 的结构和 HashMap 类似，是一种数组和链表结构，一个 Segment 里包含一个 <strong>HashEntry 数组</strong>，每个 HashEntry 是一个链表结构的元素，每个 Segment 守护着一个 HashEntry 数组里的元素，当对 HashEntry 数组的数据进行修改时，必须首先获得它对应的 Segment 锁（可重入锁）。</p>
+<p><strong>HashEntry到底是什么？</strong></p>
+<p>我自己搜的时候都在介绍hashentry是数组，但是搜到的都是类似链表的结构，包括在1.1节中的图片看上去都是链表，这是怎么回事？</p>
+<p>其实，<code>HashEntry</code>本身是一个<strong>结构体（或内部类，同样segment也是内部类）</strong>，实际上是每个<code>Segment</code>内部的一个数组，用于封装键值对数据，并可能包含指向下一个<code>HashEntry</code>的引用以形成链表结构，用于处理哈希冲突。但由于哈希冲突的存在，这个数组的每个位置可能不仅仅是一个<code>HashEntry</code>对象，而是一个由<code>HashEntry</code>对象组成的链表（或更复杂的结构，如红黑树，但这在JDK 1.7中不是默认的）。</p>
+<p><code>ConcurrentHashMap</code>使用链表来存储这些具有相同索引值的键值对。具体来说，每个数组位置（在JDK 1.7中实际上是<code>Segment</code>内部的数组，而在JDK 1.8及以后是<code>Node</code>数组）存储的是链表的头节点。如果发生哈希冲突，新的键值对会被添加到这个链表的末尾。</p>
+<p>接下来看看Segment的结构组成：</p>
+<p>单一的 Segment 结构如下：</p>
+<p><img src="map-20230816160155.png"></p>
+<p>像这样的 Segment 对象，在 ConcurrentHashMap 集合中有多少个呢？有 2 的 N 次方个，共同保存在一个名为 segments 的数组当中。 因此整个 ConcurrentHashMap 的结构如下：</p>
+<p><img src="map-20230816160223.png"></p>
+<p>可以说，ConcurrentHashMap 是一个二级哈希表。在一个总的哈希表下面，有若干个子哈希表。</p>
+<p>Case1：不同 Segment 的并发写入（可以并发执行）</p>
+<p><img src="map-20230816160301.png"></p>
+<p>Case2：同一 Segment 的一写一读（可以并发执行）</p>
+<p><img src="map-20230816160316.png"></p>
+<p>Case3：同一 Segment 的并发写入</p>
+<p><img src="map-20230816160331.png"></p>
+<h1 id="二、JDK1-8往后"><a href="#二、JDK1-8往后" class="headerlink" title="二、JDK1.8往后"></a>二、JDK1.8往后</h1><p>而在 JDK 1.8 中，ConcurrentHashMap 主要做了两个优化：</p>
+<ul>
+<li>同<code>HashMap</code> 一样，链表也会在长度达到 8 的时候转化为红黑树，这样可以提升大量冲突时候的查询效率；</li>
+<li>以某个位置的头结点（链表的头结点或红黑树的 root 结点）为锁，**配合自旋+CAS(乐观锁)**避免不必要的锁开销，进一步提升并发性能。</li>
+</ul>
+<p><img src="map-20230816155924.png"></p>
+<p>相比 JDK1.7 中的 ConcurrentHashMap，JDK1.8 中的 ConcurrentHashMap 取消了 Segment 分段锁，采用 CAS + synchronized 来保证并发安全性，整个容器只分为一个 Segment，即 table 数组。</p>
+<p>JDK1.8 中的 ConcurrentHashMap 对节点 Node 类中的共享变量，和 JDK1.7 一样，使用 volatile 关键字，保证多线程操作时，变量的可见性。</p>
+]]></content>
+      <categories>
+        <category>Java</category>
+      </categories>
+      <tags>
+        <tag>面试</tag>
+        <tag>多线程</tag>
       </tags>
   </entry>
   <entry>
@@ -2201,133 +2457,6 @@
       <tags>
         <tag>软件技术</tag>
         <tag>hexo</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>Java多线程：二、JMM、happens-before、volatile</title>
-    <url>/2024/08/04/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9AJMM/</url>
-    <content><![CDATA[<h1 id="一、内存模型（含八股内容）"><a href="#一、内存模型（含八股内容）" class="headerlink" title="一、内存模型（含八股内容）"></a>一、内存模型（含八股内容）</h1><h2 id="1-1-内存模型及并发问题"><a href="#1-1-内存模型及并发问题" class="headerlink" title="1.1 内存模型及并发问题"></a>1.1 内存模型及并发问题</h2><p>Java 内存模型（Java Memory Model，JMM）定义了 Java 程序中的变量、线程如何和主存以及工作内存进行交互的规则。它主要涉及到多线程环境下的共享变量可见性、指令重排等问题，是理解并发编程中的关键概念。</p>
-<p>并发编程的线程之间存在两个问题：</p>
-<ul>
-<li>线程间如何通信？即：线程之间以何种机制来交换信息</li>
-<li>线程间如何同步？即：线程以何种机制来控制不同线程间发生的相对顺序</li>
-</ul>
-<p>有两种并发模型可以解决这两个问题：</p>
-<ul>
-<li>消息传递并发模型</li>
-<li>共享内存并发模型</li>
-</ul>
-<p>这两种模型之间的区别如下图所示：</p>
-<p><img src="jmm-a610752d-ef73-47f2-b02c-6954eb3d62bf.png"></p>
-<p>重要的事情说三遍</p>
-<p><strong>Java 使用的是共享内存并发模型！！！！</strong></p>
-<p><strong>Java 使用的是共享内存并发模型！！！！</strong></p>
-<p><strong>Java 使用的是共享内存并发模型！！！！</strong></p>
-<h2 id="1-2-须知：Java共享内存并发模型"><a href="#1-2-须知：Java共享内存并发模型" class="headerlink" title="1.2 须知：Java共享内存并发模型"></a>1.2 须知：Java共享内存并发模型</h2><p>在共享内存的并发模型里，线程之间共享程序的公共状态，线程之间通过写-读内存中的公共状态来隐式进行通信。典型的共享内存通信方式，就是通过共享对象进行通信。 </p>
-<p>例如线程 A 与 线程 B 之间如果要通信的话，那么就必须经历下面两个步骤： 1. 线程 A 把本地内存 A 更新过得共享变量刷新到主内存中去。 2. 线程 B 到主内存中去读取线程 A 之前更新过的共享变量，<strong>也就是说，线程A和线程B之间一定要通过主存。</strong></p>
-<p><img src="jmm-f02219aa-e762-4df0-ac08-6f4cceb535c2.jpg" alt="共享内存"></p>
-<h2 id="1-3-八股：本地内存和主存有什么区别？"><a href="#1-3-八股：本地内存和主存有什么区别？" class="headerlink" title="1.3 八股：本地内存和主存有什么区别？"></a>1.3 八股：本地内存和主存有什么区别？</h2><p>线程之间的共享变量存在于主存中，每个线程都有一个私有的本地内存，存储了该线程的读、写共享变量的副本。本地内存是 Java 内存模型的一个抽象概念，并不真实存在。它涵盖了缓存、写缓冲区、寄存器等（比如cpu的三级缓存）。</p>
-<h1 id="二、如何保证内存可见性？"><a href="#二、如何保证内存可见性？" class="headerlink" title="二、如何保证内存可见性？"></a>二、如何保证内存可见性？</h1><p>由于java用的是内存共享并发模型，那么我们就按照这个来说。线程的安全问题包括原子性、可见性、活跃性、有序性，这里就先讨论可见性。</p>
-<p>可见性就是指，如果线程A在本地内存中更新了一个变量，那么线程B以及其他线程需要同步修改后的数据。如何同步修改后的数据？此时就是需要JMM，JMM控制主存和本地内存之间的交互，来提供内存可见性保证。</p>
-<p>Java 中的 <code>volatile 关键字</code>可以保证多线程操作共享变量的可见性以及禁止指令重排序，<code>synchronized 关键字</code>不仅保证可见性，同时也保证了原子性（互斥性）。</p>
-<p>在更底层，JMM 通过内存屏障来实现内存的可见性以及禁止重排序。为了程序员更方便地理解，设计者提出了 happens-before 的概念（下文会细讲），它更加简单易懂，从而避免了程序员为了理解内存可见性而去学习复杂的重排序规则，以及这些规则的具体实现方法。</p>
-<h1 id="三、JMM与重排序"><a href="#三、JMM与重排序" class="headerlink" title="三、JMM与重排序"></a>三、JMM与重排序</h1><p>前面提到了，JMM 定义了多线程之间如何互相交互的规则，主要目的是为了解决由于编译器优化、处理器优化和缓存系统等导致的可见性、原子性和有序性。</p>
-<p>那我们接下来就来聊聊重排序以及它所带来的顺序问题。</p>
-<h3 id="3-1-为什么指令重排可以提高性能？"><a href="#3-1-为什么指令重排可以提高性能？" class="headerlink" title="3.1 为什么指令重排可以提高性能？"></a>3.1 为什么指令重排可以提高性能？</h3><p>大家都知道，计算机在执行程序时，为了提高性能，编译器和处理器常常会对指令做重排。</p>
-<p>那可能有小伙伴就要问：<strong>为什么指令重排序可以提高性能？</strong></p>
-<p>简单地说，每一个指令都会包含多个步骤，每个步骤可能使用不同的硬件。因此，<strong>流水线技术</strong>产生了，它的原理是指令 1 还没有执行完，就可以开始执行指令 2，而不用等到指令 1 执行结束后再执行指令 2，这样就大大提高了效率。</p>
-<p>但是，流水线技术最害怕<strong>中断</strong>，恢复中断的代价是比较大的，所以我们要想尽办法不让流水线中断。指令重排就是减少中断的一种技术。</p>
-<p>我们分析一下下面这段代码的执行情况：</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">a = b + c;</span><br><span class="line">d = e - f ;</span><br></pre></td></tr></table></figure>
-
-<p>先加载 b、c（<strong>注意，有可能先加载 b，也有可能先加载 c</strong>），但是在执行 <code>add(b,c)</code> 的时候，需要等待 b、c 装载结束才能继续执行，也就是需要增加停顿，那么后面的指令（加载 e 和 f）也会有停顿，这就降低了计算机的执行效率。</p>
-<p>为了减少停顿，我们可以在加载完 b 和 c 后把 e 和 f 也加载了，然后再去执行 <code>add(b,c)</code>，这样做对程序（串行）是没有影响的，但却减少了停顿。</p>
-<p>换句话说，既然 <code>add(b,c)</code> 需要停顿，那还不如去做一些有意义的事情（加载 e 和 f）。</p>
-<p>综上所述，<strong>指令重排对于提高 CPU 性能十分必要，但也带来了乱序的问题。</strong></p>
-<h3 id="3-2-重排序有哪几种？"><a href="#3-2-重排序有哪几种？" class="headerlink" title="3.2 重排序有哪几种？"></a>3.2 重排序有哪几种？</h3><p>指令重排一般分为以下三种：</p>
-<ul>
-<li><strong>编译器优化重排</strong>，编译器在<strong>不改变单线程程序语义</strong>的前提下，重新安排语句的执行顺序。</li>
-<li><strong>指令并行重排</strong>，现代处理器采用了指令级并行技术来将多条指令重叠执行。如果<strong>不存在数据依赖性</strong>(即后一个执行的语句无需依赖前面执行的语句的结果)，处理器可以改变语句对应的机器指令的执行顺序。</li>
-<li><strong>内存系统重排</strong>，由于处理器使用缓存和读写缓存冲区，这使得加载(load)和存储(store)操作看上去可能是在乱序执行，因为三级缓存的存在，导致内存与缓存的数据同步存在时间差。</li>
-</ul>
-<p><strong>指令重排可以保证串行语义一致，但是没有义务保证多线程间的语义也一致</strong>。所以在多线程下，指令重排序可能会导致一些问题。</p>
-<h1 id="四、happens-before-关系模型"><a href="#四、happens-before-关系模型" class="headerlink" title="四、happens-before 关系模型"></a>四、happens-before 关系模型</h1><h2 id="4-1-八股：什么是happens-before-关系模型？"><a href="#4-1-八股：什么是happens-before-关系模型？" class="headerlink" title="4.1 八股：什么是happens-before 关系模型？"></a>4.1 八股：什么是happens-before 关系模型？</h2><p>happens-before 关系的定义如下：</p>
-<ol>
-<li><p><strong>如果一个操作 happens-before 另一个操作，那么第一个操作的执行结果将对第二个操作可见，而且第一个操作的执行顺序排在第二个操作之前。</strong></p>
-</li>
-<li><p><strong>两个操作之间存在 happens-before 关系，并不意味着 Java 平台的具体实现必须要按照 happens-before 关系指定的顺序来执行。如果重排序之后的执行结果，与按 happens-before 关系来执行的结果一致，那么 JMM 也允许这样的重排序。</strong></p>
-</li>
-</ol>
-<p>总之，<strong>如果操作 A happens-before 操作 B，那么操作 A 在内存上所做的操作对操作 B 都是可见的，不管它们在不在一个线程。</strong></p>
-<h2 id="4-2-了解：happens-before-关系有哪些？"><a href="#4-2-了解：happens-before-关系有哪些？" class="headerlink" title="4.2 了解：happens-before 关系有哪些？"></a>4.2 了解：happens-before 关系有哪些？</h2><p>   在 Java 中，有以下天然的 happens-before 关系：</p>
-<ul>
-<li>程序顺序规则：一个线程中的每一个操作，happens-before 于该线程中的任意后续操作。</li>
-<li>监视器锁规则：对一个锁的解锁，happens-before 于随后对这个锁的加锁。</li>
-<li>volatile 变量规则：对一个 volatile 域的写，happens-before 于任意后续对这个 volatile 域的读。</li>
-<li>传递性：如果 A happens-before B，且 B happens-before C，那么 A happens-before C。</li>
-<li>start 规则：如果线程 A 执行操作 <code>ThreadB.start()</code>启动线程 B，那么 A 线程的 <code>ThreadB.start()</code>操作 happens-before 于线程 B 中的任意操作。</li>
-<li>join 规则：如果线程 A 执行操作 <code>ThreadB.join()</code>并成功返回，那么线程 B 中的任意操作 happens-before 于线程 A 从 <code>ThreadB.join()</code>操作成功返回。</li>
-</ul>
-<p>   举例：</p>
-   <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">int</span> <span class="variable">a</span> <span class="operator">=</span> <span class="number">1</span>; <span class="comment">// A操作</span></span><br><span class="line"><span class="type">int</span> <span class="variable">b</span> <span class="operator">=</span> <span class="number">2</span>; <span class="comment">// B操作</span></span><br><span class="line"><span class="type">int</span> <span class="variable">sum</span> <span class="operator">=</span> a + b;<span class="comment">// C 操作</span></span><br><span class="line">System.out.println(sum);</span><br></pre></td></tr></table></figure>
-
-<p>   根据以上介绍的 happens-before 规则，假如只有一个线程，那么不难得出：</p>
-   <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="number">1</span>&gt; A happens-before B</span><br><span class="line"><span class="number">2</span>&gt; B happens-before C</span><br><span class="line"><span class="number">3</span>&gt; A happens-before C</span><br></pre></td></tr></table></figure>
-
-<p>   注意，真正在执行指令的时候，其实 JVM 有可能对操作 A &amp; B 进行重排序，因为无论先执行 A 还是 B，他们都对对方是可见的，并且不影响执行结果。</p>
-<p>   如果这里发生了重排序，这在视觉上违背了 happens-before 原则，但是 JMM 是允许这样的重排序的。</p>
-<p>   所以，我们只关心 happens-before 规则，不用关心 JVM 到底是怎样执行的。只要确定操作 A happens-before 操作 B 就行了。</p>
-<p>   重排序有两类，JMM 对这两类重排序有不同的策略：</p>
-<ul>
-<li>会改变程序执行结果的重排序，比如 A -&gt; C，JMM 要求编译器和处理器都禁止这种重排序。</li>
-<li>不会改变程序执行结果的重排序，比如 A -&gt; B，JMM 对编译器和处理器不做要求，允许这种重排序。</li>
-</ul>
-<h1 id="五、volatile关键字"><a href="#五、volatile关键字" class="headerlink" title="五、volatile关键字"></a>五、volatile关键字</h1><h2 id="5-1-八股：volatile关键字的作用"><a href="#5-1-八股：volatile关键字的作用" class="headerlink" title="5.1 八股：volatile关键字的作用"></a>5.1 八股：volatile关键字的作用</h2><p>一旦一个共享变量（类的成员变量、类的静态成员变量）被volatile修饰之后，那么就具备了两层语义： </p>
-<ol>
-<li>保证了不同线程对这个变量进行操作时的可见性，即一个线程修改了某个变量的值，这新值对其他线程来说是立即可见的。 </li>
-<li>禁止进行指令重排序。 </li>
-<li>volatile本质是在告诉jvm当前变量在寄存器（工作内存）中的值是不确定的，需要从主存中读取；synchronized则是锁定当前变量，只有当前线程可以访问该变量，其他线程被阻塞住。 </li>
-<li>volatile仅能使用在变量级别；synchronized则可以使用在变量、方法、和类级别的。</li>
-<li>volatile仅能实现变量的修改可见性，并不能保证原子性；synchronized则可以保证变量的修改 可见性和原子性。</li>
-<li>volatile不会造成线程的阻塞；synchronized可能会造成线程的阻塞。 </li>
-<li>volatile标记的变量不会被编译器优化；synchronized标记的变量可以被编译器优化。</li>
-</ol>
-<h2 id="5-2-八股：volatile禁止指令重排序（volatile和-happens-before）"><a href="#5-2-八股：volatile禁止指令重排序（volatile和-happens-before）" class="headerlink" title="5.2 八股：volatile禁止指令重排序（volatile和 happens-before）"></a>5.2 八股：volatile禁止指令重排序（volatile和 happens-before）</h2><p>在讲 JMM的时候，我们提到了指令重排，相信大家都还有印象，我们来回顾一下重排序需要遵守的规则：</p>
-<ul>
-<li>重排序不会对存在数据依赖关系的操作进行重排序。比如：<code>a=1;b=a;</code> 这个指令序列，因为第二个操作依赖于第一个操作，所以在编译时和处理器运行时这两个操作不会被重排序。</li>
-<li>重排序是为了优化性能，但是不管怎么重排序，单线程下程序的执行结果不能被改变。比如：<code>a=1;b=2;c=a+b</code> 这三个操作，第一步 (a&#x3D;1) 和第二步 (b&#x3D;2) 由于不存在数据依赖关系，所以可能会发生重排序，但是 c&#x3D;a+b 这个操作是不会被重排序的，因为需要保证最终的结果一定是 c&#x3D;a+b&#x3D;3。</li>
-</ul>
-<p>使用 volatile 关键字修饰共享变量可以禁止这种重排序。怎么做到的呢？</p>
-<p>当我们使用 volatile 关键字来修饰一个变量时，Java 内存模型会插入内存屏障（一个处理器指令，可以对 CPU 或编译器重排序做出约束）来确保以下两点：</p>
-<ul>
-<li>写屏障（Write Barrier）：当一个 volatile 变量被写入时，写屏障确保在该屏障之前的所有变量的写入操作都提交到主内存。</li>
-<li>读屏障（Read Barrier）：当读取一个 volatile 变量时，读屏障确保在该屏障之后的所有读操作都从主内存中读取。</li>
-</ul>
-<p>换句话说：</p>
-<ul>
-<li>当程序执行到 volatile 变量的读操作或者写操作时，在其前面操作的更改肯定已经全部进行，且结果对后面的操作可见；在其后面的操作肯定还没有进行；</li>
-<li>在进行指令优化时，不能将 volatile 变量的语句放在其后面执行，也不能把 volatile 变量后面的语句放到其前面执行。</li>
-</ul>
-<h2 id="5-3-volatile不保证原子性"><a href="#5-3-volatile不保证原子性" class="headerlink" title="5.3 volatile不保证原子性"></a>5.3 volatile不保证原子性</h2><p>比如i++操作：</p>
-<p>在Java（以及许多其他编程语言中），i++ 是一个后缀递增操作符，它对变量 i 执行一个复合操作，该操作可以分解为以下三个步骤（尽管在实际执行时这些步骤可能会被优化或合并，但从概念上讲）： </p>
-<ol>
-<li>读取（Load）：首先，从内存中读取变量 i 的当前值。这个值被加载到CPU的寄存器中，供后续操作使用。 </li>
-<li>修改（Increment）：然后，将寄存器中的值增加1。这个步骤是在CPU内部完成的，不涉及内存的读写操作（除了可能涉及的缓存一致性协议）。 </li>
-<li>写回（Store）：最后，将修改后的值写回到内存中变量 i 的位置。这一步确保了内存中 i 的值被更新为新的值。</li>
-</ol>
-<p> 需要注意的是，在多线程环境中，这三个步骤可能会被其他线程的类似操作打断，导致数据不一致的问题。特别是，如果两个线程几乎同时执行对同一个变量的 i++ 操作，它们可能会： 第一个线程读取了 i 的原始值（比如10）。 第二个线程也读取了 i 的相同原始值（因为第一个线程还没有写回新值）。 第一个线程增加1并将结果（11）写回内存。 第二个线程也增加1（基于它读取的旧值10），并将结果（也是11）写回内存，覆盖了第一个线程的结果。 </p>
-<p>这就是为什么在多线程环境中，即使使用了 volatile 关键字来确保变量的可见性，i++ 这样的复合操作也仍然需要额外的同步机制来确保原子性。volatile 保证了每次读取 i 时都会从主内存中获取最新值，但它并不保证 i++ 操作的原子性。</p>
-<p><strong>解决方式：</strong>使用<code>synchronized关键字（重入锁）</code>或者<code>lock接口的实现类ReentrantLock（重入锁）</code>进行加锁，总所周知学线程编程的时候都会学习的两个锁，可以保证原子性</p>
-<h1 id="六、synchronized关键字"><a href="#六、synchronized关键字" class="headerlink" title="六、synchronized关键字"></a>六、synchronized关键字</h1><p>由于我写累了就不写基本用法了，就是修饰静态代码块，同步方法（实例方法），静态方法（类方法）三种用途，不懂的可以自己去查资料</p>
-<p>重点放在关键字保证的线程安全上，<strong>synchronized关键字是允许指令重排的，也就是说，满足了 happens-before模型的结果一致原则的指令重排。</strong></p>
-<p>另外，<strong>synchronized属于重入锁，这部分放到多线程和锁的内容去介绍。</strong></p>
-]]></content>
-      <categories>
-        <category>Java</category>
-      </categories>
-      <tags>
-        <tag>多线程</tag>
-        <tag>面试</tag>
       </tags>
   </entry>
   <entry>
