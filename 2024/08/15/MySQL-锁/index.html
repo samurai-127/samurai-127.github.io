@@ -1,0 +1,385 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="utf-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><title>MySQL：（三）全局锁、表级锁、行级锁 | 颓废市民黄先生</title><noscript>开启JavaScript才能访问本站哦~</noscript><link rel="icon" href="/img/avatar.ico"><!-- index.css--><link rel="stylesheet" href="/css/index.css?v=1.13.3"><!-- inject head--><link rel="canonical" href="https://samurai-127.github.io/2024/08/15/MySQL-%E9%94%81/"><link rel="stylesheet" href="https://cdn2.codesign.qq.com/icons/7pOrz0WXB5ZWJPX/latest/iconfont.css"><!-- aplayer--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aplayer/1.10.1/APlayer.min.css"><!-- swiper--><!-- fancybox ui--><!-- katex--><!-- Open Graph--><meta name="description" content="MySQL中的锁，按照锁的粒度分，分为： 全局锁：锁定数据库中所有表 表级锁：每次操作锁整张表 行级锁：每次操作锁住对应行数据 一、全局锁 mysqldump相信大家都听说过，这是用来进行数据库备份的工具，除此以外也可以采用数据库主从复制机制进行数据库备份，这同时也是异地容灾、备份等内容。"><!-- pwa--><meta name="apple-mobile-web-app-capable" content="颓废市民黄先生"><meta name="theme-color" content="var(--efu-main)"><meta name="apple-mobile-web-app-status-bar-style" content="var(--efu-main)"><link rel="bookmark" href="/img/avatar.ico"><link rel="apple-touch-icon" href="/img/avatar.ico" sizes="180x180"><script>console.log(' %c Solitude %c ' + '1.13.3' + ' %c https://github.com/everfu/hexo-theme-solitude',
+    'background:#35495e ; padding: 1px; border-radius: 3px 0 0 3px;  color: #fff',
+    'background:#ff9a9a ; padding: 1px; border-radius: 0 3px 3px 0;  color: #fff',
+    'background:unset ; padding: 1px; border-radius: 0 3px 3px 0;  color: #fff')
+</script><script>(()=>{
+        const saveToLocal = {
+            set: function setWithExpiry(key, value, ttl) {
+                if (ttl === 0)
+                    return
+                const now = new Date()
+                const expiryDay = ttl * 86400000
+                const item = {
+                    value: value,
+                    expiry: now.getTime() + expiryDay
+                }
+                localStorage.setItem(key, JSON.stringify(item))
+            },
+            get: function getWithExpiry(key) {
+                const itemStr = localStorage.getItem(key)
+    
+                if (!itemStr) {
+                    return undefined
+                }
+                const item = JSON.parse(itemStr)
+                const now = new Date()
+    
+                if (now.getTime() > item.expiry) {
+                    localStorage.removeItem(key)
+                    return undefined
+                }
+                return item.value
+            }
+        };
+        window.utils = {
+            saveToLocal: saveToLocal,
+            getCSS: (url, id = false) => new Promise((resolve, reject) => {
+              const link = document.createElement('link')
+              link.rel = 'stylesheet'
+              link.href = url
+              if (id) link.id = id
+              link.onerror = reject
+              link.onload = link.onreadystatechange = function() {
+                const loadState = this.readyState
+                if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+                link.onload = link.onreadystatechange = null
+                resolve()
+              }
+              document.head.appendChild(link)
+            }),
+            getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+              const script = document.createElement('script')
+              script.src = url
+              script.async = true
+              script.onerror = reject
+              script.onload = script.onreadystatechange = function() {
+                const loadState = this.readyState
+                if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+                script.onload = script.onreadystatechange = null
+                resolve()
+              }
+    
+              Object.keys(attr).forEach(key => {
+                script.setAttribute(key, attr[key])
+              })
+    
+              document.head.appendChild(script)
+            }),
+            addGlobalFn: (key, fn, name = false, parent = window) => {
+                const globalFn = parent.globalFn || {}
+                const keyObj = globalFn[key] || {}
+        
+                if (name && keyObj[name]) return
+        
+                name = name || Object.keys(keyObj).length
+                keyObj[name] = fn
+                globalFn[key] = keyObj
+                parent.globalFn = globalFn
+            },
+        }
+    })()</script><!-- global head--><script>const GLOBAL_CONFIG = {
+    root: '/',
+    algolia: undefined,
+    localsearch: {"preload":false,"path":"/search.xml"},
+    runtime: 'false',
+    lazyload: {
+        enable: false,
+        error: '/img/error_load.avif'
+    },
+    copyright: {"limit":50,"author":"作者: 颓废市民黄先生","link":"链接: ","source":"来源: 颓废市民黄先生","info":"著作权归作者所有。 商业转载请联系作者获得授权，非商业转载请注明出处。"},
+    highlight: {"limit":200,"expand":true,"copy":true,"syntax":"highlight.js"},
+    randomlink: false,
+    lang: {"theme":{"dark":"已切换至深色模式","light":"已切换至浅色模式"},"copy":{"success":"复制成功","error":"复制失败"},"backtop":"返回顶部","time":{"day":"天前","hour":"小时前","just":"刚刚","min":"分钟前","month":"个月前"},"day":" 天","f12":"开发者模式已打开，请遵循GPL协议。","totalk":"无需删除空行，直接输入评论即可","search":{"empty":"找不到你查询的内容：${query}","hit":"找到 ${hits} 条结果，用时 ${time} 毫秒","placeholder":"输入关键词快速查找","count":"共 <b>${count}</b> 条结果。"},"barrage":{"title":"热评"}},
+    aside: {
+        sayhello: {
+            morning: '起那么早看博客？',
+            noon: '中午休息一下呗',
+            afternoon: '下午好像在犯困',
+            night: '晚上洗个澡爽一下呗',
+            goodnight: '睡个好觉，保证精力充沛',
+        },
+        sayhello2: [],
+        sayhello3: {
+            prefix: '好久不见，',
+            back: '欢迎再次回来，',
+        },
+    },
+    covercolor: {
+        enable: false
+    },
+    comment: {"avatar":"https://cravatar.cn","commentBarrage":true},
+    lightbox: 'null',
+    post_ai: {"key":"449aa72132adf73ef7084ef83c46792af1edab","talk":null,"randomPost":false},
+    right_menu: {"mode":{"dark":"深色模式","light":"浅色模式"},"img_error":"此图片无法复制与下载","music":{"start":"播放音乐","stop":"暂停音乐"},"barrage":{"open":"显示热评","close":"关闭热评"},"translate":{"translateDelay":0,"defaultEncoding":2}},
+    lure: {"jump":"404 Not Found","back":"被骗了吧（），网页没有404"},
+    expire: false,
+};</script><!-- page-config head--><script id="config-diff">var PAGE_CONFIG = {
+    is_post: true,
+    is_page: false,
+    is_home: false,
+    page: 'string',
+    toc: true,
+    comment: true,
+    ai_text: false
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body id="body" data-type="string"><!-- universe--><canvas id="universe"></canvas><!-- background img--><!-- loading--><!-- console--><!-- sidebar--><div id="sidebar" style="zoom: 1;"><div id="menu-mask" style="display: none;"></div><div id="sidebar-menus"><div class="site-data"><div class="data-item is-center"><div class="data-item-link"><a href="/archives/"><div class="headline">文章</div><div class="length-num">22</div></a></div></div><div class="data-item is-center"><div class="data-item-link"><a href="/categories/"><div class="headline">分类</div><div class="length-num">7</div></a></div></div><div class="data-item is-center"><div class="data-item-link"><a href="/tags/"><div class="headline">标签</div><div class="length-num">13</div></a></div></div></div><span class="sidebar-menu-item-title">功能</span><div class="sidebar-menu-item"><span class="darkmode_switchbutton menu-child" onclick="sco.switchDarkMode()"><i class="solitude st-moon-clear-fill"></i><span>显示模式</span></span></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><span>首页</span></a></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>文库</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="solitude  st-folder-fill"></i><span>文章列表</span></a></li><li><a class="site-page child" href="/categories/"><i class="solitude  st-checkbox-multiple-blank-fill"></i><span>全部分类</span></a></li><li><a class="site-page child" href="/tags/"><i class="solitude  st-price-tag-fill"></i><span>全部标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>我的歌单</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="solitude  st-disc-fill"></i><span>音乐馆</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>关于</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/about/"><i class="solitude  st-contacts-fill"></i><span>关于本站</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/message"><span>留言板</span></a></div></div><span class="sidebar-menu-item-title">标签</span><div class="card-widget card-tags card-archives card-webinfo card-allinfo"><div class="card-tag-cloud"><a href="/tags/docker/">docker<sup>2</sup></a><a href="/tags/%E8%BD%AF%E4%BB%B6%E6%8A%80%E6%9C%AF/">软件技术<sup>5</sup></a><a href="/tags/JDBC/">JDBC<sup>1</sup></a><a href="/tags/Java/">Java<sup>1</sup></a><a href="/tags/mysql/">mysql<sup>4</sup></a><a href="/tags/%E9%9D%A2%E8%AF%95/">面试<sup>11</sup></a><a href="/tags/git/">git<sup>1</sup></a><a href="/tags/%E5%A4%9A%E7%BA%BF%E7%A8%8B/">多线程<sup>4</sup></a><a href="/tags/JVM/">JVM<sup>1</sup></a><a href="/tags/mybatis/">mybatis<sup>1</sup></a><a href="/tags/hexo/">hexo<sup>1</sup></a><a href="/tags/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/">操作系统<sup>2</sup></a><a href="/tags/%E7%AE%97%E6%B3%95/">算法<sup>4</sup></a></div></div></div></div><!-- keyboard--><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav class="show" id="nav"><div id="nav-group"><div id="blog_name"><a id="site-name" href="/" title="返回博客主页"><span class="title">颓废市民黄先生</span></a></div><div id="page-name-mask"><div id="page-name"><a id="page-name-text" onclick="sco.toTop()">MySQL：（三）全局锁、表级锁、行级锁</a></div></div><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><span>首页</span></a></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>文库</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="solitude  st-folder-fill"></i><span>文章列表</span></a></li><li><a class="site-page child" href="/categories/"><i class="solitude  st-checkbox-multiple-blank-fill"></i><span>全部分类</span></a></li><li><a class="site-page child" href="/tags/"><i class="solitude  st-price-tag-fill"></i><span>全部标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>我的歌单</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="solitude  st-disc-fill"></i><span>音乐馆</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>关于</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/about/"><i class="solitude  st-contacts-fill"></i><span>关于本站</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/message"><span>留言板</span></a></div></div></div><div id="nav-left"></div><div id="nav-right"><div class="nav-button" id="randomPost_button"><a class="site-page" onclick="toRandomPost()" title="随机一篇文章" href="javascript:void(0);"><i class="solitude st-dice-line"></i></a></div><div class="nav-button" id="search-button"><a class="site-page social-icon search" href="javascript:void(0);" title="搜索"><i class="solitude st-search-line"></i></a></div><div class="nav-button" id="nav-totop" onclick="sco.toTop()"><a class="totopbtn"><i class="solitude st-arrow-up-line"></i><span id="percent">0</span></a></div><div id="toggle-menu"><a class="site-page"><i class="solitude st-menu-line"></i></a></div></div></div></nav><div class="coverdiv" id="coverdiv"><img class="nolazyload" id="post-cover" src="/img/sqllock.png" alt="MySQL：（三）全局锁、表级锁、行级锁"></div><div id="post-info"><div id="post-firstinfo"><div class="meta-firstline"><a class="post-meta-original" title="该文章为原创文章，注意版权协议">原创</a><span class="post-meta-categories"><a class="post-meta-categories" href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/">数据库</a></span><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/mysql/"><span class="tags-name tags-punctuation">mysql</span></a><a class="post-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/"><span class="tags-name tags-punctuation">面试</span></a></div></div></div></div><h1 class="post-title">MySQL：（三）全局锁、表级锁、行级锁</h1><div id="post-meta"><div class="meta-secondline"><span class="post-meta-date" title="发布于 2024-08-15 09:50:05"><i class="post-meta-icon solitude st-calendar-todo-fill"></i><time datetime="2024-08-15T01:50:05.000Z">2024-08-15T01:50:05.000Z</time></span><span class="post-meta-date" title="最后更新于 2024-08-17 18:38:43"><i class="post-meta-icon solitude st-refresh-line"></i><time datetime="2024-08-17T10:38:43.236Z">2024-08-17T10:38:43.236Z</time></span><span class="post-meta-position" title="作者IP归属地为广西"><i class="post-meta-icon solitude st-map-pin-fill"></i><span>广西</span></span><a class="post-meta-pv" href="/2024/08/15/MySQL-%E9%94%81/" title="文章热度"><i class="post-meta-icon solitude st-fire-fill"></i><span id="twikoo_visitors"><i class="solitude st-loading-line"></i></span></a><span class="post-meta-commentcount" title="评论数" onclick="sco.scrollTo('post-comment')"><i class="solitude st-chat-fill"></i><a href="/2024/08/15/MySQL-%E9%94%81/#post-comment"><span class="twikoo-count"><i class="solitude st-loading-line"></i></span></a></span></div></div></div><section class="main-hero-waves-area waves-area"><svg class="waves-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" viewBox="0 24 150 28" preserveAspectRatio="none" shape-rendering="auto"><defs><path id="gentle-wave" d="M -160 44 c 30 0 58 -18 88 -18 s 58 18 88 18 s 58 -18 88 -18 s 58 18 88 18 v 44 h -352 Z"></path></defs><g class="parallax"><use href="#gentle-wave" x="48" y="0"></use><use href="#gentle-wave" x="48" y="3"></use><use href="#gentle-wave" x="48" y="5"></use><use href="#gentle-wave" x="48" y="7"></use></g></svg></section></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><div class="post-ai"><div class="ai-title"><div class="ai-title-left"><i class="ai-title-icon solitude st-robot-fill"></i><div class="ai-title-text">文章摘要</div></div><div class="ai-tag" id="ai-tag">GPT 4</div></div><div class="ai-explanation" style="display: block;"></div><div class="ai-suggestions"></div><div class="ai-bottom"><div class="ai-tips">此内容根据文章生成，仅用于文章内容的解释与总结</div><a class="ai-report" title="投诉" href="https://samurai-127.github.io">投诉</a></div></div><p>MySQL中的锁，按照锁的粒度分，分为：</p>
+<ol>
+<li>全局锁：锁定数据库中所有表</li>
+<li>表级锁：每次操作锁整张表</li>
+<li>行级锁：每次操作锁住对应行数据</li>
+</ol>
+<h1 id="一、全局锁"><a href="#一、全局锁" class="headerlink" title="一、全局锁"></a>一、全局锁</h1><p><img src="Snipaste_2024-08-16_15-45-59.png" alt="全局锁"></p>
+<blockquote>
+<p>mysqldump相信大家都听说过，这是用来进行数据库备份的工具，除此以外也可以采用数据库主从复制机制进行数据库备份，这同时也是异地容灾、备份等内容。</p>
+</blockquote>
+<p><strong>数据库备份操作：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"># 加锁操作</span><br><span class="line">flush tables with read lock;</span><br><span class="line"></span><br><span class="line"># 数据备份</span><br><span class="line">mysqldump -uroot -p1234 databases &gt; database.sql</span><br><span class="line"># 加端口的数据备份</span><br><span class="line">mysqldump -h192.168.xx.xx -uroot -p1234 databases &gt; database.sql</span><br><span class="line"></span><br><span class="line"># 解锁操作</span><br><span class="line">unlock tables;</span><br></pre></td></tr></table></figure>
+
+<p>这里附上一篇<code>flush操作</code>的博客，用的是博客中的第4条：<a target="_blank" rel="noopener" href="https://blog.csdn.net/a772304419/article/details/138797621">MySQL flush命令详解-CSDN博客</a></p>
+<blockquote>
+<p><strong>FLUSH TABLES</strong>: 关闭所有表并清空表缓存（如查询缓存），或者指定特定表进行刷新。这对于解决锁问题、确保数据一致性或在没有重启MySQL服务的情况下应用表结构更改很有用。加上<code>WITH READ LOCK</code>选项可以全局锁定所有表，以便进行安全的备份。</p>
+</blockquote>
+<p><strong>全局锁存在的问题：</strong></p>
+<p><img src="Snipaste_2024-08-16_16-22-46.png" alt="全局锁存在的问题"></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># 数据备份</span><br><span class="line">mysqldump --single-transaction -uroot -p1234 databases &gt; database.sql</span><br></pre></td></tr></table></figure>
+
+<p>加上这个参数以后，就是通过快照读而不加全局锁了，快照读在上一篇博客有介绍，可以戳链接看看：<a target="_blank" rel="noopener" href="https://rengoku.top/2024/08/15/MySQL-MVCC/">MySQL：MVCC与事务 | 颓废市民黄先生 (rengoku.top)</a></p>
+<h1 id="二、表级锁"><a href="#二、表级锁" class="headerlink" title="二、表级锁"></a>二、表级锁</h1><p><img src="Snipaste_2024-08-16_16-29-40.png" alt="表级锁分类"></p>
+<h2 id="1-表锁"><a href="#1-表锁" class="headerlink" title="1. 表锁"></a>1. 表锁</h2><p>对于表锁，分为两类</p>
+<ul>
+<li>表共享读锁（read lock）</li>
+<li>表独占写锁（write lock）</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># 加锁</span><br><span class="line">lock tables 表名... read/write</span><br><span class="line"></span><br><span class="line"># 解锁</span><br><span class="line">unlock tables</span><br></pre></td></tr></table></figure>
+
+<p><img src="Snipaste_2024-08-16_16-41-58.png" alt="表锁"></p>
+<p>我相信看到这里大家肯定非常熟悉，其实表锁和<strong>读写锁</strong>很类似，都是读共享，写独占。</p>
+<p><strong>读的时候会阻塞写操作，例如DDL，DML，写的时候只能让拿到锁的客户端或者线程进行读写操作。</strong></p>
+<p>读写锁可以参考另外一篇博客：<a target="_blank" rel="noopener" href="https://rengoku.top/2024/08/05/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E9%94%81/">Java多线程：三、多线程锁、java锁的实现 | 颓废市民黄先生 (rengoku.top)</a></p>
+<p><strong>演示读锁：</strong></p>
+<p><img src="Snipaste_2024-08-16_16-37-24.png" alt="表锁演示"></p>
+<p>首先左边的客户端1（线程1）对表score加了一个读锁，然后两个客户端做select操作，发现都是可以读出来的；客户端1（线程1）如果进行写操作（update）则会报错，客户端2（线程2）进行修改操作会阻塞。</p>
+<p>通过演示得到的结论：<strong>读锁不会阻塞读操作，而会阻塞其他客户端的写操作。</strong></p>
+<p><strong>演示写锁：</strong></p>
+<p><img src="Snipaste_2024-08-16_16-44-42.png" alt="写锁演示"></p>
+<h2 id="2-元数据锁"><a href="#2-元数据锁" class="headerlink" title="2. 元数据锁"></a>2. 元数据锁</h2><p><img src="Snipaste_2024-08-16_16-55-26.png" alt="元数据锁"></p>
+<p>简单来说，<strong>如果某一张表存在未提交的事务，那么元数据锁是不允许对表结构进行修改操作的。</strong></p>
+<p>下面我提出两个问题，需要重点理解：</p>
+<h3 id="（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？"><a href="#（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？" class="headerlink" title="（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？"></a>（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？</h3><p><strong>DML操作与MDL读锁</strong></p>
+<p><strong>DML（Data Manipulation Language）</strong> 包括INSERT、UPDATE、DELETE等语句，这些语句用于修改数据库中的数据，但不涉及数据库结构的变更。当执行DML操作时，数据库需要访问表的元数据以了解表的结构（如列的类型、是否存在索引等），以便正确地执行数据修改。</p>
+<p>为了保证在DML操作期间表的结构不会被其他事务修改（例如，通过DDL语句），数据库会对表的元数据加上一个<strong>MDL读锁</strong>。MDL读锁允许多个事务同时读取元数据，但阻止任何事务修改元数据。这样，DML操作可以安全地执行，因为它们知道在它们执行期间，表的结构是稳定的。</p>
+<p><strong>DDL操作与MDL写锁</strong></p>
+<p><strong>DDL（Data Definition Language）</strong> 包括CREATE TABLE、ALTER TABLE、DROP TABLE等语句，这些语句用于定义或修改数据库的结构。由于DDL操作直接改变数据库的结构，因此它们需要更高的访问权限和更严格的并发控制。</p>
+<p>当执行DDL操作时，数据库会对涉及的表的元数据加上一个<strong>MDL写锁</strong>。MDL写锁是排他的，意味着当一个事务持有表的MDL写锁时，其他任何事务（无论是想读取还是修改元数据）都必须等待该锁被释放。这种锁定机制确保了DDL操作的原子性和一致性，防止了在DDL操作执行期间表的结构被意外修改或访问。</p>
+<h3 id="（2）如何理解兼容性？"><a href="#（2）如何理解兼容性？" class="headerlink" title="（2）如何理解兼容性？"></a>（2）如何理解兼容性？</h3><ul>
+<li><strong>shared_read与shared_write的兼容性</strong>：在元数据锁的层面上，shared_read锁和shared_write锁是兼容的，因为它们都不涉及修改元数据。这意味着，当多个事务同时执行SELECT查询或DML操作时，它们可以并发地访问表的元数据。</li>
+<li><strong>与排他锁的互斥性</strong>：然而，无论是shared_read锁还是shared_write锁，都与DDL操作所需的MDL排他锁互斥。这是因为DDL操作需要修改表的元数据，而修改元数据时必须确保没有其他事务正在访问或修改该元数据。</li>
+</ul>
+<h2 id="3-意向锁"><a href="#3-意向锁" class="headerlink" title="3. 意向锁"></a>3. 意向锁</h2><p>假设线程1已经对某行数据加了行锁，现在线程2想要加一个表锁，那么线程2可以直接加锁吗？<strong>实际上是不行的，这样行锁和表锁会冲突，此时线程2需要对整个表进行逐行遍历，判断是否添加了行锁，没有行锁才能加表锁。</strong>这样一看，加表锁的的效率是不是十分的低？于是为了优化这个加锁的机制，现在引入了意向锁。</p>
+<p><img src="Snipaste_2024-08-16_17-19-08.png" alt="意向锁概述"></p>
+<p>意向锁优化：<strong>如果线程A添加行锁的时候，添加的意向锁和接下来线程B添加的表锁是兼容的，那么线程B添加表锁成功，反之线程B添加处于阻塞。</strong></p>
+<blockquote>
+<p>线程A添加行锁的时候，可以添加意向锁。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SELECT ... LOCK IN SHARE MODE</span><br></pre></td></tr></table></figure>
+
+<p>这样在加共享锁时候会添加IS。</p>
+</blockquote>
+<p><strong>意向锁分为两类：意向共享锁（IS）和意向排他所（IX）。</strong></p>
+<p><img src="Snipaste_2024-08-16_17-32-45.png" alt="意向锁分类"></p>
+<p>意向共享锁：</p>
+<p>如果线程A添加了行锁的时候添加了IS，那么线程B添加表锁的读锁可以添加成功，添加表锁的写锁失败</p>
+<p>意向排它锁：</p>
+<p>如果线程A添加了行锁的时候添加了XS，那么线程B添加表锁的读锁或者写锁都会失败。</p>
+<h1 id="三、行级锁"><a href="#三、行级锁" class="headerlink" title="三、行级锁"></a>三、行级锁</h1><p><img src="Snipaste_2024-08-16_18-00-25.png" alt="行级锁"></p>
+<p><strong>划重点：如果不走索引，那么行级锁就失效了</strong></p>
+<p><strong>划重点：如果不走索引，那么行级锁就失效了</strong></p>
+<p><strong>划重点：如果不走索引，那么行级锁就失效了</strong></p>
+<p>在RR的事务隔离级别下，MySQL InnoDB存储引擎默认使用的是<strong>临键锁（Next-Key Lock）</strong>，但也会根据具体的查询条件和索引情况来决定是否退化为间隙锁（Gap Lock）或行锁（Record Lock）。</p>
+<h2 id="1-行锁"><a href="#1-行锁" class="headerlink" title="1. 行锁"></a>1. 行锁</h2><p>InnoDB使用多种类型的行锁，包括共享锁（S锁）和排他锁（X锁）：</p>
+<ul>
+<li><p><strong>共享锁（S锁）</strong>：允许事务读取一行数据，但不允许其他事务修改它。共享锁不会阻止其他事务获取同一行的共享锁，<strong>但会阻止排他锁的获取。</strong></p>
+<blockquote>
+<p>什么叫阻止排他锁的获取？</p>
+<p>当一个事务对数据库中的某个资源（如一行数据）加上了共享锁（Shared Lock）时，这个共享锁允许其他事务也对该资源加上共享锁进行读取操作，但会阻止其他事务对该资源加上排他锁（Exclusive Lock）进行写入或修改操作。</p>
+</blockquote>
+</li>
+<li><p><strong>排他锁（X锁）</strong>：允许事务读取和修改一行数据，同时阻止其他事务获取该行的任何类型的锁。当事务需要修改一行数据时，它会尝试获取该行的排他锁。如果成功，其他事务将无法读取或修改该行，直到锁被释放。</p>
+</li>
+</ul>
+<p><img src="Snipaste_2024-08-16_18-09-19.png" alt="增删改查的加锁情况"></p>
+<p><strong>刚刚在意向锁中也有介绍，后面两个方式会同时添加意向锁。</strong></p>
+<p><img src="Snipaste_2024-08-16_18-12-15.png"></p>
+<p><strong>刚刚说了，不走索引的话行锁就失效，此时会自动升级为表锁</strong></p>
+<h2 id="2-间隙锁-临键锁"><a href="#2-间隙锁-临键锁" class="headerlink" title="2. 间隙锁&amp;临键锁"></a>2. 间隙锁&amp;临键锁</h2><p><img src="Snipaste_2024-08-16_18-47-46.png" alt="间隙锁概述"></p>
+<p><strong>演示第一种情况：索引上的等值查询(唯一索引), 给不存在的记录加锁时,优化为间隙锁。</strong></p>
+<p><img src="Snipaste_2024-08-16_18-43-35.png" alt="间隙锁演示1"></p>
+<p>线程A使用begin开启事务以后，可以在线程B中的lock_data中可以看到8之前的数据被间隙锁锁上了（3-8，不包含3和8），此时在线程B执行插入操作是会被阻塞的：</p>
+<p><img src="Snipaste_2024-08-16_18-52-24.png" alt="间隙锁阻塞插入操作"></p>
+<p>如果线程A将事务commit后，线程B才能执行插入操作。</p>
+<p><strong>演示第二种情况：索引上的等值查询(普通索引)，向右遍历时最后一个值不满足查询需求时, next-key lock退化为间隙锁。</strong></p>
+<p>我们来慢慢分析这段话，现在这段话针对的是<strong>普通索引</strong>。普通索引不是唯一的，这个<strong>B+树的叶子结点形成的双向链表是可以有重复的节点的。</strong></p>
+<p>假设我们有一个表<code>students</code>，其中有一个非唯一普通索引<code>age</code>，表中的数据如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">+----+-----+  </span><br><span class="line">| id | age |  </span><br><span class="line">+----+-----+  </span><br><span class="line">|  1 |  18 |  </span><br><span class="line">|  2 |  18 |  </span><br><span class="line">|  3 |  18 |  </span><br><span class="line">|  4 |  20 |  </span><br><span class="line">|  5 |  22 |  </span><br><span class="line">+----+-----+</span><br></pre></td></tr></table></figure>
+
+<p>现在，我们执行一个等值查询，试图找到<code>age</code>为19的记录，但显然这样的记录不存在：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">BEGIN</span>; <span class="comment">-- 开始一个事务  </span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> students <span class="keyword">WHERE</span> age <span class="operator">=</span> <span class="number">19</span> <span class="keyword">FOR</span> <span class="keyword">UPDATE</span>; <span class="comment">-- 使用FOR UPDATE来触发锁</span></span><br></pre></td></tr></table></figure>
+
+<p>在这个查询中，InnoDB会利用<code>age</code>索引来查找<code>age</code>为19的记录。由于索引是排序的，查询会向右遍历索引树，直到找到一个不满足查询条件（即<code>age</code>不等于19）的值为止。在这个例子中，查询会遍历到<code>age</code>为20的记录，因为20是第一个大于19的值。</p>
+<p><strong>加锁行为：</strong></p>
+<ul>
+<li><strong>在遍历过程中</strong>：由于查询是等值查询，并且索引是非唯一的，InnoDB原本会为每个可能满足条件的记录（如果存在的话）加上next-key lock。但是，在这个例子中，没有记录满足条件。</li>
+<li><strong>当遍历到最后一个不满足条件的值时</strong>：在这个例子中，是<code>age</code>为20的记录。由于查询没有找到任何满足条件的记录，InnoDB不会在这个记录上加上行锁（因为行锁是针对满足查询条件的记录的）。但是，为了防止其他事务在这个间隙（即<code>age</code>为18和20之间的间隙）中插入<code>age</code>为19的记录，InnoDB会在这个间隙上加上间隙锁。</li>
+</ul>
+<p><strong>结果：</strong></p>
+<p>因此，尽管查询没有找到任何满足条件的记录，但InnoDB仍然在<code>age</code>为18和20之间的间隙上加了间隙锁。这意味着，在这个事务提交之前，其他事务无法在这个间隙中插入<code>age</code>为19的记录，从而防止了幻读的发生。</p>
+<p><strong>这里存在的理解误区：</strong></p>
+<p>现在是基于age索引进行的，所以id走唯一索引不一样，现在的间隙锁锁住的是age&#x3D;18和age&#x3D;20之间的间隙，而非age&#x3D;18或者age&#x3D;20的哪条具体的记录。</p>
+<p><strong>情景三：索引上的范围查询(唯一索引)– 会访问到不满足条件的第一个值为止。</strong></p>
+<ul>
+<li><p><strong>查询执行</strong>：当执行一个范围查询（如<code>SELECT * FROM table WHERE index_column BETWEEN value1 AND value2 FOR UPDATE;</code>）时，InnoDB会利用索引来加速查询过程。</p>
+</li>
+<li><p><strong>锁定行为</strong>：</p>
+<p>对于唯一索引，由于索引值是唯一的，因此查询会逐一访问索引中的记录，直到找到不满足条件的第一个值为止。</p>
+<p>在这个过程中，InnoDB会为每个满足条件的记录加上临键锁。这意味着，它锁定了这些记录本身以及它们之前的间隙（实际上，对于唯一索引的最后一个满足条件的记录，它可能只锁定间隙部分，因为后面没有更多的记录来形成临键锁的行锁部分）。</p>
+<p>当查询到达不满足条件的第一个值时，InnoDB会在这个值之前的间隙上加上间隙锁（如果之前还没有加上的话），但不会锁定这个值本身，因为它不满足查询条件。</p>
+</li>
+<li><p><strong>防止幻读</strong>：通过这种方式，临键锁确保了即使在可重复读事务隔离级别下，其他事务也无法在查询范围内插入新的记录，从而防止了幻读的发生。</p>
+</li>
+</ul>
+</article><div class="post-copyright"><div class="post-copyright__author_group"><a class="post-copyright__author_img" href="/about/"><img class="post-copyright__author_img_front" src="/img/avatar.ico"></a><div class="post-copyright__author_name">颓废市民黄先生</div><div class="post-copyright__author_desc">welcome 艾瑞巴蒂</div></div><div class="post-tools" id="post-tools"><div class="post-tools-left"><div id="quit-box" onclick="RemoveRewardMask()"></div></div></div><div class="social-share"><a class="social-share-ico icon-qq" target="_blank" rel="noopener" href="https://connect.qq.com/widget/shareqq/index.html?url=https%3A%2F%2Fsamurai-127.github.io%2F2024%2F08%2F15%2FMySQL-%25E9%2594%2581%2F&amp;title=MySQL%EF%BC%9A%EF%BC%88%E4%B8%89%EF%BC%89%E5%85%A8%E5%B1%80%E9%94%81%E3%80%81%E8%A1%A8%E7%BA%A7%E9%94%81%E3%80%81%E8%A1%8C%E7%BA%A7%E9%94%81&amp;desc=undefined&amp;summary=undefined&amp;site=MySQL%EF%BC%9A%EF%BC%88%E4%B8%89%EF%BC%89%E5%85%A8%E5%B1%80%E9%94%81%E3%80%81%E8%A1%A8%E7%BA%A7%E9%94%81%E3%80%81%E8%A1%8C%E7%BA%A7%E9%94%81&amp;pics=%2Fimg%2Fsqllock.png" title="分享到QQ"><i class="solitude st-qq-fill"></i></a></div><div class="post-copyright__notice"><span class="post-copyright-info">本文是原创文章，采用<a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh">CC BY-NC-SA 4.0</a>协议，完整转载请注明来自<a href="/">颓废市民黄先生</a></span></div></div><div class="post-tools-right"><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/mysql/"><span class="tags-punctuation"></span>mysql<span class="tagsPageCount">4</span></a><a class="post-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/"><span class="tags-punctuation"></span>面试<span class="tagsPageCount">11</span></a></div></div></div><nav class="needEndHide pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2024/08/16/MySQL-MVCC/"><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info">MySQL：（四）事务隔离级别和MVCC</div></div></a></div><div class="next-post pull-right"><a href="/2024/08/15/MySQL-%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E/"><div class="pagination-info"><div class="label">下一篇</div><div class="next_info">MySQL：（二）存储引擎</div></div></a></div></nav><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="solitude st-chat-fill"></i><span> 评论</span><span class="count"> (<span class="twikoo-count"><i class="solitude st-loading-line"></i></span>)</span></div></div><div class="comment-wrap"><div id="twikoo-wrap"></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="card-content"><div class="card-info-avatar is-center"><div class="author-info__top-group"><div class="author-info__sayhi" id="author-info__sayhi" onclick="sco.changeSayHelloText()">sayhello.morning</div></div></div><div class="avatar-img-group"><img class="avatar-img" alt="头像" src="/img/avatar.jpg"><div class="avatar-sticker"><img class="avatar-sticker-img" src="https://7.isyangs.cn/34/65f2e4e0423cc-34.png" alt="心情贴纸"></div></div><div class="author-info__description_group"><div class="author-info__description">大郞，你来看我的博客啦~</div><div class="author-info__description2">看看有没有对你有帮助的内容呗</div></div><div class="author-info__bottom-group"><a class="author-info__bottom-group-left" href="/about/"><div class="author-info__name">颓废市民黄先生</div><div class="author-info__desc">welcome 艾瑞巴蒂</div></a><div class="card-info-social-icons is-center"><a class="social-icon" target="_blank" rel="noopener" href="https://space.bilibili.com/314882691" title="Bilibili"><i class="solitude  st-bilibili-line"></i></a><a class="social-icon" target="_blank" rel="noopener" href="https://www.douyin.com/user/MS4wLjABAAAAy1FJN9CK4loLwbU-ngonlCdhB5ZT99fq4_Jdg3qJS7w" title="douyin"><i class="solitude  st-douyin-fill"></i></a></div></div></div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="solitude st-menu-line"></i><span>文章目录</span></div><div class="toc-content" id="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E5%85%A8%E5%B1%80%E9%94%81"><span class="toc-text">一、全局锁</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E8%A1%A8%E7%BA%A7%E9%94%81"><span class="toc-text">二、表级锁</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#1-%E8%A1%A8%E9%94%81"><span class="toc-text">1. 表锁</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2-%E5%85%83%E6%95%B0%E6%8D%AE%E9%94%81"><span class="toc-text">2. 元数据锁</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%EF%BC%881%EF%BC%89%E5%BD%93%E8%BF%9B%E8%A1%8CDML%E6%93%8D%E4%BD%9C%E7%9A%84%E6%97%B6%E5%80%99%E4%BC%9A%E6%B7%BB%E5%8A%A0MDL%E8%AF%BB%E9%94%81%EF%BC%8C%E5%BD%93%E8%BF%9B%E8%A1%8CDDL%E6%93%8D%E4%BD%9C%E7%9A%84%E6%97%B6%E5%80%99%E6%B7%BB%E5%8A%A0MDL%E5%86%99%E9%94%81%EF%BC%8C%E6%80%8E%E4%B9%88%E7%90%86%E8%A7%A3%E8%BF%99%E5%8F%A5%E8%AF%9D%EF%BC%9F"><span class="toc-text">（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%EF%BC%882%EF%BC%89%E5%A6%82%E4%BD%95%E7%90%86%E8%A7%A3%E5%85%BC%E5%AE%B9%E6%80%A7%EF%BC%9F"><span class="toc-text">（2）如何理解兼容性？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#3-%E6%84%8F%E5%90%91%E9%94%81"><span class="toc-text">3. 意向锁</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E8%A1%8C%E7%BA%A7%E9%94%81"><span class="toc-text">三、行级锁</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#1-%E8%A1%8C%E9%94%81"><span class="toc-text">1. 行锁</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2-%E9%97%B4%E9%9A%99%E9%94%81-%E4%B8%B4%E9%94%AE%E9%94%81"><span class="toc-text">2. 间隙锁&amp;临键锁</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="solitude st-map-line"></i><span>最近发布</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2024/08/16/MySQL-MVCC/" title="MySQL：（四）事务隔离级别和MVCC"><img alt="MySQL：（四）事务隔离级别和MVCC" src="/img/MVCC.png"></a><div class="content"><a class="title" href="/2024/08/16/MySQL-MVCC/" title="MySQL：（四）事务隔离级别和MVCC">MySQL：（四）事务隔离级别和MVCC</a><a class="article-recent_post_categories" href="/2024/08/16/MySQL-MVCC/">数据库</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/08/15/MySQL-%E9%94%81/" title="MySQL：（三）全局锁、表级锁、行级锁"><img alt="MySQL：（三）全局锁、表级锁、行级锁" src="/img/sqllock.png"></a><div class="content"><a class="title" href="/2024/08/15/MySQL-%E9%94%81/" title="MySQL：（三）全局锁、表级锁、行级锁">MySQL：（三）全局锁、表级锁、行级锁</a><a class="article-recent_post_categories" href="/2024/08/15/MySQL-%E9%94%81/">数据库</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/08/15/MySQL-%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E/" title="MySQL：（二）存储引擎"><img alt="MySQL：（二）存储引擎" src="/img/engine.png"></a><div class="content"><a class="title" href="/2024/08/15/MySQL-%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E/" title="MySQL：（二）存储引擎">MySQL：（二）存储引擎</a><a class="article-recent_post_categories" href="/2024/08/15/MySQL-%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E/">数据库</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/08/15/MySQL-%E7%B4%A2%E5%BC%95/" title="MySQL：（一）索引底层原理与实现"><img alt="MySQL：（一）索引底层原理与实现" src="/img/index.png"></a><div class="content"><a class="title" href="/2024/08/15/MySQL-%E7%B4%A2%E5%BC%95/" title="MySQL：（一）索引底层原理与实现">MySQL：（一）索引底层原理与实现</a><a class="article-recent_post_categories" href="/2024/08/15/MySQL-%E7%B4%A2%E5%BC%95/">数据库</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/08/13/java%E5%A4%9A%E7%BA%BF%E7%A8%8B-gc/" title="JVM：详解GC"><img alt="JVM：详解GC" src="/img/JVM.jpg"></a><div class="content"><a class="title" href="/2024/08/13/java%E5%A4%9A%E7%BA%BF%E7%A8%8B-gc/" title="JVM：详解GC">JVM：详解GC</a><a class="article-recent_post_categories" href="/2024/08/13/java%E5%A4%9A%E7%BA%BF%E7%A8%8B-gc/">Java</a></div></div></div></div></div></div></main><footer id="footer"><div id="st-footer-bar"><div class="footer-logo"><span>颓废市民黄先生</span></div><div class="footer-bar-description">来自 颓废市民黄先生 的文章</div><a class="footer-bar-link" href="/about/">了解更多</a></div><div id="footer_deal"></div><div id="st-footer"></div><div id="footer-bar"><div class="footer-bar-links"><div class="footer-bar-left"><div class="copyright">© 2024 By&nbsp;<a class="footer-bar-link" href="/">颓废市民黄先生</a></div></div><div class="footer-bar-right"><a class="footer-bar-link" target="_blank" rel="noopener" href="https://github.com/everfu/hexo-theme-solitude" alt="主题">主题</a><a class="footer-bar-link cc" href="/null" aria-label="copyright"><i class="solitude st-copyright-line"></i><i class="solitude st-creative-commons-by-line"></i><i class="solitude st-creative-commons-nc-line"></i><i class="solitude st-creative-commons-nd-line"></i></a></div></div></div><div class="comment-barrage needEndHide"></div></footer></div><!-- right_menu--><div id="rightMenu"><div class="rightMenu-group rightMenu-small"><div class="rightMenu-item" id="menu-backward"><i class="solitude st-arrow-left-line"></i></div><div class="rightMenu-item" id="menu-forward"><i class="solitude st-arrow-right-line"></i></div><div class="rightMenu-item" id="menu-refresh"><i class="solitude st-restart-line"></i></div><div class="rightMenu-item" id="menu-top"><i class="solitude st-arrow-up-line"></i></div></div><div class="rightMenu-group rightMenu-line rightMenuPlugin"><div class="rightMenu-item" id="menu-copytext"><i class="solitude st-copy-fill"></i><span>复制选中文本</span></div><div class="rightMenu-item" id="menu-pastetext"><i class="solitude st-clipboard-fill"></i><span>粘贴文本</span></div><div class="rightMenu-item" id="menu-commenttext"><i class="solitude st-chat-new-fill"></i><span>引用到评论</span></div><div class="rightMenu-item" id="menu-newwindow"><i class="solitude st-window-fill"></i><span>新窗口打开</span></div><div class="rightMenu-item" id="menu-copylink"><i class="solitude st-link-line"></i><span>复制链接地址</span></div><div class="rightMenu-item" id="menu-copyimg"><i class="solitude st-copy-fill"></i><span>复制此图片</span></div><div class="rightMenu-item" id="menu-downloadimg"><i class="solitude st-download-cloud-fill"></i><span>下载此图片</span></div><div class="rightMenu-item" id="menu-search"><i class="solitude st-search-line"></i><span>站内搜索</span></div><div class="rightMenu-item" id="menu-music-toggle"><i class="solitude st-play-fill"></i><span>播放音乐</span></div><div class="rightMenu-item" id="menu-music-back"><i class="solitude st-skip-back-fill"></i><span>切换到上一首</span></div><div class="rightMenu-item" id="menu-music-forward"><i class="solitude st-skip-forward-fill"></i><span>切换到下一首</span></div><div class="rightMenu-item" id="menu-music-copyMusicName"><i class="solitude st-copy-fill"></i><span>复制歌名</span></div></div><div class="rightMenu-group rightMenu-line rightMenuOther"><div class="rightMenu-item" id="menu-randomPost" onclick="toRandomPost()||rm.hideRightMenu()"><i class="solitude st-signal-tower-fill"></i><span>随机短文</span></div><div class="rightMenu-item" onclick="pjax.loadUrl('/categories/')||rm.hideRightMenu()"><i class="solitude st-checkbox-multiple-blank-fill"></i><span>全部分类</span></div><div class="rightMenu-item" onclick="pjax.loadUrl('/tags/')||rm.hideRightMenu()"><i class="solitude st-price-tag-fill"></i><span>全部标签</span></div></div><div class="rightMenu-group rightMenu-line rightMenuOther"><div class="rightMenu-item" id="menu-commentBarrage" onclick="sco.switchCommentBarrage()"><i class="solitude st-chat-fill"></i><span class="menu-commentBarrage-text">关闭热评</span></div><div class="rightMenu-item" id="menu-darkmode" onclick="sco.switchDarkMode()"><i class="solitude st-moon-clear-fill"></i><span class="menu-darkmode-text">深色模式</span></div><div class="rightMenu-item" id="menu-translate"><i class="solitude st-panben-line"></i><span>轉為繁體</span></div></div></div><div id="rightmenu-mask"></div><!-- inject body--><div><script src="/js/utils.js?v=1.13.3"></script><script src="/js/main.js?v=1.13.3"></script><script src="/js/third_party/waterfall.min.js?v=1.13.3"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/pjax/0.2.8/pjax.min.js"></script><script src="/js/third_party/universe.min.js?v=1.13.3"></script><script>dark()
+</script><script src="/js/tw_cn.js?v=1.13.3"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/node-snackbar/0.1.16/snackbar.min.js"></script><script src="/js/third_party/efu_ai.min.js?v=1.13.3"></script><script>var meting_api = 'https://meting.qjqq.cn/?server=:server&type=:type&id=:id&auth=:auth&r=:r';</script><script src="https://cdnjs.cloudflare.com/ajax/libs/aplayer/1.10.1/APlayer.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/meting/2.0.1/Meting.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/pace/1.2.4/pace.min.js"></script><script src="/js/right_menu.js?v=1.13.3"></script><script src="/js/custom.js"></script><div class="js-pjax"><script>(() => {
+    const getCount = () => {
+        const ele = document.querySelectorAll('.twikoo-count')
+        if (!ele) return
+        twikoo.getCommentsCount({
+            envId: 'https://samurai127.cn',
+            region: '',
+            urls: [window.location.pathname],
+            includeReply: false
+        }).then(res => {
+            ele.forEach(item => item.textContent = res[0].count)
+        }).catch(err => {
+            console.error(err)
+        })
+    }
+    const init = () => {
+        twikoo.init(Object.assign({
+            el: '#twikoo-wrap',
+            envId: 'https://samurai127.cn',
+            region: '',
+            path: window.location.pathname,
+            onCommentLoaded: () => {
+                GLOBAL_CONFIG.lightbox && utils.lightbox(document.querySelectorAll('#twikoo .tk-content img:not(.tk-owo-emotion)'))
+            }
+        }, null))
+
+         && getCount()
+        sco.owoBig({
+            body: '.OwO-body',
+            item: '.OwO-items li'
+        })
+
+        true && barrageTwikoo()
+    }
+
+    const loadTwikoo = () => {
+        if (typeof twikoo === 'object') setTimeout(init,0)
+        else utils.getScript('https://cdnjs.cloudflare.com/ajax/libs/twikoo/1.6.36/twikoo.all.min.js').then(init)
+    }
+
+    if ('Twikoo' === 'Twikoo' || false) {
+        if (false) utils.loadComment(document.getElementById('twikoo-wrap'), loadTwikoo)
+        else loadTwikoo()
+    } else {
+        window.loadTwoComment = loadTwikoo
+    }
+})()
+</script><script>async function barrageTwikoo() {
+    await fetch("https://samurai127.cn", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            event: "COMMENT_GET",
+            accessToken: "",
+            url: window.location.pathname
+        })
+    }).then(async res => {
+        if (!res.ok) throw new Error("HTTP error! status: " + res.status)
+        const data = await res.json();
+        const init = () => {
+            initializeCommentBarrage((data.data).map(item => Object.assign({
+                content: item.comment,
+                nick: item.nick,
+                mailMd5: item.mailMd5,
+                id: item.id
+            })))
+        }
+        if (typeof initializeCommentBarrage === "undefined") await utils.getScript('/js/third_party/barrage.min.js?v=1.13.3').then(init)
+        else init()
+    }).catch(error => console.error("An error occurred while fetching comments: ", error))
+}</script><script defer pjax src="https://cdnjs.cloudflare.com/ajax/libs/busuanzi/2.3.0/bsz.pure.mini.min.js"></script></div></div><!-- pjax--><script>const pjax = new Pjax({
+    elements: 'a:not([target="_blank"])',
+    selectors: ['title','#body-wrap','#site-config','meta[name="description"]','.js-pjax','meta[property^="og:"]','#config-diff'],
+    cacheBust: false,
+    analytics: false,
+    scrollRestoration: false
+})
+
+document.querySelectorAll('script[data-pjax]').forEach(item => {
+    const newScript = document.createElement('script')
+    const content = item.text || item.textContent || item.innerHTML || ""
+    Array.from(item.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value))
+    newScript.appendChild(document.createTextNode(content))
+    item.parentNode.replaceChild(newScript, item)
+})
+
+document.addEventListener('pjax:complete', () => {
+    window.refreshFn()
+
+    document.querySelectorAll('script[data-pjax]').forEach(item => {
+        const newScript = document.createElement('script')
+        const content = item.text || item.textContent || item.innerHTML || ""
+        Array.from(item.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value))
+        newScript.appendChild(document.createTextNode(content))
+        item.parentNode.replaceChild(newScript, item)
+    })
+
+    GLOBAL_CONFIG.islazyload && window.lazyLoadInstance.update()
+
+})
+
+document.addEventListener('pjax:error', (e) => {
+    if (e.request.status === 404) {
+        pjax.loadUrl('/404.html')
+    }
+})</script><!-- theme--><script>initTheme = () => {
+    let isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const cachedMode = utils.saveToLocal.get('theme');
+    if (cachedMode === undefined) {
+        const nowMode =
+            isDarkMode ? 'dark' : 'light'
+        document.documentElement.setAttribute('data-theme', nowMode);
+    } else {
+        document.documentElement.setAttribute('data-theme', cachedMode);
+    }
+    typeof rm === 'object' && rm.mode(cachedMode === 'dark' && isDarkMode)
+}
+initTheme()</script><!-- google adsense--><!-- search--><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><button class="search-close-button"><i class="solitude st-close-fill"></i></button></nav><div class="search-wrap"><div class="search-box"><input class="search-box-input" id="search-input" type="text" autocomplete="off" spellcheck="false" autocorrect="off" autocapitalize="off" placeholder="输入关键词快速查找"></div><div id="search-results"><div id="search-hits"></div></div><div id="search-pagination"></div><div id="search-tips"></div></div></div><div id="search-mask"></div></div><script src="/js/search/local.js?v=1.13.3"></script><!-- Tianli-Talk--><span class="needEndHide" id="efuTalk" onclick="togglePostChatContainer(); return false;" title="问答ai"><i class="solitude st-robot-fill"></i><span class="efuTalkTitle">问答ai</span></span><script>var postChatConfig = {
+backgroundColor: "var(--efu-main)",
+bottom: "60px",
+...{"defaultInput":false,"upLoadWeb":true,"userTitle":"小黄同学来也","userDesc":"有什么可以帮助你的？","showInviteLink":"https://ai.tianli0.top/?InviteID=OZ3Z0V2R","blackDom":[".aplayer"]}
+};
+
+let b = true;
+
+document.getElementById('efuTalk').addEventListener('click', function () {
+    this.classList.toggle('on');
+    let efu = this
+    b && setTimeout(() => {
+        document.getElementById('close-button').addEventListener('click', function () {
+            efu.classList.remove('on');
+        })
+    }, 0);
+    b = false
+});</script><script pjax data-postChat_key="449aa72132adf73ef7084ef83c46792af1edab" src="https://ai.tianli0.top/static/public/postChatUser.min.js"></script><!-- music--><div class="needEndHide" id="nav-music" onclick="sco.musicToggle()"><div id="nav-music-hoverTips">音乐已暂停</div><meting-js id="994057368" server="netease" type="playlist" mutex="true" preload="none" data-lrctype="0" order="random" theme="var(--efu-main)"></meting-js></div></body></html><script>const posts=["2024/08/16/MySQL-MVCC/","2024/08/15/MySQL-锁/","2024/08/15/MySQL-存储引擎/","2024/08/15/MySQL-索引/","2024/08/13/java多线程-gc/","2024/08/06/java：详解ConcurrentHashMap/","2024/08/05/java多线程：三、锁/","2024/08/04/java多线程：JMM/","2024/08/03/java-线程池/","2024/07/30/操作系统：（二）为什么0-1-0-2不等于0-3/","2024/07/14/搭建博客？本站搭建博客花费了多少精力？/","2024/07/09/算法：（四）递归/","2024/07/06/Java-JDK8函数式接口、lambda表达式、方法引用/","2024/07/06/算法：（三）链表/","2024/07/06/Docker实操/","2024/07/06/centOS部署docker/","2024/07/06/mybatis/","2024/07/06/JDBC 笔记/","2024/07/03/算法：（二）二分查找/","2024/07/03/操作系统：（一）快速学习存储器/","2024/07/03/算法：（一）排序算法/","2024/06/26/git速查/"];function toRandomPost(){ pjax.loadUrl(GLOBAL_CONFIG.root+posts[Math.floor(Math.random()*posts.length)]); }</script>
