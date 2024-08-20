@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
-    <title>docker：速速上手docker部署镜像</title>
+    <title>docker：docker实操</title>
     <url>/2024/07/06/Docker%E5%AE%9E%E6%93%8D/</url>
     <content><![CDATA[<h1 id="Docker"><a href="#Docker" class="headerlink" title="Docker"></a>Docker</h1><h1 id="1-初识Docker"><a href="#1-初识Docker" class="headerlink" title="1.初识Docker"></a>1.初识Docker</h1><h2 id="1-1-什么是Docker"><a href="#1-1-什么是Docker" class="headerlink" title="1.1.什么是Docker"></a>1.1.什么是Docker</h2><p>微服务虽然具备各种各样的优势，但服务的拆分通用给部署带来了很大的麻烦。</p>
 <ul>
@@ -646,6 +646,362 @@
       </tags>
   </entry>
   <entry>
+    <title>JVM：详解GC</title>
+    <url>/2024/08/13/JVM-gc/</url>
+    <content><![CDATA[<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>据我看到的面试题有：判断垃圾回收的算法有什么，以及是什么原理，垃圾收集算法有什么，常见的垃圾回收器有什么，什么是STW等，所以这篇博客基于GC给大家介绍，如果有其他面试题可以在评论区发言，博客可修改内容，可添加。</p>
+<h1 id="一、判断垃圾回收的算法"><a href="#一、判断垃圾回收的算法" class="headerlink" title="一、判断垃圾回收的算法"></a>一、判断垃圾回收的算法</h1><p>先提前说两个算法，分别是：</p>
+<ol>
+<li><p>引用标记算法</p>
+</li>
+<li><p>可达性分析算法</p>
+</li>
+</ol>
+<h2 id="1-引用标记算法"><a href="#1-引用标记算法" class="headerlink" title="1.引用标记算法"></a>1.引用标记算法</h2><p>引用标记算法是在Java对象头（Java对象头在介绍多线程的时候有详细的解释，直达链接：<a href="https://rengoku.top/2024/08/05/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E9%94%81/">Java多线程：三、多线程锁、java锁的实现</a>）中开辟空间，记录<strong>被引用的次数（Reference Count）</strong>，如果A变量被其他对象引用时计数器+1，引用A变量的其他变量被删除则-1，如果计数器为0时，则判断A变量需要被回收。</p>
+<p>举个例子：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">String</span> <span class="variable">str</span> <span class="operator">=</span> <span class="string">&quot;我不想上早八&quot;</span>;</span><br></pre></td></tr></table></figure>
+
+<p>此时，在Java虚拟机栈（以下简称栈）开辟一个内存空间记录str，此时堆中的字符串常量池的“我不想上早八”，被引用的次数就是1（Reference Count&#x3D;1），此时我做修改操作：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">String</span> <span class="variable">str</span> <span class="operator">=</span> <span class="string">&quot;其实我想上早七&quot;</span>;</span><br></pre></td></tr></table></figure>
+
+<p>此时，在栈中的变量str原本引用常量池的”我不想上早八”引用次数为0，那么这一块就会被回收。</p>
+<p>引用标记算法的回收机制遍布整个代码运行时期而没有集中于垃圾回收时期，因此不属于”Stop-The-World”的范围。</p>
+<blockquote>
+<p>“Stop The World”是 Java 垃圾收集中的一个重要概念。在垃圾收集过程中，JVM 会暂停所有的用户线程，这种暂停被称为”Stop The World”事件。</p>
+<p>这么做的主要原因是为了防止在垃圾收集过程中，用户线程修改了堆中的对象，导致垃圾收集器无法准确地收集垃圾。</p>
+</blockquote>
+<p><strong>引用标记算法存在的问题：</strong></p>
+<p>无法解决循环依赖的问题，看代码</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ReferenceCountingGC</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> Object instance;  <span class="comment">// 对象属性，用于存储对另一个 ReferenceCountingGC 对象的引用</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">ReferenceCountingGC</span><span class="params">(String name)</span> &#123;</span><br><span class="line">        <span class="comment">// 构造方法</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">testGC</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="comment">// 创建两个 ReferenceCountingGC 对象</span></span><br><span class="line">        <span class="type">ReferenceCountingGC</span> <span class="variable">a</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ReferenceCountingGC</span>(<span class="string">&quot;我爱玩原神&quot;</span>);</span><br><span class="line">        <span class="type">ReferenceCountingGC</span> <span class="variable">b</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ReferenceCountingGC</span>(<span class="string">&quot;那维莱特一次回调比得上3年的陪伴&quot;</span>);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 使 a 和 b 相互引用</span></span><br><span class="line">        a.instance = b;</span><br><span class="line">        b.instance = a;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 将 a 和 b 设置为 null</span></span><br><span class="line">        a = <span class="literal">null</span>;</span><br><span class="line">        b = <span class="literal">null</span>;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 这个位置是垃圾回收的触发点</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在代码中a,b变量相互引用，即使将将 a 和 b 设置为 null，也无法将字符串的引用改变（即Reference Count没有被减到0）。从案例可以知道，这样写永远无法通知GC对这两个字符串进行收集。</p>
+<h2 id="2-可达性分析算法"><a href="#2-可达性分析算法" class="headerlink" title="2.可达性分析算法"></a>2.可达性分析算法</h2><p>现代虚拟机基本都是采用可达性分析算法来判断对象是否存活，可达性算法的原理是以一系列叫做  <strong>GC Root</strong> 的对象为起点出发，引出它们指向的下一个节点，再以下个节点为起点，引出此节点指向的下一个结点。这样通过 GC Root 串成的一条线就叫引用链），直到所有的结点都遍历完毕,如果相关对象不在任意一个以 <strong>GC Root</strong> 为起点的引用链中，则这些对象会被判断为垃圾对象,会被 GC 回收。</p>
+<p><img src="Snipaste_2024-08-13_10-31-47.png"></p>
+<p><strong>a, b 对象可回收，就一定会被回收吗?</strong></p>
+<p>并不是，对象的 finalize 方法给了对象一次垂死挣扎的机会，当对象不可达（可回收）时，当发生GC时，会先判断对象是否执行了 finalize 方法，如果未执行，则会先执行 finalize 方法，我们可以在此方法里将当前对象与 GC Roots 关联，这样执行 finalize 方法之后，GC 会再次判断对象是否可达，如果不可达，则会被回收，如果可达，则不回收！</p>
+<p><strong>注意：</strong> finalize 方法只会被执行一次，如果第一次执行 finalize 方法此对象变成了可达确实不会回收，但如果对象再次被 GC，则会忽略 finalize 方法，对象会被回收！这一点切记!</p>
+<p><strong>GC Roots 到底是什么东西呢，哪些对象可以作为 GC Root 呢？</strong></p>
+<ul>
+<li>虚拟机栈（栈帧中的本地变量表）中引用的对象</li>
+<li>本地方法栈中 JNI（即一般说的 Native 方法）引用的对象</li>
+<li>方法区中类静态属性引用的对象</li>
+<li>方法区中常量引用的对象</li>
+</ul>
+<p>关于这四个例子可以参考：<a href="https://blog.csdn.net/weixin_38007185/article/details/108093716">GC Roots 是什么？哪些对象可以作为 GC Root？看完秒懂！-CSDN博客</a></p>
+<h1 id="二、八股：垃圾收集算法"><a href="#二、八股：垃圾收集算法" class="headerlink" title="二、八股：垃圾收集算法"></a>二、八股：垃圾收集算法</h1><p>阿里八股16题，我们来详细的谈谈：</p>
+<h2 id="1-标记清除算法"><a href="#1-标记清除算法" class="headerlink" title="1.标记清除算法"></a>1.标记清除算法</h2><p>标记清除算法（Mark-Sweep）是最基础的一种垃圾回收算法，它分为 2 部分，先把内存区域中的这些对象进行标记，哪些属于可回收的标记出来（用前面提到的可达性分析法），然后把这些垃圾拎出来清理掉。</p>
+<p><img src="gc-20231227125304.png"></p>
+<p>标记清除算法存在一个缺陷，在垃圾回收以后会产生内存碎片，无法应对需要一口气分配大内存的情况。</p>
+<blockquote>
+<p>内存碎片化是指在内存分配和回收过程中，被释放的内存空间没有被合并成较大的连续空间，而是形成了许多小块的、不连续的内存区域。这会导致在后续需要分配大块连续内存时，系统可能无法找到足够的连续空间，从而影响程序的性能和稳定性。</p>
+</blockquote>
+<h2 id="2-复制算法"><a href="#2-复制算法" class="headerlink" title="2.复制算法"></a>2.复制算法</h2><p>复制算法（Copying）是在标记清除算法上演化而来的，用于解决标记清除算法的内存碎片问题。它将可用内存按容量划分为大小相等的两块，每次只使用其中的一块。</p>
+<p>当这一块的内存用完了，就将还存活着的对象复制到另外一块上面，然后再把已使用过的内存空间一次清理掉。这样就保证了内存的连续性，逻辑清晰，运行高效。</p>
+<p><img src="gc-20231227125751.png"></p>
+<p>但是也是存在一个大缺陷，相当于一大堆的内存我只能当一半用。</p>
+<h2 id="3-标记整理算法"><a href="#3-标记整理算法" class="headerlink" title="3.标记整理算法"></a>3.标记整理算法</h2><p>标记整理算法（Mark-Compact），标记过程仍然与标记清除算法一样，但后续步骤不是直接对可回收对象进行清理，而是让所有存活的对象都向一端移动，再清理掉端边界以外的内存区域。</p>
+<p><img src="gc-20231227130011.png"></p>
+<p>标记整理算法一方面在标记-清除算法上做了升级，解决了内存碎片的问题，也规避了复制算法只能利用一半内存区域的弊端。看起来很美好，但内存变动更频繁，需要整理所有存活对象的引用地址，在效率上比复制算法差很多。</p>
+<h2 id="4-分代收集算法"><a href="#4-分代收集算法" class="headerlink" title="4.分代收集算法"></a>4.分代收集算法</h2><h3 id="4-1-分代收集算法组合拳"><a href="#4-1-分代收集算法组合拳" class="headerlink" title="4.1 分代收集算法组合拳"></a>4.1 分代收集算法组合拳</h3><p>分代收集算法（Generational Collection）严格来说并不是一种思想或理论，而是融合上述 3 种基础的算法思想，而产生的针对不同情况所采用不同算法的一套组合拳。</p>
+<p>根据对象存活周期的不同会将内存划分为几块，一般是把 <strong>Java 堆分为新生代和老年代</strong>，这样就可以根据各个年代的特点采用最适当的收集算法。</p>
+<p><img src="gc-20231227131241.png"></p>
+<p>在新生代中，每次垃圾收集时都发现有大批对象死去，只有少量存活，那就选用复制算法，只需要付出少量存活对象的复制成本就可以完成收集。</p>
+<p>老年代中因为对象存活率高、没有额外空间对它进行分配担保，就必须使用标记清理或者标记整理算法来进行回收。</p>
+<blockquote>
+<p>这里提到了新生代和永久代，在JVM运行时数据区中也提到了一个”代“叫永久代，还记得永久代是什么吗？</p>
+<p>永久代也叫方法区，在jdk8之后被代替成了元空间，运行时常量池放在元空间中，而字符串常量池在堆中。</p>
+</blockquote>
+<h3 id="4-2-新生代和老年代"><a href="#4-2-新生代和老年代" class="headerlink" title="4.2 新生代和老年代"></a>4.2 新生代和老年代</h3><p>堆主要分为 2 个区域，年轻代与老年代，其中年轻代又分 Eden 区和 Survivor 区，其中 Survivor 区又分 From 和 To 两个区。</p>
+<p><img src="gc-20231227132701.png"></p>
+<h4 id="4-2-1-Eden-区"><a href="#4-2-1-Eden-区" class="headerlink" title="4.2.1 Eden 区"></a>4.2.1 Eden 区</h4><p>据 IBM 公司之前的研究表明，有将近 98% 的对象是朝生夕死，所以针对这一现状，大多数情况下，对象会在新生代 Eden 区中进行分配，当 Eden 区没有足够空间进行分配时，JVM 会发起一次 Minor GC，Minor GC 相比 Major GC 更频繁，回收速度也更快。</p>
+<p>通过 Minor GC 之后，Eden 区中绝大部分对象会被回收，而那些无需回收的存活对象，将会进到 Survivor 的 From 区，如果 From 区不够，则直接进入 To 区。</p>
+<p><strong>什么是Minor GC和Major GC？</strong></p>
+<p>Minor GC是新生代的GC，Major GC是老年代的GC</p>
+<p><strong>Survivor区的from和to角色切换</strong></p>
+<ol>
+<li>初始状态<ul>
+<li>在JVM启动时，两个Survivor区中的一个被指定为from区，另一个为to区。这个初始分配是任意的，但一旦确定，它们将在后续的GC过程中交替使用。</li>
+</ul>
+</li>
+<li>Minor GC过程<ul>
+<li>当Eden区满或JVM认为需要执行Minor GC时，GC过程开始。</li>
+<li>此时，from区存储着上一次GC后存活下来的对象。</li>
+<li>GC扫描Eden区和from区，将存活的对象复制到to区。</li>
+<li>如果对象的年龄（即经历Minor GC的次数）达到一定程度（默认是15次，但可以通过参数<code>-XX:MaxTenuringThreshold</code>来设定），则这些对象可能会被移动到老年代（Old Generation）。</li>
+<li>GC完成后，Eden区和from区的内容被清空，然后这两个区域的角色互换：原来的to区变为新的from区，原来的from区变为新的to区。</li>
+</ul>
+</li>
+<li>持续交替<ul>
+<li>上述过程在每次Minor GC时都会重复，导致Survivor区的from和to角色持续交替。</li>
+</ul>
+</li>
+</ol>
+<h4 id="4-2-2-Survivor-区"><a href="#4-2-2-Survivor-区" class="headerlink" title="4.2.2 Survivor 区"></a>4.2.2 Survivor 区</h4><p>Survivor 区相当于是 Eden 区和 Old 区的一个缓冲，类似于我们交通灯中的黄灯。</p>
+<p><strong>为啥需要 Survivor 区？</strong></p>
+<p>不就是新生代到老年代吗，直接 Eden 到 Old 不好了吗，为啥要这么复杂。</p>
+<p>如果没有 Survivor 区，Eden 区每进行一次 Minor GC，存活的对象就会被送到老年代，老年代很快就会被填满。而有很多对象虽然一次 Minor GC 没有消灭，但其实也并不会蹦跶多久，或许第二次，第三次就需要被清除。</p>
+<p>这时候移入老年区，很明显不是一个明智的决定。</p>
+<p>所以，Survivor 的存在意义就是减少被送到老年代的对象，进而减少 Major GC 的发生。Survivor 的预筛选保证，只有经历 16 次 Minor GC 还能在新生代中存活的对象，才会被送到老年代。</p>
+<p><strong>Survivor 区为啥划分为两块？</strong></p>
+<p>设置两个 Survivor 区最大的好处就是解决内存碎片化，我们先假设一下，Survivor 只有一个区域会怎样。</p>
+<p>Minor GC 执行后，Eden 区被清空，存活的对象放到了 Survivor 区，而之前 Survivor 区中的对象，可能也有一些是需要被清除的。那么问题来了，这时候我们怎么清除它们？</p>
+<p>在这种场景下，我们只能标记清除，而我们知道标记清除最大的问题就是内存碎片，在新生代这种经常会消亡的区域，采用标记清除必然会让内存产生严重的碎片化。</p>
+<p>但因为 Survivor 有 2 个区域，所以每次 Minor GC，会将之前 Eden 区和 From 区中的存活对象复制到 To 区域。第二次 Minor GC 时，From 与 To 职责兑换，这时候会将 Eden 区和 To 区中的存活对象再复制到 From 区域，以此反复。</p>
+<p>这种机制最大的好处就是，整个过程中，永远有一个 Survivor space 是空的，另一个非空的 Survivor space 是无碎片的。</p>
+<p>那么，Survivor 为什么不分更多块呢？比方说分成三个、四个、五个？</p>
+<p>显然，如果 Survivor 区再细分下去，每一块的空间就会比较小，容易导致 Survivor 区满，两块 Survivor 区可能是经过权衡之后的最佳方案。</p>
+<h4 id="4-2-3-Old-区"><a href="#4-2-3-Old-区" class="headerlink" title="4.2.3 Old 区"></a>4.2.3 Old 区</h4><p>老年代占据着 2&#x2F;3 的堆内存空间，只有在 Major GC 的时候才会进行清理，每次 GC 都会触发“Stop-The-World”。内存越大，STW 的时间也越长，所以内存也不仅仅是越大就越好。</p>
+<p>由于复制算法在对象存活率较高的老年代会进行很多次的复制操作，效率很低，所以老年代这里采用的是标记整理算法。</p>
+<h2 id="5-组合拳如何体现？"><a href="#5-组合拳如何体现？" class="headerlink" title="5.组合拳如何体现？"></a>5.组合拳如何体现？</h2><p>对于前三种收集算法，我们采用分代收集将前三种混合。</p>
+<p><strong>新生代，主要采用复制算法</strong>，我相信聪明的你能看得出来，<strong>Survivor 区的from和to区就是复制算法中提到的，将内存一分为二的部分。</strong></p>
+<p><strong>老年代，采用标记整理算法</strong>，理由有这些（ai部分）：</p>
+<ol>
+<li><strong>存活率高</strong>：老年代中的对象通常已经经过了多次垃圾回收周期，存活率较高。这意味着在每次垃圾回收时，只有少数对象会被回收，而大部分对象都会保留下来。如果使用复制算法，需要将存活的对象复制到另一块内存区域，这将导致大量的数据复制操作，不仅效率低下，还会增加系统的停顿时间。</li>
+<li><strong>内存空间</strong>：老年代通常占据堆内存的大部分空间，以容纳更多的长时间存活对象。如果采用复制算法，需要为老年代分配同样大小的额外内存空间作为复制的目标区域，这在很多情况下是不现实的，因为这将极大地增加内存的使用量。</li>
+<li><strong>内存碎片</strong>：虽然复制算法可以避免内存碎片的产生，但在老年代中，内存碎片的问题并不像新生代那样严重。老年代中的对象通常较大，且存活时间较长，因此内存碎片对性能的影响相对较小。相比之下，减少内存碎片并不是老年代选择垃圾收集算法的主要考虑因素。</li>
+<li><strong>算法适用性</strong>：不同的垃圾收集算法适用于不同的场景。复制算法由于其简单性和高效性，在新生代中得到了广泛应用。然而，在老年代中，由于对象的特性和内存空间的需求，更适合采用其他类型的垃圾收集算法，如标记-清除、标记-整理或混合使用多种算法（如G1收集器中的混合收集策略，G1收集器下文介绍）。</li>
+</ol>
+<h1 id="三、垃圾收集器"><a href="#三、垃圾收集器" class="headerlink" title="三、垃圾收集器"></a>三、垃圾收集器</h1><p>垃圾收集器在这篇博客有8种，我把总览放出来，然后讲几个比较常用的：<a href="https://blog.csdn.net/weixin_44772566/article/details/136248892">一文彻底搞懂八种JVM垃圾回收器_说一下 jvm 有哪些垃圾回收器?-CSDN博客</a></p>
+<p><img src="b7066e4374f7d7397613068ac5fdf5b1.png"></p>
+<h2 id="1-CMS收集器"><a href="#1-CMS收集器" class="headerlink" title="1.CMS收集器"></a>1.CMS收集器</h2><p><strong>CMS垃圾收集器旨在降低STW的时间，允许垃圾回收器进行垃圾回收的同时，与应用程序并发进行。</strong></p>
+<h3 id="1-1-步骤"><a href="#1-1-步骤" class="headerlink" title="1.1 步骤"></a>1.1 步骤</h3><p>CMS 垃圾收集器通过三色标记算法，实现了垃圾回收线程与用户线程的并发执行，从而极大地降低了系统响应时间，提高了强交互应用程序的体验。它的运行过程分为 4 个步骤，包括：</p>
+<ul>
+<li>初始标记</li>
+<li>并发标记</li>
+<li>重新标记</li>
+<li>并发清除</li>
+</ul>
+<p><strong>初始标记</strong>，指的是寻找所有被 GCRoots 引用的对象，该阶段需要「Stop the World」。这个步骤仅仅只是标记一下 GC Roots 能直接关联到的对象，并不需要做整个引用的扫描，因此速度很快。</p>
+<p><strong>并发标记</strong>，指的是对「初始标记阶段」标记的对象进行整个引用链的扫描，该阶段不需要「Stop the World」。 对整个引用链做扫描需要花费非常多的时间，因此通过垃圾回收线程与用户线程并发执行，可以降低垃圾回收的时间。</p>
+<p>这也是 CMS 能极大降低 GC 停顿时间的核心原因，但这也带来了一些问题，即：并发标记的时候，引用可能发生变化，因此可能发生漏标（本应该回收的垃圾没有被回收）和多标（本不应该回收的垃圾被回收）了。</p>
+<p><strong>重新标记</strong>，指的是对「并发标记」阶段出现的问题进行校正，该阶段需要「Stop the World」。正如并发标记阶段说到的，由于垃圾回收算法和用户线程并发执行，虽然能降低响应时间，但是会发生漏标和多标的问题。所以对于 CMS 来说，它需要在这个阶段做一些校验，解决并发标记阶段发生的问题。</p>
+<p><strong>并发清除</strong>，指的是将标记为垃圾的对象进行清除，该阶段不需要「Stop the World」。 在这个阶段，垃圾回收线程与用户线程可以并发执行，因此并不影响用户的响应时间。</p>
+<p><strong>注：</strong><br>收集区域： 老年代（见图常用的垃圾收集器。标记清除和标记整理也是用于老年代的垃圾收集算法，可以回看）<br>使用算法： 标记清除法+标记整理法<br>搜集方式： 多线程</p>
+<h3 id="1-2-优劣势"><a href="#1-2-优劣势" class="headerlink" title="1.2 优劣势"></a>1.2 优劣势</h3><p>优点总结就是支持垃圾回收和程序执行的并发，降低STW时间，详细的可以参考以下内容：</p>
+<p>并发标记和清除：CMS 垃圾收集器采用了并发标记和清除的方式，允许在垃圾收集过程中与应用程序并发执行。这意味着垃圾收集过程中只有一小部分时间需要暂停应用程序线程。<br>低停顿时间：由于并发执行的特性，CMS 垃圾收集器能够在较短的时间内完成垃圾回收操作，从而减少了应用程序的停顿时间。通常情况下，CMS 垃圾收集器能够将停顿时间控制在几百毫秒甚至更低。<br>老年代收集：CMS 垃圾收集器主要针对老年代进行垃圾回收，对于新生代则通常使用 ParNew 收集器。这种分代收集的方式能够更好地适应不同内存区域的特点和垃圾回收需求。</p>
+<blockquote>
+<p>这里提到了ParNew收集器，那么我也写一下，本来不想写来着（）</p>
+</blockquote>
+<p>劣势从算法考虑，无非就是会产生内存碎片，以及在垃圾收集与应用程序并发执行的过程中，应用程序也会一直产生垃圾，这个垃圾称为浮游垃圾，这部分只能等到下一次gc来处理，另外这两个并发的话，如果cpu的核心数（对线程的处理能力低）那么CMS的性能肯定会大打折扣。</p>
+<h2 id="2-ParNew收集器"><a href="#2-ParNew收集器" class="headerlink" title="2.ParNew收集器"></a>2.ParNew收集器</h2><p>在上边提到的CMS收集器是针对老年代的，而ParNew收集器针对新生代的部分进行垃圾回收，通常和CMS收集器共同进行gc。查到的资料有显示，ParNew收集器是唯一的一个可以和CMS收集器打配合的。</p>
+<p><strong>垃圾收集流程</strong><br>ParNew 收集器和 Parallel Scavenge 收集器在工作流程上确实非常相似，都是并行垃圾收集器。</p>
+<ol>
+<li><p>停止应用程序线程（Stop the World）：在进行垃圾收集之前，ParNew 收集器会暂停所有的用户线程。这一阶段被称为停止应用程序线程，以确保在垃圾收集过程中对象的状态不会被修改，保证垃圾回收的准确性。</p>
+</li>
+<li><p>多线程并行执行垃圾收集：一旦应用程序线程暂停，ParNew 收集器会启动多个线程并行执行垃圾回收操作。这些线程会同时在新生代中扫描和清理不再使用的对象，以释放内存空间。</p>
+</li>
+<li><p>暂停用户线程：在整个垃圾收集过程中，用户线程会一直处于暂停状态，直到垃圾收集完成。这个阶段也被称为“Stop the World”，在此期间应用程序无法执行任何操作。</p>
+</li>
+<li><p>恢复用户线程：当垃圾收集完成后，ParNew 收集器会恢复用户线程的执行。此时，垃圾已经被清理，堆中的内存空间得到了释放，用户线程可以继续执行。</p>
+</li>
+</ol>
+<p>ParNew 收集器的工作流程与 Parallel Scavenge 收集器类似，都是通过停止应用程序线程，然后利用多线程并行执行垃圾回收操作，最后恢复用户线程的执行。这种并行执行的方式能够提高垃圾收集的效率，同时在暂停用户线程期间确保垃圾收集的准确性。</p>
+<p><strong>注：</strong><br>收集区域： 新生代<br>使用算法： 标记复制法<br>搜集方式： 多线程。</p>
+<p>正常来说，ParNew收集器和CMS收集器是一起打配合的，他俩在分类来说都是分代收集器，一个作用于新生代，一个作用于老年代。</p>
+<h2 id="3-G1收集器"><a href="#3-G1收集器" class="headerlink" title="3.G1收集器"></a>3.G1收集器</h2><p>G1 垃圾收集器摒弃了传统的物理分区方式，而是将整个内存分成若干个大小不同的 Region 区域。每个 Region 在逻辑上组合成各个分代，这样做的好处是可以以 Region 为单位进行更细粒度的垃圾回收。G1 垃圾收集器在进行垃圾回收时，可以针对单个或多个 Region 进行回收，从而提高了收集效率和性能。</p>
+<p>下面介绍一下G1的相关内容：</p>
+<p><strong>分代：</strong>相信大家还记得我们上一讲中的年轻代和老年代，G1 也是基于这个思想进行设计的。<strong>G1舍弃分代，转变为分区，</strong>将堆内存分为多个大小相等的区域（Region），每个区域都可以是 Eden 区、Survivor 区或者 Old 区。</p>
+<p><img src="gc-collector-20231228213824.png"></p>
+<p>可以通过 <code>-XX:G1HeapRegionSize=n</code> 来设置 Region 的大小，可以设定为 1M、2M、4M、8M、16M、32M（不能超过）。</p>
+<p>G1 有专门分配大对象的 Region 叫 Humongous 区，而不是让大对象直接进入老年代的 Region 中。在 G1 中，大对象的判定规则就是一个大对象超过了一个 Region 大小的 50%，比如每个 Region 是 2M，只要一个对象超过了 1M，就会被放入 Humongous 中，而且一个大对象如果太大，可能会横跨多个 Region 来存放。</p>
+<p>G1 会根据各个区域的垃圾回收情况来决定下一次垃圾回收的区域，这样就避免了对整个堆内存进行垃圾回收，从而降低了垃圾回收的时间。</p>
+<p>在进行老年代的垃圾回收时，G1 使用标记-整理算法。这个过程分为两个阶段：标记存活的对象和整理（压缩）堆空间。通过整理，G1 能够避免内存碎片化，提高内存利用率。年轻代的垃圾回收（Minor GC）使用复制算法，因为年轻代的对象通常是朝生夕死的。</p>
+<p><img src="gc-collector-20231230100404.png"></p>
+<p><strong>STW：</strong>G1 也是基于「标记-清除」算法，因此在进行垃圾回收的时候，仍然需要「Stop the World」。不过，G1 在停顿时间上添加了预测机制，用户可以指定期望停顿时间。</p>
+<p><strong>接下来介绍G1的三种回收机制：</strong></p>
+<p><img src="gc-collector-20231228215108.png"></p>
+<p>当 Eden 区的内存空间无法支持新对象的内存分配时，G1 会触发 Young GC。</p>
+<p>当需要分配对象到 Humongous 区域或者堆内存的空间占比超过 <code>-XX:G1HeapWastePercent</code> 设置的 InitiatingHeapOccupancyPercent 值时，G1 会触发一次 concurrent marking，它的作用就是计算老年代中有多少空间需要被回收，当发现垃圾的占比达到 <code>-XX:G1HeapWastePercent</code> 中所设置的 G1HeapWastePercent 比例时，在下次 Young GC 后会触发一次 Mixed GC。</p>
+<p>Mixed GC 是指回收年轻代的 Region 以及一部分老年代中的 Region。Mixed GC 和 Young GC 一样，采用的也是复制算法。</p>
+<p>在 Mixed GC 过程中，如果发现老年代空间还是不足，此时如果 G1HeapWastePercent 设定过低，可能引发 Full GC。<code>-XX:G1HeapWastePercent</code> 默认是 5，意味着只有 5% 的堆是“浪费”的。如果浪费的堆的百分比大于 G1HeapWastePercent，则运行 Full GC。</p>
+<p><strong>注：</strong><br>收集区域： 整个堆内存<br>使用算法： 标记复制法<br>搜集方式： 多线程</p>
+<h2 id="4-ZGC"><a href="#4-ZGC" class="headerlink" title="4.ZGC"></a>4.ZGC</h2><p>参考一开始的博客链接。</p>
+<h1 id="四、对象分配规则"><a href="#四、对象分配规则" class="headerlink" title="四、对象分配规则"></a>四、对象分配规则</h1><p>根据分代收集算法，将堆内存分为新生代和老年代，新生代分为eden区，Survivor from和Survivor to区，老年代为old区。</p>
+<p><strong>1.对象优先分配在Eden区，如果Eden区没有足够的空间时，虚拟机执行一次Minor GC。</strong> </p>
+<p>Minor GC 后，又创建的新对象会继续往 Eden 区分配。于是，随着新对象的创建，Eden 的剩余内存空间就会越来越少，又会触发 Minor GC，此时，JVM 会对 Eden 区和 From Survivor 区中的对象进行存活判断，对于存活的对象，会转移到 To Survivor 区。下一次 Minor GC，存活的对象又会从 To 到 From，这样就总有一个 Survivor 区是空的，而另外一个是无碎片的。</p>
+<p><strong>2.大对象直接进入老年代（大对象是指需要大量连续内存空间的对象）。</strong></p>
+<p>这样做的目的是避免在 Eden区和两个Survivor区之间发生大量的内存拷贝（新生代采用复制算法收集内存）。 </p>
+<p>可以通过 <code>-XX:PretenureSizeThreshold</code> 参数设置直接分配大对象到老年代的阈值。如果对象的大小超过这个阈值，它将直接在老年代中分配。例如，如果想将阈值设置为 1MB（1024KB），可以这样设置：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">-XX:PretenureSizeThreshold=1048576</span><br></pre></td></tr></table></figure>
+
+<p><strong>3.长期存活的对象进入老年代。</strong></p>
+<p>虚拟机为每个对象定义了一个年龄计数器，如果对象经过了1次 Minor GC那么对象会进入Survivor区，之后每经过一次Minor GC（从一个 Survivor 区转移到另外一个 Survivor 区时）那么对象的年龄加1，直到达到阀值对象进入老年区。 </p>
+<p><strong>4.动态判断对象的年龄。</strong></p>
+<p>如果Survivor区中相同年龄的所有对象大小的总和大于Survivor空间的 一半，年龄大于或等于该年龄的对象可以直接进入老年代。 </p>
+<p><strong>5.空间分配担保。</strong></p>
+<p>整个流程如下：</p>
+<ul>
+<li>Minor GC 之前，JVM 会先检查老年代最大可用的连续空间是否大于新生代所有对象的总空间，如果大于，则发起 Minor GC。</li>
+<li>如果小于，则看 HandlePromotionFailure 有没有设置，如果没有设置，就发起 Full GC。</li>
+<li>如果设置了 HandlePromotionFailure，则看老年代最大可用的连续空间是否大于历次晋升到老年代对象的平均大小，如果小于，就发起 Full GC。</li>
+<li>如果大于，发起 Minor GC。Minor GC 后，看 Survivor 空间是否足够存放存活对象，如果不够，就放入老年代，如果够放，就直接存放 Survivor 空间。如果老年代都不够放存活对象，担保失败（Handle Promotion Failure），发起 Full GC。</li>
+</ul>
+<p><img src="whereis-the-object-8.png"></p>
+<h1 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h1><p>判断是否需要进行垃圾回收的算法有<strong>引用标记算法和可达性分析算法</strong>，前者使用Java对象头的Reference Count属性，后者依靠引用关系，解决前者不能解决循环依赖的问题。</p>
+<p>垃圾收集算法有标记清除算法（存在内存碎片化问题）、复制算法（内存分割出去不划算）、标记整理算法（需要改动引用对象地址，效率低）、分代收集算法（前三种的组合拳），其中学习了stop-to-world是什么，新生代和老年代是什么，复习了Java对象头和永久代，JVM运行时数据区。</p>
+<p>垃圾收集器介绍了CMS、ParNew、G1等，其中，CMS和ParNew作为分区收集器，共同打配合清理堆内存。</p>
+<p>基于分代收集的算法（组合拳），对象的分配规则由eden-&gt;Survivor-&gt;old区主键分配，其中根据不同的情况进行minor gc和full gc。</p>
+]]></content>
+      <categories>
+        <category>Java</category>
+      </categories>
+      <tags>
+        <tag>JVM</tag>
+        <tag>面试</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>MySQL：（四）事务隔离级别和MVCC</title>
+    <url>/2024/08/16/MySQL-MVCC/</url>
+    <content><![CDATA[<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>MVCC是面试重灾区，网上的内容我发现并不全面，只有生搬硬套下来的原理却不解释过程，让我看的云里雾里。我写这篇MVCC的内容目的是能更好了理解MVCC如何实现，结合一些八股的内容和实际的案例进行介绍，全程干货。</p>
+<h1 id="一、什么是MVCC"><a href="#一、什么是MVCC" class="headerlink" title="一、什么是MVCC"></a>一、什么是MVCC</h1><p>多版本并发控制（MVCC&#x3D;Multi-Version Concurrency Control），是一种用来解决<strong>读 - 写冲突的无锁并发控制</strong>。也就是为事务分配单向增长的时间戳，为每个修改保存一个版本。版本与事务时间戳关联，读操作只读该事务开始前的数据库的快照（复制了一份数据）。mvcc解决的就是读写时的线程安全问题，线程不用去争抢<strong>读写锁</strong>（读写锁可参考：<a href="https://rengoku.top/2024/08/05/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E9%94%81/">Java多线程：三、多线程锁、java锁的实现 | 颓废市民黄先生 (rengoku.top)</a>）。</p>
+<blockquote>
+<p>说到读写冲突和多线程并发控制，肯定也会涉及事务的隔离级别，即读未提交（可能脏读），读已提交（不可重复读），可重复读（可能幻读）。</p>
+</blockquote>
+<p>MVCC所提到的读是快照读，也就是普通的select语句。快照读在读写时不用加锁，不过可能会读到历史数据。</p>
+<p>还有一种读取数据的方式是当前读，是一种悲观锁的操作。它会对当前读取的数据进行加锁，所以读到的数据都是最新的。主要包括以下几种操作：</p>
+<ul>
+<li><p>select lock in share mode（共享锁）</p>
+</li>
+<li><p>select for update（排他锁）</p>
+</li>
+<li><p>update（排他锁）</p>
+</li>
+<li><p>insert（排他锁）</p>
+</li>
+<li><p>delete（排他锁）</p>
+</li>
+</ul>
+<p><strong>什么是快照读和当前读？</strong></p>
+<p><strong>快照读：</strong>快照读是指在读取数据时，读取的是某个<code>Readview</code>中的数据，这个一致性视图反映了事务开始时刻数据库的<strong>快照。</strong></p>
+<p><strong>当前读：</strong>当前读，是指读取操作获取的是数据的最新版本，即读取操作发生时数据库中该数据的实际状态。这种读取方式通常伴随着锁的使用，以确保读取的数据在事务处理期间不会被其他事务修改，从而保证事务的一致性和隔离性。</p>
+<p><img src="Snipaste_2024-08-17_16-14-30.png"></p>
+<p><strong>MVCC在MySQL的InnoDB引擎是默认实现的，无需配置其他内容。</strong></p>
+<h1 id="二、MVCC实现原理"><a href="#二、MVCC实现原理" class="headerlink" title="二、MVCC实现原理"></a>二、MVCC实现原理</h1><p>MVCC 的目的就是多版本并发控制，在数据库中的实现，就是为了解决读写冲突，它的实现原理主要是依赖记录中的版本链、undo 日志、Read View 来实现的。</p>
+<h2 id="1-隐藏字段"><a href="#1-隐藏字段" class="headerlink" title="1. 隐藏字段"></a>1. 隐藏字段</h2><p><img src="Snipaste_2024-08-17_16-26-15.png" alt="三个隐藏字段"></p>
+<p>在MySQL中，除了我们显示的定义列，存储引擎还会隐式帮我们定义一些列，分别是<strong>trx_id，roll_pointer，row_id:</strong></p>
+<p><strong>trx_id：</strong></p>
+<p>在MySQL的InnoDB存储引擎中，<code>trx_id</code>是一个隐藏列，用于记录对该行数据最后一次进行修改（INSERT、UPDATE或DELETE）的事务的ID。当需要一个新的<code>trx_id</code>时，InnoDB会获取<code>max_trx_id</code>的当前值，然后将其加1，并将结果赋值给新的或修改的数据行的<code>trx_id</code>隐藏列。</p>
+<p><strong>roll_pointer：</strong></p>
+<p>回滚指针，用于找到上一个版本的数据，结合undolog进行回滚。</p>
+<p><strong>row_id:</strong></p>
+<p>当表没有主键时，innodb会隐式的增加<code>row_id</code>字段作为主键，如果表中存在主键则没有这个字段</p>
+<h2 id="2-undo-log版本链"><a href="#2-undo-log版本链" class="headerlink" title="2. undo log版本链"></a>2. undo log版本链</h2><p><img src="Snipaste_2024-08-17_16-24-43.png" alt="undo log版本链"></p>
+<h2 id="3-read-view"><a href="#3-read-view" class="headerlink" title="3. read view"></a>3. read view</h2><p><img src="Snipaste_2024-08-17_16-32-15.png" alt="read view字段"></p>
+<h2 id="4-八股：read-view判断规则"><a href="#4-八股：read-view判断规则" class="headerlink" title="4. 八股：read view判断规则"></a>4. 八股：read view判断规则</h2><p><img src="Snipaste_2024-08-17_16-47-39.png" alt="判断规则"></p>
+<p>这里是理解的重点，我举个例子：</p>
+<p>假设有两个事务，事务A和事务B，它们同时操作同一张表中的数据。事务A的ID为100，事务B的ID为101。事务A在开始时执行了一个SELECT操作，想要读取某条数据；而事务B则在该数据上执行了UPDATE操作，但尚未提交。</p>
+<h3 id="4-1-Read-View的创建"><a href="#4-1-Read-View的创建" class="headerlink" title="4.1 Read View的创建"></a>4.1 Read View的创建</h3><ol>
+<li>事务A的Read View创建<ul>
+<li>当事务A执行SELECT操作时，InnoDB会为事务A创建一个Read View<strong>（普通的select是快照读）</strong>。这个Read View中包含了当前系统中所有活跃的事务ID（即已经开启但尚未提交的事务ID）。在这个例子中，Read View将包含事务A（ID&#x3D;100）和事务B（ID&#x3D;101）的ID，因为事务B此时是活跃的。</li>
+<li>Read View还包含以下关键字段：<ul>
+<li><code>m_ids</code>：包含活跃事务的ID列表，如[100, 101]。</li>
+<li><code>min_trx_id</code>：<code>m_ids</code>中的最小事务ID，即100。</li>
+<li><code>max_trx_id</code>：系统应该分配给下一个事务的ID值，这个值通常基于当前最大事务ID加1计算得出，但在这个场景中我们主要关注<code>m_ids</code>和<code>min_trx_id</code>。</li>
+<li><code>creator_trx_id</code>：创建Read View的事务ID，即100。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>数据可见性判断<ul>
+<li>当事务A尝试读取某条数据时，InnoDB会检查该数据的各个版本。每个版本都会有一个<code>trx_id</code>，表示修改该版本的事务ID。</li>
+<li>如果某个版本的<code>trx_id</code>与<code>creator_trx_id</code>相同（即事务A自己修改的），则该版本对事务A可见。</li>
+<li>如果某个版本的<code>trx_id</code>小于<code>min_trx_id</code>（即该版本在事务A的Read View创建之前已经提交），则该版本对事务A可见。</li>
+<li>如果某个版本的<code>trx_id</code>大于或等于Read View中最大的活跃事务ID（在这个例子中我们没有直接使用<code>max_trx_id</code>作为判断条件，因为它通常用于确定新事务的ID），则该版本对事务A不可见，因为它是在事务A的Read View创建之后生成的。</li>
+<li>如果某个版本的<code>trx_id</code>在<code>min_trx_id</code>和<code>m_ids</code>中的最大事务ID之间，则需要进一步检查该<code>trx_id</code>是否在<code>m_ids</code>列表中。如果在，说明该版本是在事务A的Read View创建时活跃的，因此不可见；如果不在，说明该版本在事务A的Read View创建前已经提交，因此可见。</li>
+</ul>
+</li>
+</ol>
+<h3 id="4-2-例子中的操作"><a href="#4-2-例子中的操作" class="headerlink" title="4.2 例子中的操作"></a>4.2 例子中的操作</h3><ul>
+<li>假设事务B修改了数据但尚未提交，因此数据的最新版本（由事务B修改）对事务A不可见。</li>
+<li>事务A将根据Read View中的规则，找到并读取事务B修改之前的旧版本数据（如果存在的话）。</li>
+</ul>
+<h3 id="4-3-为什么是事务A创建read-view？"><a href="#4-3-为什么是事务A创建read-view？" class="headerlink" title="4.3 为什么是事务A创建read view？"></a>4.3 为什么是事务A创建read view？</h3><p>因为事务A做的select操作是快照读，做快照读就会生成read view。在开头提到的一些操作是当前读。</p>
+<h3 id="4-4-read-view这个模式是针对同一条数据的吗？"><a href="#4-4-read-view这个模式是针对同一条数据的吗？" class="headerlink" title="4.4 read view这个模式是针对同一条数据的吗？"></a>4.4 read view这个模式是针对同一条数据的吗？</h3><p>不是，他是对所有事务进行的快照，只不过是因为我做修改操作的时候需要判断之前的版本哪个是我进行修改操作的时候读取到的版本，所以我针对的是同一条数据进行分析。再演示一个例子：</p>
+<ul>
+<li>事务 A 开始，执行第一次 SELECT 查询，创建 Read View A。</li>
+<li>事务 B 开始，执行第一次 SELECT 查询，创建 Read View B。</li>
+<li>事务 A 对表 T 中的记录 R1进行UPDATE操作，但未提交。</li>
+<li>事务 C 开始，执行UPDATE操作，修改表 T 中的记录 R2 ，但未提交。</li>
+<li>事务 B 尝试读取记录 R1，使用 Read View B 进行可见性判断。由于事务 A和事务 C  的修改尚未提交，因此事务 B 看不到事务 A 和事务 C 的修改，它可能看到的是记录 R 和记录 R2 的旧版本。</li>
+<li>事务 A 提交修改，同时事务 C 也进行提交修改。</li>
+<li>如果事务 B 之后再次执行 SELECT 查询（在 Read Committed 隔离级别下），它将创建一个新的 Read View，此时能够看到事务 A 和事务 C 已经提交的修改。如果此时是对记录 R 进行SELECT操作，那么就读取到的是事务 B 提交的最新版本，如果此时是对记录 R2 进行SELECT操作，那么就读取到的是事务 C 提交的最新版本，取决于SELECT 查询是对哪条记录。</li>
+<li>事务 B 提交。</li>
+</ul>
+<blockquote>
+<p>强调RC的隔离级别是因为RC和RR下，使用readview的可能会不一样，在下一节我会写得很详细。</p>
+</blockquote>
+<p>总结：在这个例子中，事务B生成了两次readview，不同的是事务 B 前后两次快照对记录 R 和记录 R2 读取的版本不同。</p>
+<h3 id="4-5-trx-id是哪条数据？"><a href="#4-5-trx-id是哪条数据？" class="headerlink" title="4.5 trx_id是哪条数据？"></a>4.5 trx_id是哪条数据？</h3><p>trx_id是在read view中的任何一条事务id，使用trx_id来套用规则。在下一节来讲得更详细一些。</p>
+<h1 id="三、事务隔离级别与MVCC"><a href="#三、事务隔离级别与MVCC" class="headerlink" title="三、事务隔离级别与MVCC"></a>三、事务隔离级别与MVCC</h1><h2 id="1-RC与MVCC"><a href="#1-RC与MVCC" class="headerlink" title="1. RC与MVCC"></a>1. RC与MVCC</h2><p><strong>在RC(read commited)的隔离级别下，每一次进行快照读都会生成一个read view。</strong></p>
+<p><img src="Snipaste_2024-08-17_17-27-56.png" alt="RC&amp;MVCC"></p>
+<p>我从刚刚的那个undo log版本链中来进行分析，如果事务5<strong>第一次进行select操作</strong>到底读取到的是哪个版本：</p>
+<p><img src="Snipaste_2024-08-17_17-46-45.png" alt="RC下的MVCC"></p>
+<p>对于事务5，事务5进行了select操作，所以进行快照读，生成一次read view。从版本链的最上游开始，trx_id&#x3D;4，来判断事务5读取到的是哪个版本。</p>
+<p>我们从判断规则入手：此时trx_id&#x3D;4的情况下，四个条件如下：</p>
+<ol>
+<li>trx_id不等于5</li>
+<li>trx_id不小于3</li>
+<li>trx_id不大于6</li>
+<li>trx_id在3,4,5这个集合内</li>
+</ol>
+<p>可以看到，事务4（trx_id&#x3D;4）时，所有判断都不成立，所以事务5不会读取到事务4的版本。</p>
+<p>以此类推，可以发现trx_id&#x3D;2的时候，满足第二个条件：<code>trx_id=2&lt;min_trx_id=3</code>。事务5进行select操作的时候会读取到trx_id&#x3D;2的版本，也就是<code>id=30,age=3,name=A30,trx_id=2,roll_point=0X00001</code>这条记录。</p>
+<p>同样的写法，<strong>事务5第二次进行快照读的时候</strong>，应该读取到的是事务3的版本，因为事务5打快照的时候，事务3已经提交了。也就是<code>id=30,age=3,name=A3,trx_id=3,roll_point=0X00002</code>这条记录。</p>
+<p>看到这里，是不是更好的理解RC了呢？确实和RC名字一样，真的就是<strong>读已提交</strong>啊。这也就是RC的实现原理啦。</p>
+<h2 id="2-RR与MVCC"><a href="#2-RR与MVCC" class="headerlink" title="2. RR与MVCC"></a>2. RR与MVCC</h2><p><strong>在RR（repeatable read）的事务隔离级别下，仅在事务中第一次执行快照读的时候生成一次read view，后续会复用这个read view。</strong></p>
+<p><img src="Snipaste_2024-08-17_18-08-54.png" alt="RR&amp;MVCC"></p>
+<p>这里套用的判断规则和RC是一样的。RR既然叫可重复读，那肯定是套用了一样的read view啊！豁然开朗啊简直是</p>
+<p>最后我们再看看mvcc这些内容保证ACID的什么部分：</p>
+<p><img src="Snipaste_2024-08-17_18-11-38.png" alt="mvcc保证c和i"></p>
+<p>通过整篇的介绍，我们也可以看出，事务隔离级别和底层的MVCC加上锁实现保证<strong>隔离性</strong>；两个日志文件：redo log的保证事务持久性和undo log回滚事务来保证数据<strong>一致性</strong>。</p>
+<p>两个日志文件我在这里有介绍：<a href="https://rengoku.top/2024/08/15/MySQL-%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E/">MySQL：（二）存储引擎 | 颓废市民黄先生 (rengoku.top)</a></p>
+<h2 id="3-RU如何实现的？"><a href="#3-RU如何实现的？" class="headerlink" title="3. RU如何实现的？"></a>3. RU如何实现的？</h2><p>在上边两节内容中，我讲了事务隔离级别主要通过底层MVCC进行实现的，现在没讲的事务隔离级别除了序列化，就只剩RU（Read Uncommited）了，这一节简单的附上一些资料。</p>
+<p>在RU级别中，事务读到的所有数据都是<strong>最新的数据</strong>，可能是事务提交后的数据，也可能是事务<strong>执行中的数据（可能会被回滚）</strong>。</p>
+<h3 id="3-1-锁机制"><a href="#3-1-锁机制" class="headerlink" title="3.1 锁机制"></a>3.1 锁机制</h3><ul>
+<li><strong>不加锁或轻量级锁</strong>：在RU隔离级别下，数据库系统可能不会对读取的数据加锁，或者只加非常轻量级的锁，以允许其他事务同时读取和写入数据。这意味着，一个事务在读取数据时，可能看到其他事务尚未提交的数据变更。</li>
+<li><strong>写锁</strong>：尽管读取时可能不加锁，但写入数据时通常需要加<strong>行级锁</strong>，以防止数据在写入过程中被其他事务修改，从而保证数据的一致性。然而，在RU级别下，写锁的存在并不影响读取到未提交数据的能力。</li>
+</ul>
+<h3 id="3-2-并发控制"><a href="#3-2-并发控制" class="headerlink" title="3.2 并发控制"></a>3.2 并发控制</h3><ul>
+<li><p><strong>多版本并发控制（MVCC）的缺失</strong>：在读未提交隔离级别下，数据库系统可能不会对数据进行多版本控制（MVCC），或者即使支持MVCC，也可能不会利用它来提供隔离性。相反，事务可以直接访问当前数据库的最新状态，包括其他事务尚未提交的数据。</p>
+</li>
+<li><p><strong>直接访问最新数据</strong>：事务在RU级别下直接访问数据库中的最新数据版本，而不管这些数据是否已经被其他事务提交。这可能导致脏读（Dirty Reads）的发生，即读取到其他事务未提交的数据。</p>
+</li>
+<li><p><strong>事务视图</strong>：每个事务在开始时可能会创建一个事务视图，但这个视图在读未提交隔离级别下不会限制对其他事务未提交数据的访问。事务可以自由地读取和看到其他事务正在进行的更改，无论这些更改是否已被提交。</p>
+</li>
+</ul>
+<p><strong>简单的说，RU的实现只是加了轻量锁，这种隔离级别是一种用数据隔离性替换性能的隔离方式。</strong></p>
+<h1 id="四、八股部分"><a href="#四、八股部分" class="headerlink" title="四、八股部分"></a>四、八股部分</h1><p>最后放部分八股的题目：</p>
+<p><img src="Snipaste_2024-08-15_11-17-01.png" alt="八股"></p>
+<p>关于24题中3个隐式字段，除了trx_id和roll_pointer，还有一个是row_id，在这里整理一下：</p>
+<ol>
+<li><p>row_id</p>
+<p>这是一个唯一的标识符，用于唯一标识一条行记录。当表没有显式定义主键或唯一索引时，InnoDB会使用row_id作为主键。</p>
+</li>
+<li><p>trx_id</p>
+<p>事务ID，记录的是当前行记录是被哪个事务修改提交的。InnoDB会为每个开启的事务分配一个递增的ID，用于唯一标识一个事务。当某个事务修改了某个行记录时，就会在这个行记录的trx_id隐式字段中记录当前事务的ID。</p>
+</li>
+<li><p>roll_pointer</p>
+<p>回滚指针，用于指向undo日志中该行记录的历史版本。当一个事务对某条记录进行修改时，会把该行记录先拷贝到undo日志中作为一个历史版本，然后再对该行记录进行修改，并使用roll_pointer指针指向undo日志中该行记录的历史版本。</p>
+</li>
+</ol>
+<p>24题中使用undo日志的体现：</p>
+<ul>
+<li>构成版本链：每次对记录修改时会写入undo日志，而回滚指针将这些记录构成一条链表，供回滚指针进行回滚</li>
+<li>实现多线程并发控制：记录未提交事务内容，可以作为其他事务的参考进行快照读</li>
+</ul>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>MVCC是多版本并发控制，在MySQL的InnoDB引擎中是默认实现的。MVCC和事务隔离级别共同管理事务，尽可能的避免脏读、幻读的问题。</p>
+<p>MVCC通过三个隐式字段（row_id、trx_id、roll_pointer）、版本链、undo日志、read view视图实现事务隔离。</p>
+<p>顺便把锁的博客放一篇：<a href="https://blog.csdn.net/u010841296/article/details/87909468"><a href="https://rengoku.top/2024/08/15/MySQL-%E9%94%81/">MySQL：（三）全局锁、表级锁、行级锁 | 颓废市民黄先生 (rengoku.top)</a></a></p>
+]]></content>
+      <categories>
+        <category>数据库</category>
+      </categories>
+      <tags>
+        <tag>面试</tag>
+        <tag>mysql</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>Java：JDK8函数式接口、lambda表达式、方法引用</title>
     <url>/2024/07/06/Java-JDK8%E5%87%BD%E6%95%B0%E5%BC%8F%E6%8E%A5%E5%8F%A3%E3%80%81lambda%E8%A1%A8%E8%BE%BE%E5%BC%8F%E3%80%81%E6%96%B9%E6%B3%95%E5%BC%95%E7%94%A8/</url>
     <content><![CDATA[<h1 id="一、函数式接口"><a href="#一、函数式接口" class="headerlink" title="一、函数式接口"></a>一、函数式接口</h1><p>只有一个抽象方法的接口就成为函数式接口。同时，引入了一个新的注解：@FunctionalInterface。可以把他它放在一个接口前，表示这个接口是一个函数式接口。这个注解是非必须的，只要接口只包含一个方法的接口，虚拟机会自动判断，不过最好在接口上使用注解 @FunctionalInterface 进行声明。在接口中添加了 @FunctionalInterface 的接口，只允许有一个抽象方法，否则编译器也会报错。</p>
@@ -773,140 +1129,6 @@
       </tags>
   </entry>
   <entry>
-    <title>MySQL：（四）事务隔离级别和MVCC</title>
-    <url>/2024/08/16/MySQL-MVCC/</url>
-    <content><![CDATA[<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>MVCC是面试重灾区，网上的内容我发现并不全面，只有生搬硬套下来的原理却不解释过程，让我看的云里雾里。我写这篇MVCC的内容目的是能更好了理解MVCC如何实现，结合一些八股的内容和实际的案例进行介绍，全程干货。</p>
-<h1 id="一、什么是MVCC"><a href="#一、什么是MVCC" class="headerlink" title="一、什么是MVCC"></a>一、什么是MVCC</h1><p>多版本并发控制（MVCC&#x3D;Multi-Version Concurrency Control），是一种用来解决<strong>读 - 写冲突的无锁并发控制</strong>。也就是为事务分配单向增长的时间戳，为每个修改保存一个版本。版本与事务时间戳关联，读操作只读该事务开始前的数据库的快照（复制了一份数据）。mvcc解决的就是读写时的线程安全问题，线程不用去争抢<strong>读写锁</strong>（读写锁可参考：<a href="https://rengoku.top/2024/08/05/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E9%94%81/">Java多线程：三、多线程锁、java锁的实现 | 颓废市民黄先生 (rengoku.top)</a>）。</p>
-<blockquote>
-<p>说到读写冲突和多线程并发控制，肯定也会涉及事务的隔离级别，即读未提交（可能脏读），读已提交（不可重复读），可重复读（可能幻读）。MVCC和事务隔离级别共同解决这些问题。</p>
-</blockquote>
-<p>MVCC所提到的读是快照读，也就是普通的select语句。快照读在读写时不用加锁，不过可能会读到历史数据。</p>
-<p>还有一种读取数据的方式是当前读，是一种悲观锁的操作。它会对当前读取的数据进行加锁，所以读到的数据都是最新的。主要包括以下几种操作：</p>
-<ul>
-<li><p>select lock in share mode（共享锁）</p>
-</li>
-<li><p>select for update（排他锁）</p>
-</li>
-<li><p>update（排他锁）</p>
-</li>
-<li><p>insert（排他锁）</p>
-</li>
-<li><p>delete（排他锁）</p>
-</li>
-</ul>
-<p><strong>什么是快照读和当前读？</strong></p>
-<p><strong>快照读：</strong>快照读是指在读取数据时，读取的是某个一致性视图（Consistent View）中的数据，这个一致性视图反映了事务开始时刻数据库的快照。</p>
-<blockquote>
-<p>什么是一致性视图？这里虽然说的玄乎，其实就是read view，待会儿在介绍mvcc实现原理中介绍。</p>
-</blockquote>
-<p><strong>当前读：</strong>当前读，是指读取操作获取的是数据的最新版本，即读取操作发生时数据库中该数据的实际状态。这种读取方式通常伴随着锁的使用，以确保读取的数据在事务处理期间不会被其他事务修改，从而保证事务的一致性和隔离性。</p>
-<p><img src="Snipaste_2024-08-17_16-14-30.png"></p>
-<p><strong>MVCC在MySQL的InnoDB引擎是默认实现的，无需配置其他内容。</strong></p>
-<h1 id="二、MVCC实现原理"><a href="#二、MVCC实现原理" class="headerlink" title="二、MVCC实现原理"></a>二、MVCC实现原理</h1><p>MVCC 的目的就是多版本并发控制，在数据库中的实现，就是为了解决读写冲突，它的实现原理主要是依赖记录中的版本链、undo 日志、Read View 来实现的。</p>
-<h2 id="1-隐藏字段"><a href="#1-隐藏字段" class="headerlink" title="1. 隐藏字段"></a>1. 隐藏字段</h2><p><img src="Snipaste_2024-08-17_16-26-15.png" alt="三个隐藏字段"></p>
-<p>在MySQL中，除了我们显示的定义列，存储引擎还会隐式帮我们定义一些列，分别是<strong>trx_id，roll_pointer，row_id:</strong></p>
-<p><strong>trx_id：</strong></p>
-<p>在MySQL的InnoDB存储引擎中，<code>trx_id</code>是一个隐藏列，用于记录对该行数据最后一次进行修改（INSERT、UPDATE或DELETE）的事务的ID。当需要一个新的<code>trx_id</code>时，InnoDB会获取<code>max_trx_id</code>的当前值，然后将其加1，并将结果赋值给新的或修改的数据行的<code>trx_id</code>隐藏列。</p>
-<p><strong>roll_pointer：</strong></p>
-<p>回滚指针，用于找到上一个版本的数据，结合undolog进行回滚。</p>
-<p><strong>row_id:</strong></p>
-<p>当表没有主键时，innodb会隐式的增加<code>row_id</code>字段作为主键，如果表中存在主键则没有这个字段</p>
-<h2 id="2-undo-log版本链"><a href="#2-undo-log版本链" class="headerlink" title="2. undo log版本链"></a>2. undo log版本链</h2><p><img src="Snipaste_2024-08-17_16-24-43.png" alt="undo log版本链"></p>
-<h2 id="3-read-view"><a href="#3-read-view" class="headerlink" title="3. read view"></a>3. read view</h2><p><img src="Snipaste_2024-08-17_16-32-15.png" alt="read view字段"></p>
-<h2 id="4-八股：read-view判断规则"><a href="#4-八股：read-view判断规则" class="headerlink" title="4. 八股：read view判断规则"></a>4. 八股：read view判断规则</h2><p><img src="Snipaste_2024-08-17_16-47-39.png" alt="判断规则"></p>
-<p>这里是理解的重点，我举个例子：</p>
-<p>假设有两个事务，事务A和事务B，它们同时操作同一张表中的数据。事务A的ID为100，事务B的ID为101。事务A在开始时执行了一个SELECT操作，想要读取某条数据；而事务B则在该数据上执行了UPDATE操作，但尚未提交。</p>
-<h3 id="4-1-Read-View的创建"><a href="#4-1-Read-View的创建" class="headerlink" title="4.1 Read View的创建"></a>4.1 Read View的创建</h3><ol>
-<li>事务A的Read View创建<ul>
-<li>当事务A执行SELECT操作时，InnoDB会为事务A创建一个Read View<strong>（普通的select是快照读）</strong>。这个Read View中包含了当前系统中所有活跃的事务ID（即已经开启但尚未提交的事务ID）。在这个例子中，Read View将包含事务A（ID&#x3D;100）和事务B（ID&#x3D;101）的ID，因为事务B此时是活跃的。</li>
-<li>Read View还包含以下关键字段：<ul>
-<li><code>m_ids</code>：包含活跃事务的ID列表，如[100, 101]。</li>
-<li><code>min_trx_id</code>：<code>m_ids</code>中的最小事务ID，即100。</li>
-<li><code>max_trx_id</code>：系统应该分配给下一个事务的ID值，这个值通常基于当前最大事务ID加1计算得出，但在这个场景中我们主要关注<code>m_ids</code>和<code>min_trx_id</code>。</li>
-<li><code>creator_trx_id</code>：创建Read View的事务ID，即100。</li>
-</ul>
-</li>
-</ul>
-</li>
-<li>数据可见性判断<ul>
-<li>当事务A尝试读取某条数据时，InnoDB会检查该数据的各个版本。每个版本都会有一个<code>trx_id</code>，表示修改该版本的事务ID。</li>
-<li>如果某个版本的<code>trx_id</code>与<code>creator_trx_id</code>相同（即事务A自己修改的），则该版本对事务A可见。</li>
-<li>如果某个版本的<code>trx_id</code>小于<code>min_trx_id</code>（即该版本在事务A的Read View创建之前已经提交），则该版本对事务A可见。</li>
-<li>如果某个版本的<code>trx_id</code>大于或等于Read View中最大的活跃事务ID（在这个例子中我们没有直接使用<code>max_trx_id</code>作为判断条件，因为它通常用于确定新事务的ID），则该版本对事务A不可见，因为它是在事务A的Read View创建之后生成的。</li>
-<li>如果某个版本的<code>trx_id</code>在<code>min_trx_id</code>和<code>m_ids</code>中的最大事务ID之间，则需要进一步检查该<code>trx_id</code>是否在<code>m_ids</code>列表中。如果在，说明该版本是在事务A的Read View创建时活跃的，因此不可见；如果不在，说明该版本在事务A的Read View创建前已经提交，因此可见。</li>
-</ul>
-</li>
-</ol>
-<h3 id="4-2-例子中的操作"><a href="#4-2-例子中的操作" class="headerlink" title="4.2 例子中的操作"></a>4.2 例子中的操作</h3><ul>
-<li>假设事务B修改了数据但尚未提交，因此数据的最新版本（由事务B修改）对事务A不可见。</li>
-<li>事务A将根据Read View中的规则，找到并读取事务B修改之前的旧版本数据（如果存在的话）。</li>
-</ul>
-<h3 id="4-3-为什么是事务A创建read-view？"><a href="#4-3-为什么是事务A创建read-view？" class="headerlink" title="4.3 为什么是事务A创建read view？"></a>4.3 为什么是事务A创建read view？</h3><p>因为事务A做的select操作是快照读，做快照读就会生成read view。在开头提到的一些操作是当前读。</p>
-<h3 id="4-4-read-view这个模式是针对同一条数据的吗？"><a href="#4-4-read-view这个模式是针对同一条数据的吗？" class="headerlink" title="4.4 read view这个模式是针对同一条数据的吗？"></a>4.4 read view这个模式是针对同一条数据的吗？</h3><p>不是，他是对所有事务进行的快照，只不过是因为我做修改操作的时候需要判断之前的版本哪个是我进行修改操作的时候读取到的版本，所以我针对的是同一条数据进行分析。再演示一个例子：</p>
-<ul>
-<li>事务 A 开始，执行第一次 SELECT 查询，创建 Read View A。</li>
-<li>事务 B 开始，执行第一次 SELECT 查询，创建 Read View B。</li>
-<li>事务 A 对表 T 中的记录 R 进行修改，但未提交。</li>
-<li>事务 B 尝试读取记录 R，使用 Read View B 进行可见性判断。由于事务 A 的修改尚未提交，因此事务 B 看不到事务 A 的修改，它可能看到的是记录 R 的旧版本。</li>
-<li>事务 A 提交修改。</li>
-<li>如果事务 B 之后再次执行 SELECT 查询（在 Read Committed 隔离级别下），它将创建一个新的 Read View，此时能够看到事务 A 已经提交的修改。在 Repeatable Read 隔离级别下，由于它复用了首次创建的 Read View B，因此仍然看不到事务 A 的修改。</li>
-</ul>
-<p>在这个例子中，事务B打了两次快照，不同的是前后两次快照对事务B对记录R读取的版本不同，现在也只是用了两个版本，如果还有事务C改了和R不同的数据，也只是对事务B而言，每次打read view的时候版本不同而已。</p>
-<h3 id="4-5-trx-id是哪条数据？"><a href="#4-5-trx-id是哪条数据？" class="headerlink" title="4.5 trx_id是哪条数据？"></a>4.5 trx_id是哪条数据？</h3><p>trx_id是在read view中的任何一条事务id，使用trx_id来套用规则。在下一节来讲得更详细一些。</p>
-<h1 id="三、事务隔离级别与MVCC"><a href="#三、事务隔离级别与MVCC" class="headerlink" title="三、事务隔离级别与MVCC"></a>三、事务隔离级别与MVCC</h1><h2 id="1-RC与MVCC"><a href="#1-RC与MVCC" class="headerlink" title="1. RC与MVCC"></a>1. RC与MVCC</h2><p><strong>在RC(read commited)的隔离级别下，每一次进行快照读都会生成一个read view。</strong></p>
-<p><img src="Snipaste_2024-08-17_17-27-56.png" alt="RC&amp;MVCC"></p>
-<p>我从刚刚的那个undo log版本链中来进行分析，如果事务5<strong>第一次进行select操作</strong>到底读取到的是哪个版本：</p>
-<p><img src="Snipaste_2024-08-17_17-46-45.png" alt="RC下的MVCC"></p>
-<p>对于事务5，事务5进行了select操作，所以进行快照读，生成一次read view。从版本链的最上游开始，trx_id&#x3D;4，来判断事务5读取到的是哪个版本。</p>
-<p>我们从判断规则入手：此时trx_id&#x3D;4的情况下，四个条件如下：</p>
-<ol>
-<li>trx_id不等于5</li>
-<li>trx_id不小于3</li>
-<li>trx_id不大于6</li>
-<li>trx_id在3,4,5这个集合内</li>
-</ol>
-<p>可以看到，事务4（trx_id&#x3D;4）时，所有判断都不成立，所以事务5不会读取到事务4的版本。</p>
-<p>以此类推，可以发现trx_id&#x3D;2的时候，满足第二个条件：<code>trx_id=2&lt;min_trx_id=3</code>。事务5进行select操作的时候会读取到trx_id&#x3D;2的版本，也就是<code>id=30,age=3,name=A30,trx_id=2,roll_point=0X00001</code>这条记录。</p>
-<p>同样的写法，<strong>事务5第二次进行快照读的时候</strong>，应该读取到的是事务3的版本，因为事务5打快照的时候，事务3已经提交了。也就是<code>id=30,age=3,name=A3,trx_id=3,roll_point=0X00002</code>这条记录。</p>
-<p>看到这里，是不是更好的理解RC了呢？确实和RC名字一样，真的就是<strong>读已提交</strong>啊。这也就是RC的实现原理啦。</p>
-<h2 id="2-RR与MVCC"><a href="#2-RR与MVCC" class="headerlink" title="2. RR与MVCC"></a>2. RR与MVCC</h2><p><strong>在RR（repeatable read）的事务隔离级别下，仅在事务中第一次执行快照读的时候生成一次read view，后续会复用这个read view。</strong></p>
-<p><img src="Snipaste_2024-08-17_18-08-54.png" alt="RR&amp;MVCC"></p>
-<p>这里套用的判断规则和RC是一样的。RR既然叫可重复读，那肯定是套用了一样的read view啊！豁然开朗啊简直是</p>
-<p>最后我们再看看mvcc这些内容保证ACID的什么部分：</p>
-<p><img src="Snipaste_2024-08-17_18-11-38.png" alt="mvcc保证c和i"></p>
-<p>通过整篇的介绍，我们也可以看出，事务隔离级别和底层的MVCC加上锁实现保证<strong>隔离性</strong>；两个日志文件：redo log的保证事务持久性和undo log回滚事务来保证数据<strong>一致性</strong>。</p>
-<h1 id="四、八股部分"><a href="#四、八股部分" class="headerlink" title="四、八股部分"></a>四、八股部分</h1><p>最后放部分八股的题目：</p>
-<p><img src="Snipaste_2024-08-15_11-17-01.png" alt="八股"></p>
-<p>关于24题中3个隐式字段，除了trx_id和roll_pointer，还有一个是row_id，在这里整理一下：</p>
-<ol>
-<li><p>row_id</p>
-<p>这是一个唯一的标识符，用于唯一标识一条行记录。当表没有显式定义主键或唯一索引时，InnoDB会使用row_id作为主键。</p>
-</li>
-<li><p>trx_id</p>
-<p>事务ID，记录的是当前行记录是被哪个事务修改提交的。InnoDB会为每个开启的事务分配一个递增的ID，用于唯一标识一个事务。当某个事务修改了某个行记录时，就会在这个行记录的trx_id隐式字段中记录当前事务的ID。</p>
-</li>
-<li><p>roll_pointer</p>
-<p>回滚指针，用于指向undo日志中该行记录的历史版本。当一个事务对某条记录进行修改时，会把该行记录先拷贝到undo日志中作为一个历史版本，然后再对该行记录进行修改，并使用roll_pointer指针指向undo日志中该行记录的历史版本。</p>
-</li>
-</ol>
-<p>24题中使用undo日志的体现：</p>
-<ul>
-<li>构成版本链：每次对记录修改时会写入undo日志，而回滚指针将这些记录构成一条链表，供回滚指针进行回滚</li>
-<li>实现多线程并发控制：记录未提交事务内容，可以作为其他事务的参考进行快照读</li>
-</ul>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>MVCC是多版本并发控制，在MySQL的InnoDB引擎中是默认实现的。MVCC和事务隔离级别共同管理事务，尽可能的避免脏读、幻读的问题。</p>
-<p>MVCC通过三个隐式字段（row_id、trx_id、roll_pointer）、版本链、undo日志、read view视图实现事务隔离。</p>
-<p>顺便把锁的博客放一篇：<a href="https://blog.csdn.net/u010841296/article/details/87909468"><a href="https://rengoku.top/2024/08/15/MySQL-%E9%94%81/">MySQL：（三）全局锁、表级锁、行级锁 | 颓废市民黄先生 (rengoku.top)</a></a></p>
-]]></content>
-      <categories>
-        <category>数据库</category>
-      </categories>
-      <tags>
-        <tag>mysql</tag>
-        <tag>面试</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>MySQL：（二）存储引擎</title>
     <url>/2024/08/15/MySQL-%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E/</url>
     <content><![CDATA[<h1 id="一、存储引擎"><a href="#一、存储引擎" class="headerlink" title="一、存储引擎"></a>一、存储引擎</h1><h2 id="1-InnoDB"><a href="#1-InnoDB" class="headerlink" title="1. InnoDB"></a>1. InnoDB</h2><p>在MySQL现版本，默认的存储引擎是InnoDB，这个不用多说了，另外常见的还有MyISAM，Memory，CSV等，这里就InnoDB进行介绍。</p>
@@ -970,8 +1192,147 @@
         <category>数据库</category>
       </categories>
       <tags>
-        <tag>mysql</tag>
         <tag>面试</tag>
+        <tag>mysql</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>MySQL：（三）全局锁、表级锁、行级锁</title>
+    <url>/2024/08/15/MySQL-%E9%94%81/</url>
+    <content><![CDATA[<p>MySQL中的锁，按照锁的粒度分，分为：</p>
+<ol>
+<li>全局锁：锁定数据库中所有表</li>
+<li>表级锁：每次操作锁整张表</li>
+<li>行级锁：每次操作锁住对应行数据</li>
+</ol>
+<h1 id="一、全局锁"><a href="#一、全局锁" class="headerlink" title="一、全局锁"></a>一、全局锁</h1><p><img src="Snipaste_2024-08-16_15-45-59.png" alt="全局锁"></p>
+<blockquote>
+<p>mysqldump相信大家都听说过，这是用来进行数据库备份的工具，除此以外也可以采用数据库主从复制机制进行数据库备份，这同时也是异地容灾、备份等内容。</p>
+</blockquote>
+<p><strong>数据库备份操作：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># 加锁操作</span><br><span class="line">flush tables with read lock;</span><br><span class="line"></span><br><span class="line"># 数据备份</span><br><span class="line">mysqldump -uroot -p1234 databases &gt; database.sql</span><br><span class="line"># 加端口的数据备份</span><br><span class="line">mysqldump -h192.168.xx.xx -uroot -p1234 databases &gt; database.sql</span><br><span class="line"></span><br><span class="line"># 解锁操作</span><br><span class="line">unlock tables;</span><br></pre></td></tr></table></figure>
+
+<p>这里附上一篇<code>flush操作</code>的博客，用的是博客中的第4条：<a href="https://blog.csdn.net/a772304419/article/details/138797621">MySQL flush命令详解-CSDN博客</a></p>
+<blockquote>
+<p><strong>FLUSH TABLES</strong>: 关闭所有表并清空表缓存（如查询缓存），或者指定特定表进行刷新。这对于解决锁问题、确保数据一致性或在没有重启MySQL服务的情况下应用表结构更改很有用。加上<code>WITH READ LOCK</code>选项可以全局锁定所有表，以便进行安全的备份。</p>
+</blockquote>
+<p><strong>全局锁存在的问题：</strong></p>
+<p><img src="Snipaste_2024-08-16_16-22-46.png" alt="全局锁存在的问题"></p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># 数据备份</span><br><span class="line">mysqldump --single-transaction -uroot -p1234 databases &gt; database.sql</span><br></pre></td></tr></table></figure>
+
+<p>加上这个参数以后，就是通过快照读而不加全局锁了，快照读在上一篇博客有介绍，可以戳链接看看：<a href="https://rengoku.top/2024/08/15/MySQL-MVCC/">MySQL：MVCC与事务 | 颓废市民黄先生 (rengoku.top)</a></p>
+<h1 id="二、表级锁"><a href="#二、表级锁" class="headerlink" title="二、表级锁"></a>二、表级锁</h1><p><img src="Snipaste_2024-08-16_16-29-40.png" alt="表级锁分类"></p>
+<h2 id="1-表锁"><a href="#1-表锁" class="headerlink" title="1. 表锁"></a>1. 表锁</h2><p>对于表锁，分为两类</p>
+<ul>
+<li>表共享读锁（read lock）</li>
+<li>表独占写锁（write lock）</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># 加锁</span><br><span class="line">lock tables 表名... read/write</span><br><span class="line"></span><br><span class="line"># 解锁</span><br><span class="line">unlock tables</span><br></pre></td></tr></table></figure>
+
+<p><img src="Snipaste_2024-08-16_16-41-58.png" alt="表锁"></p>
+<p>我相信看到这里大家肯定非常熟悉，其实表锁和<strong>读写锁</strong>很类似，都是读共享，写独占。</p>
+<p><strong>读的时候会阻塞写操作，例如DDL，DML，写的时候只能让拿到锁的客户端或者线程进行读写操作。</strong></p>
+<p>读写锁可以参考另外一篇博客：<a href="https://rengoku.top/2024/08/05/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E9%94%81/">Java多线程：三、多线程锁、java锁的实现 | 颓废市民黄先生 (rengoku.top)</a></p>
+<p><strong>演示读锁：</strong></p>
+<p><img src="Snipaste_2024-08-16_16-37-24.png" alt="表锁演示"></p>
+<p>首先左边的客户端1（线程1）对表score加了一个读锁，然后两个客户端做select操作，发现都是可以读出来的；客户端1（线程1）如果进行写操作（update）则会报错，客户端2（线程2）进行修改操作会阻塞。</p>
+<p>通过演示得到的结论：<strong>读锁不会阻塞读操作，而会阻塞其他客户端的写操作。</strong></p>
+<p><strong>演示写锁：</strong></p>
+<p><img src="Snipaste_2024-08-16_16-44-42.png" alt="写锁演示"></p>
+<h2 id="2-元数据锁"><a href="#2-元数据锁" class="headerlink" title="2. 元数据锁"></a>2. 元数据锁</h2><p><img src="Snipaste_2024-08-16_16-55-26.png" alt="元数据锁"></p>
+<p>简单来说，<strong>如果某一张表存在未提交的事务，那么元数据锁是不允许对表结构进行修改操作的。</strong></p>
+<p>下面我提出两个问题，需要重点理解：</p>
+<h3 id="（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？"><a href="#（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？" class="headerlink" title="（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？"></a>（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？</h3><p><strong>DML操作与MDL读锁</strong></p>
+<p><strong>DML（Data Manipulation Language）</strong> 包括INSERT、UPDATE、DELETE等语句，这些语句用于修改数据库中的数据，但不涉及数据库结构的变更。当执行DML操作时，数据库需要访问表的元数据以了解表的结构（如列的类型、是否存在索引等），以便正确地执行数据修改。</p>
+<p>为了保证在DML操作期间表的结构不会被其他事务修改（例如，通过DDL语句），数据库会对表的元数据加上一个<strong>MDL读锁</strong>。MDL读锁允许多个事务同时读取元数据，但阻止任何事务修改元数据。这样，DML操作可以安全地执行，因为它们知道在它们执行期间，表的结构是稳定的。</p>
+<p><strong>DDL操作与MDL写锁</strong></p>
+<p><strong>DDL（Data Definition Language）</strong> 包括CREATE TABLE、ALTER TABLE、DROP TABLE等语句，这些语句用于定义或修改数据库的结构。由于DDL操作直接改变数据库的结构，因此它们需要更高的访问权限和更严格的并发控制。</p>
+<p>当执行DDL操作时，数据库会对涉及的表的元数据加上一个<strong>MDL写锁</strong>。MDL写锁是排他的，意味着当一个事务持有表的MDL写锁时，其他任何事务（无论是想读取还是修改元数据）都必须等待该锁被释放。这种锁定机制确保了DDL操作的原子性和一致性，防止了在DDL操作执行期间表的结构被意外修改或访问。</p>
+<blockquote>
+<p>“元数据”指的是描述数据的数据，它是关于数据本身的信息，包括但不限于数据的结构、属性、关系、存储位置、模型定义、生命周期等。</p>
+</blockquote>
+<h3 id="（2）如何理解兼容性？"><a href="#（2）如何理解兼容性？" class="headerlink" title="（2）如何理解兼容性？"></a>（2）如何理解兼容性？</h3><ul>
+<li><strong>shared_read与shared_write的兼容性</strong>：在元数据锁的层面上，shared_read锁和shared_write锁是兼容的，因为它们都不涉及修改元数据。这意味着，当多个事务同时执行SELECT查询或DML操作时，它们可以并发地访问表的元数据。</li>
+<li><strong>与排他锁的互斥性</strong>：然而，无论是shared_read锁还是shared_write锁，都与DDL操作所需的MDL排他锁互斥。这是因为DDL操作需要修改表的元数据，而修改元数据时必须确保没有其他事务正在访问或修改该元数据。</li>
+</ul>
+<h2 id="3-意向锁"><a href="#3-意向锁" class="headerlink" title="3. 意向锁"></a>3. 意向锁</h2><p>假设线程1已经对某行数据加了行锁，现在线程2想要加一个表锁，那么线程2可以直接加锁吗？<strong>实际上是不行的，这样行锁和表锁会冲突，此时线程2需要对整个表进行逐行遍历，判断是否添加了行锁，没有行锁才能加表锁。</strong>这样一看，加表锁的的效率是不是十分的低？于是为了优化这个加锁的机制，现在引入了意向锁。</p>
+<p><img src="Snipaste_2024-08-16_17-19-08.png" alt="意向锁概述"></p>
+<p>意向锁优化：<strong>如果线程A添加行锁的时候，添加的意向锁和接下来线程B添加的表锁是兼容的，那么线程B添加表锁成功，反之线程B添加处于阻塞。</strong></p>
+<blockquote>
+<p>线程A添加行锁的时候，可以添加意向锁。</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">SELECT ... LOCK IN SHARE MODE</span><br></pre></td></tr></table></figure>
+
+<p>这样在加共享锁时候会添加IS。</p>
+</blockquote>
+<p><strong>意向锁分为两类：意向共享锁（IS）和意向排他所（IX）。</strong></p>
+<p><img src="Snipaste_2024-08-16_17-32-45.png" alt="意向锁分类"></p>
+<p>意向共享锁：</p>
+<p>如果线程A添加了行锁的时候添加了IS，那么线程B添加表锁的读锁可以添加成功，添加表锁的写锁失败</p>
+<p>意向排它锁：</p>
+<p>如果线程A添加了行锁的时候添加了XS，那么线程B添加表锁的读锁或者写锁都会失败。</p>
+<h1 id="三、行级锁"><a href="#三、行级锁" class="headerlink" title="三、行级锁"></a>三、行级锁</h1><p><img src="Snipaste_2024-08-16_18-00-25.png" alt="行级锁"></p>
+<p><strong>划重点：如果不走索引，那么行级锁就失效了</strong></p>
+<p><strong>划重点：如果不走索引，那么行级锁就失效了</strong></p>
+<p><strong>划重点：如果不走索引，那么行级锁就失效了</strong></p>
+<p>在RR的事务隔离级别下，MySQL InnoDB存储引擎默认使用的是<strong>临键锁（Next-Key Lock）</strong>，但也会根据具体的查询条件和索引情况来决定是否退化为间隙锁（Gap Lock）或行锁（Record Lock）。</p>
+<h2 id="1-行锁"><a href="#1-行锁" class="headerlink" title="1. 行锁"></a>1. 行锁</h2><p>InnoDB使用多种类型的行锁，包括共享锁（S锁）和排他锁（X锁）：</p>
+<ul>
+<li><p><strong>共享锁（S锁）</strong>：允许事务读取一行数据，但不允许其他事务修改它。共享锁不会阻止其他事务获取同一行的共享锁，<strong>但会阻止排他锁的获取。</strong></p>
+<blockquote>
+<p>什么叫阻止排他锁的获取？</p>
+<p>当一个事务对数据库中的某个资源（如一行数据）加上了共享锁（Shared Lock）时，这个共享锁允许其他事务也对该资源加上共享锁进行读取操作，但会阻止其他事务对该资源加上排他锁（Exclusive Lock）进行写入或修改操作。</p>
+</blockquote>
+</li>
+<li><p><strong>排他锁（X锁）</strong>：允许事务读取和修改一行数据，同时阻止其他事务获取该行的任何类型的锁。当事务需要修改一行数据时，它会尝试获取该行的排他锁。如果成功，其他事务将无法读取或修改该行，直到锁被释放。</p>
+</li>
+</ul>
+<p><img src="Snipaste_2024-08-16_18-09-19.png" alt="增删改查的加锁情况"></p>
+<p><strong>刚刚在意向锁中也有介绍，后面两个方式会同时添加意向锁。</strong></p>
+<p><img src="Snipaste_2024-08-16_18-12-15.png"></p>
+<p><strong>刚刚说了，不走索引的话行锁就失效，此时会自动升级为表锁</strong></p>
+<h2 id="2-间隙锁-临键锁"><a href="#2-间隙锁-临键锁" class="headerlink" title="2. 间隙锁&amp;临键锁"></a>2. 间隙锁&amp;临键锁</h2><p><img src="Snipaste_2024-08-16_18-47-46.png" alt="间隙锁概述"></p>
+<p><strong>演示第一种情况：索引上的等值查询(唯一索引), 给不存在的记录加锁时,优化为间隙锁。</strong></p>
+<p><img src="Snipaste_2024-08-16_18-43-35.png" alt="间隙锁演示1"></p>
+<p>线程A使用begin开启事务以后，可以在线程B中的lock_data中可以看到8之前的数据被间隙锁锁上了（3-8，不包含3和8），此时在线程B执行插入操作是会被阻塞的：</p>
+<p><img src="Snipaste_2024-08-16_18-52-24.png" alt="间隙锁阻塞插入操作"></p>
+<p>如果线程A将事务commit后，线程B才能执行插入操作。</p>
+<p><strong>演示第二种情况：索引上的等值查询(普通索引)，向右遍历时最后一个值不满足查询需求时, next-key lock退化为间隙锁。</strong></p>
+<p>我们来慢慢分析这段话，现在这段话针对的是<strong>普通索引</strong>。普通索引不是唯一的，这个<strong>B+树的叶子结点形成的双向链表是可以有重复的节点的。</strong></p>
+<p>假设我们有一个表<code>students</code>，其中有一个非唯一普通索引<code>age</code>，表中的数据如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">+----+-----+  </span><br><span class="line">| id | age |  </span><br><span class="line">+----+-----+  </span><br><span class="line">|  1 |  18 |  </span><br><span class="line">|  2 |  18 |  </span><br><span class="line">|  3 |  18 |  </span><br><span class="line">|  4 |  20 |  </span><br><span class="line">|  5 |  22 |  </span><br><span class="line">+----+-----+</span><br></pre></td></tr></table></figure>
+
+<p>现在，我们执行一个等值查询，试图找到<code>age</code>为19的记录，但显然这样的记录不存在：</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">BEGIN</span>; <span class="comment">-- 开始一个事务  </span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> students <span class="keyword">WHERE</span> age <span class="operator">=</span> <span class="number">19</span> <span class="keyword">FOR</span> <span class="keyword">UPDATE</span>; <span class="comment">-- 使用FOR UPDATE来触发锁</span></span><br></pre></td></tr></table></figure>
+
+<p>在这个查询中，InnoDB会利用<code>age</code>索引来查找<code>age</code>为19的记录。由于索引是排序的，查询会向右遍历索引树，直到找到一个不满足查询条件（即<code>age</code>不等于19）的值为止。在这个例子中，查询会遍历到<code>age</code>为20的记录，因为20是第一个大于19的值。</p>
+<p><strong>加锁行为：</strong></p>
+<ul>
+<li><strong>在遍历过程中</strong>：由于查询是等值查询，并且索引是非唯一的，InnoDB原本会为每个可能满足条件的记录（如果存在的话）加上next-key lock。但是，在这个例子中，没有记录满足条件。</li>
+<li><strong>当遍历到最后一个不满足条件的值时</strong>：在这个例子中，是<code>age</code>为20的记录。由于查询没有找到任何满足条件的记录，InnoDB不会在这个记录上加上行锁（因为行锁是针对满足查询条件的记录的）。但是，为了防止其他事务在这个间隙（即<code>age</code>为18和20之间的间隙）中插入<code>age</code>为19的记录，InnoDB会在这个间隙上加上间隙锁。</li>
+</ul>
+<p><strong>结果：</strong></p>
+<p>因此，尽管查询没有找到任何满足条件的记录，但InnoDB仍然在<code>age</code>为18和20之间的间隙上加了间隙锁。这意味着，在这个事务提交之前，其他事务无法在这个间隙中插入<code>age</code>为19的记录，从而防止了幻读的发生。</p>
+<p><strong>这里存在的理解误区：</strong></p>
+<p>现在是基于age索引进行的，所以id走唯一索引不一样，现在的间隙锁锁住的是age&#x3D;18和age&#x3D;20之间的间隙，而非age&#x3D;18或者age&#x3D;20的哪条具体的记录。</p>
+<p><strong>情景三：索引上的范围查询(唯一索引)– 会访问到不满足条件的第一个值为止。</strong></p>
+<ul>
+<li><p><strong>查询执行</strong>：当执行一个范围查询（如<code>SELECT * FROM table WHERE index_column BETWEEN value1 AND value2 FOR UPDATE;</code>）时，InnoDB会利用索引来加速查询过程。</p>
+</li>
+<li><p><strong>锁定行为</strong>：</p>
+<p>对于唯一索引，由于索引值是唯一的，因此查询会逐一访问索引中的记录，直到找到不满足条件的第一个值为止。</p>
+<p>在这个过程中，InnoDB会为每个满足条件的记录加上临键锁。这意味着，它锁定了这些记录本身以及它们之前的间隙（实际上，对于唯一索引的最后一个满足条件的记录，它可能只锁定间隙部分，因为后面没有更多的记录来形成临键锁的行锁部分）。</p>
+<p>当查询到达不满足条件的第一个值时，InnoDB会在这个值之前的间隙上加上间隙锁（如果之前还没有加上的话），但不会锁定这个值本身，因为它不满足查询条件。</p>
+</li>
+<li><p><strong>防止幻读</strong>：通过这种方式，临键锁确保了即使在可重复读事务隔离级别下，其他事务也无法在查询范围内插入新的记录，从而防止了幻读的发生。</p>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>数据库</category>
+      </categories>
+      <tags>
+        <tag>面试</tag>
+        <tag>mysql</tag>
       </tags>
   </entry>
   <entry>
@@ -1196,144 +1557,8 @@
         <category>数据库</category>
       </categories>
       <tags>
-        <tag>mysql</tag>
         <tag>面试</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>MySQL：（三）全局锁、表级锁、行级锁</title>
-    <url>/2024/08/15/MySQL-%E9%94%81/</url>
-    <content><![CDATA[<p>MySQL中的锁，按照锁的粒度分，分为：</p>
-<ol>
-<li>全局锁：锁定数据库中所有表</li>
-<li>表级锁：每次操作锁整张表</li>
-<li>行级锁：每次操作锁住对应行数据</li>
-</ol>
-<h1 id="一、全局锁"><a href="#一、全局锁" class="headerlink" title="一、全局锁"></a>一、全局锁</h1><p><img src="Snipaste_2024-08-16_15-45-59.png" alt="全局锁"></p>
-<blockquote>
-<p>mysqldump相信大家都听说过，这是用来进行数据库备份的工具，除此以外也可以采用数据库主从复制机制进行数据库备份，这同时也是异地容灾、备份等内容。</p>
-</blockquote>
-<p><strong>数据库备份操作：</strong></p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># 加锁操作</span><br><span class="line">flush tables with read lock;</span><br><span class="line"></span><br><span class="line"># 数据备份</span><br><span class="line">mysqldump -uroot -p1234 databases &gt; database.sql</span><br><span class="line"># 加端口的数据备份</span><br><span class="line">mysqldump -h192.168.xx.xx -uroot -p1234 databases &gt; database.sql</span><br><span class="line"></span><br><span class="line"># 解锁操作</span><br><span class="line">unlock tables;</span><br></pre></td></tr></table></figure>
-
-<p>这里附上一篇<code>flush操作</code>的博客，用的是博客中的第4条：<a href="https://blog.csdn.net/a772304419/article/details/138797621">MySQL flush命令详解-CSDN博客</a></p>
-<blockquote>
-<p><strong>FLUSH TABLES</strong>: 关闭所有表并清空表缓存（如查询缓存），或者指定特定表进行刷新。这对于解决锁问题、确保数据一致性或在没有重启MySQL服务的情况下应用表结构更改很有用。加上<code>WITH READ LOCK</code>选项可以全局锁定所有表，以便进行安全的备份。</p>
-</blockquote>
-<p><strong>全局锁存在的问题：</strong></p>
-<p><img src="Snipaste_2024-08-16_16-22-46.png" alt="全局锁存在的问题"></p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># 数据备份</span><br><span class="line">mysqldump --single-transaction -uroot -p1234 databases &gt; database.sql</span><br></pre></td></tr></table></figure>
-
-<p>加上这个参数以后，就是通过快照读而不加全局锁了，快照读在上一篇博客有介绍，可以戳链接看看：<a href="https://rengoku.top/2024/08/15/MySQL-MVCC/">MySQL：MVCC与事务 | 颓废市民黄先生 (rengoku.top)</a></p>
-<h1 id="二、表级锁"><a href="#二、表级锁" class="headerlink" title="二、表级锁"></a>二、表级锁</h1><p><img src="Snipaste_2024-08-16_16-29-40.png" alt="表级锁分类"></p>
-<h2 id="1-表锁"><a href="#1-表锁" class="headerlink" title="1. 表锁"></a>1. 表锁</h2><p>对于表锁，分为两类</p>
-<ul>
-<li>表共享读锁（read lock）</li>
-<li>表独占写锁（write lock）</li>
-</ul>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># 加锁</span><br><span class="line">lock tables 表名... read/write</span><br><span class="line"></span><br><span class="line"># 解锁</span><br><span class="line">unlock tables</span><br></pre></td></tr></table></figure>
-
-<p><img src="Snipaste_2024-08-16_16-41-58.png" alt="表锁"></p>
-<p>我相信看到这里大家肯定非常熟悉，其实表锁和<strong>读写锁</strong>很类似，都是读共享，写独占。</p>
-<p><strong>读的时候会阻塞写操作，例如DDL，DML，写的时候只能让拿到锁的客户端或者线程进行读写操作。</strong></p>
-<p>读写锁可以参考另外一篇博客：<a href="https://rengoku.top/2024/08/05/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E9%94%81/">Java多线程：三、多线程锁、java锁的实现 | 颓废市民黄先生 (rengoku.top)</a></p>
-<p><strong>演示读锁：</strong></p>
-<p><img src="Snipaste_2024-08-16_16-37-24.png" alt="表锁演示"></p>
-<p>首先左边的客户端1（线程1）对表score加了一个读锁，然后两个客户端做select操作，发现都是可以读出来的；客户端1（线程1）如果进行写操作（update）则会报错，客户端2（线程2）进行修改操作会阻塞。</p>
-<p>通过演示得到的结论：<strong>读锁不会阻塞读操作，而会阻塞其他客户端的写操作。</strong></p>
-<p><strong>演示写锁：</strong></p>
-<p><img src="Snipaste_2024-08-16_16-44-42.png" alt="写锁演示"></p>
-<h2 id="2-元数据锁"><a href="#2-元数据锁" class="headerlink" title="2. 元数据锁"></a>2. 元数据锁</h2><p><img src="Snipaste_2024-08-16_16-55-26.png" alt="元数据锁"></p>
-<p>简单来说，<strong>如果某一张表存在未提交的事务，那么元数据锁是不允许对表结构进行修改操作的。</strong></p>
-<p>下面我提出两个问题，需要重点理解：</p>
-<h3 id="（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？"><a href="#（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？" class="headerlink" title="（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？"></a>（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？</h3><p><strong>DML操作与MDL读锁</strong></p>
-<p><strong>DML（Data Manipulation Language）</strong> 包括INSERT、UPDATE、DELETE等语句，这些语句用于修改数据库中的数据，但不涉及数据库结构的变更。当执行DML操作时，数据库需要访问表的元数据以了解表的结构（如列的类型、是否存在索引等），以便正确地执行数据修改。</p>
-<p>为了保证在DML操作期间表的结构不会被其他事务修改（例如，通过DDL语句），数据库会对表的元数据加上一个<strong>MDL读锁</strong>。MDL读锁允许多个事务同时读取元数据，但阻止任何事务修改元数据。这样，DML操作可以安全地执行，因为它们知道在它们执行期间，表的结构是稳定的。</p>
-<p><strong>DDL操作与MDL写锁</strong></p>
-<p><strong>DDL（Data Definition Language）</strong> 包括CREATE TABLE、ALTER TABLE、DROP TABLE等语句，这些语句用于定义或修改数据库的结构。由于DDL操作直接改变数据库的结构，因此它们需要更高的访问权限和更严格的并发控制。</p>
-<p>当执行DDL操作时，数据库会对涉及的表的元数据加上一个<strong>MDL写锁</strong>。MDL写锁是排他的，意味着当一个事务持有表的MDL写锁时，其他任何事务（无论是想读取还是修改元数据）都必须等待该锁被释放。这种锁定机制确保了DDL操作的原子性和一致性，防止了在DDL操作执行期间表的结构被意外修改或访问。</p>
-<h3 id="（2）如何理解兼容性？"><a href="#（2）如何理解兼容性？" class="headerlink" title="（2）如何理解兼容性？"></a>（2）如何理解兼容性？</h3><ul>
-<li><strong>shared_read与shared_write的兼容性</strong>：在元数据锁的层面上，shared_read锁和shared_write锁是兼容的，因为它们都不涉及修改元数据。这意味着，当多个事务同时执行SELECT查询或DML操作时，它们可以并发地访问表的元数据。</li>
-<li><strong>与排他锁的互斥性</strong>：然而，无论是shared_read锁还是shared_write锁，都与DDL操作所需的MDL排他锁互斥。这是因为DDL操作需要修改表的元数据，而修改元数据时必须确保没有其他事务正在访问或修改该元数据。</li>
-</ul>
-<h2 id="3-意向锁"><a href="#3-意向锁" class="headerlink" title="3. 意向锁"></a>3. 意向锁</h2><p>假设线程1已经对某行数据加了行锁，现在线程2想要加一个表锁，那么线程2可以直接加锁吗？<strong>实际上是不行的，这样行锁和表锁会冲突，此时线程2需要对整个表进行逐行遍历，判断是否添加了行锁，没有行锁才能加表锁。</strong>这样一看，加表锁的的效率是不是十分的低？于是为了优化这个加锁的机制，现在引入了意向锁。</p>
-<p><img src="Snipaste_2024-08-16_17-19-08.png" alt="意向锁概述"></p>
-<p>意向锁优化：<strong>如果线程A添加行锁的时候，添加的意向锁和接下来线程B添加的表锁是兼容的，那么线程B添加表锁成功，反之线程B添加处于阻塞。</strong></p>
-<blockquote>
-<p>线程A添加行锁的时候，可以添加意向锁。</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">SELECT ... LOCK IN SHARE MODE</span><br></pre></td></tr></table></figure>
-
-<p>这样在加共享锁时候会添加IS。</p>
-</blockquote>
-<p><strong>意向锁分为两类：意向共享锁（IS）和意向排他所（IX）。</strong></p>
-<p><img src="Snipaste_2024-08-16_17-32-45.png" alt="意向锁分类"></p>
-<p>意向共享锁：</p>
-<p>如果线程A添加了行锁的时候添加了IS，那么线程B添加表锁的读锁可以添加成功，添加表锁的写锁失败</p>
-<p>意向排它锁：</p>
-<p>如果线程A添加了行锁的时候添加了XS，那么线程B添加表锁的读锁或者写锁都会失败。</p>
-<h1 id="三、行级锁"><a href="#三、行级锁" class="headerlink" title="三、行级锁"></a>三、行级锁</h1><p><img src="Snipaste_2024-08-16_18-00-25.png" alt="行级锁"></p>
-<p><strong>划重点：如果不走索引，那么行级锁就失效了</strong></p>
-<p><strong>划重点：如果不走索引，那么行级锁就失效了</strong></p>
-<p><strong>划重点：如果不走索引，那么行级锁就失效了</strong></p>
-<p>在RR的事务隔离级别下，MySQL InnoDB存储引擎默认使用的是<strong>临键锁（Next-Key Lock）</strong>，但也会根据具体的查询条件和索引情况来决定是否退化为间隙锁（Gap Lock）或行锁（Record Lock）。</p>
-<h2 id="1-行锁"><a href="#1-行锁" class="headerlink" title="1. 行锁"></a>1. 行锁</h2><p>InnoDB使用多种类型的行锁，包括共享锁（S锁）和排他锁（X锁）：</p>
-<ul>
-<li><p><strong>共享锁（S锁）</strong>：允许事务读取一行数据，但不允许其他事务修改它。共享锁不会阻止其他事务获取同一行的共享锁，<strong>但会阻止排他锁的获取。</strong></p>
-<blockquote>
-<p>什么叫阻止排他锁的获取？</p>
-<p>当一个事务对数据库中的某个资源（如一行数据）加上了共享锁（Shared Lock）时，这个共享锁允许其他事务也对该资源加上共享锁进行读取操作，但会阻止其他事务对该资源加上排他锁（Exclusive Lock）进行写入或修改操作。</p>
-</blockquote>
-</li>
-<li><p><strong>排他锁（X锁）</strong>：允许事务读取和修改一行数据，同时阻止其他事务获取该行的任何类型的锁。当事务需要修改一行数据时，它会尝试获取该行的排他锁。如果成功，其他事务将无法读取或修改该行，直到锁被释放。</p>
-</li>
-</ul>
-<p><img src="Snipaste_2024-08-16_18-09-19.png" alt="增删改查的加锁情况"></p>
-<p><strong>刚刚在意向锁中也有介绍，后面两个方式会同时添加意向锁。</strong></p>
-<p><img src="Snipaste_2024-08-16_18-12-15.png"></p>
-<p><strong>刚刚说了，不走索引的话行锁就失效，此时会自动升级为表锁</strong></p>
-<h2 id="2-间隙锁-临键锁"><a href="#2-间隙锁-临键锁" class="headerlink" title="2. 间隙锁&amp;临键锁"></a>2. 间隙锁&amp;临键锁</h2><p><img src="Snipaste_2024-08-16_18-47-46.png" alt="间隙锁概述"></p>
-<p><strong>演示第一种情况：索引上的等值查询(唯一索引), 给不存在的记录加锁时,优化为间隙锁。</strong></p>
-<p><img src="Snipaste_2024-08-16_18-43-35.png" alt="间隙锁演示1"></p>
-<p>线程A使用begin开启事务以后，可以在线程B中的lock_data中可以看到8之前的数据被间隙锁锁上了（3-8，不包含3和8），此时在线程B执行插入操作是会被阻塞的：</p>
-<p><img src="Snipaste_2024-08-16_18-52-24.png" alt="间隙锁阻塞插入操作"></p>
-<p>如果线程A将事务commit后，线程B才能执行插入操作。</p>
-<p><strong>演示第二种情况：索引上的等值查询(普通索引)，向右遍历时最后一个值不满足查询需求时, next-key lock退化为间隙锁。</strong></p>
-<p>我们来慢慢分析这段话，现在这段话针对的是<strong>普通索引</strong>。普通索引不是唯一的，这个<strong>B+树的叶子结点形成的双向链表是可以有重复的节点的。</strong></p>
-<p>假设我们有一个表<code>students</code>，其中有一个非唯一普通索引<code>age</code>，表中的数据如下：</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">+----+-----+  </span><br><span class="line">| id | age |  </span><br><span class="line">+----+-----+  </span><br><span class="line">|  1 |  18 |  </span><br><span class="line">|  2 |  18 |  </span><br><span class="line">|  3 |  18 |  </span><br><span class="line">|  4 |  20 |  </span><br><span class="line">|  5 |  22 |  </span><br><span class="line">+----+-----+</span><br></pre></td></tr></table></figure>
-
-<p>现在，我们执行一个等值查询，试图找到<code>age</code>为19的记录，但显然这样的记录不存在：</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">BEGIN</span>; <span class="comment">-- 开始一个事务  </span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> students <span class="keyword">WHERE</span> age <span class="operator">=</span> <span class="number">19</span> <span class="keyword">FOR</span> <span class="keyword">UPDATE</span>; <span class="comment">-- 使用FOR UPDATE来触发锁</span></span><br></pre></td></tr></table></figure>
-
-<p>在这个查询中，InnoDB会利用<code>age</code>索引来查找<code>age</code>为19的记录。由于索引是排序的，查询会向右遍历索引树，直到找到一个不满足查询条件（即<code>age</code>不等于19）的值为止。在这个例子中，查询会遍历到<code>age</code>为20的记录，因为20是第一个大于19的值。</p>
-<p><strong>加锁行为：</strong></p>
-<ul>
-<li><strong>在遍历过程中</strong>：由于查询是等值查询，并且索引是非唯一的，InnoDB原本会为每个可能满足条件的记录（如果存在的话）加上next-key lock。但是，在这个例子中，没有记录满足条件。</li>
-<li><strong>当遍历到最后一个不满足条件的值时</strong>：在这个例子中，是<code>age</code>为20的记录。由于查询没有找到任何满足条件的记录，InnoDB不会在这个记录上加上行锁（因为行锁是针对满足查询条件的记录的）。但是，为了防止其他事务在这个间隙（即<code>age</code>为18和20之间的间隙）中插入<code>age</code>为19的记录，InnoDB会在这个间隙上加上间隙锁。</li>
-</ul>
-<p><strong>结果：</strong></p>
-<p>因此，尽管查询没有找到任何满足条件的记录，但InnoDB仍然在<code>age</code>为18和20之间的间隙上加了间隙锁。这意味着，在这个事务提交之前，其他事务无法在这个间隙中插入<code>age</code>为19的记录，从而防止了幻读的发生。</p>
-<p><strong>这里存在的理解误区：</strong></p>
-<p>现在是基于age索引进行的，所以id走唯一索引不一样，现在的间隙锁锁住的是age&#x3D;18和age&#x3D;20之间的间隙，而非age&#x3D;18或者age&#x3D;20的哪条具体的记录。</p>
-<p><strong>情景三：索引上的范围查询(唯一索引)– 会访问到不满足条件的第一个值为止。</strong></p>
-<ul>
-<li><p><strong>查询执行</strong>：当执行一个范围查询（如<code>SELECT * FROM table WHERE index_column BETWEEN value1 AND value2 FOR UPDATE;</code>）时，InnoDB会利用索引来加速查询过程。</p>
-</li>
-<li><p><strong>锁定行为</strong>：</p>
-<p>对于唯一索引，由于索引值是唯一的，因此查询会逐一访问索引中的记录，直到找到不满足条件的第一个值为止。</p>
-<p>在这个过程中，InnoDB会为每个满足条件的记录加上临键锁。这意味着，它锁定了这些记录本身以及它们之前的间隙（实际上，对于唯一索引的最后一个满足条件的记录，它可能只锁定间隙部分，因为后面没有更多的记录来形成临键锁的行锁部分）。</p>
-<p>当查询到达不满足条件的第一个值时，InnoDB会在这个值之前的间隙上加上间隙锁（如果之前还没有加上的话），但不会锁定这个值本身，因为它不满足查询条件。</p>
-</li>
-<li><p><strong>防止幻读</strong>：通过这种方式，临键锁确保了即使在可重复读事务隔离级别下，其他事务也无法在查询范围内插入新的记录，从而防止了幻读的发生。</p>
-</li>
-</ul>
-]]></content>
-      <categories>
-        <category>数据库</category>
-      </categories>
-      <tags>
         <tag>mysql</tag>
-        <tag>面试</tag>
       </tags>
   </entry>
   <entry>
@@ -1519,364 +1744,6 @@
       </tags>
   </entry>
   <entry>
-    <title>Java多线程：一、线程池</title>
-    <url>/2024/08/03/java-%E7%BA%BF%E7%A8%8B%E6%B1%A0/</url>
-    <content><![CDATA[<h1 id="前言："><a href="#前言：" class="headerlink" title="前言："></a>前言：</h1><p>全文了解线程池干货，<strong>要想看面试题直接看标题中带有八股的就行了。</strong></p>
-<h1 id="一、什么是线程池"><a href="#一、什么是线程池" class="headerlink" title="一、什么是线程池"></a>一、什么是线程池</h1><h2 id="1-1-什么是线程池？"><a href="#1-1-什么是线程池？" class="headerlink" title="1.1 什么是线程池？"></a>1.1 什么是线程池？</h2><p>线程池（Thread Pool）是一种并发编程中常用的技术，用于管理和重用线程。它由线程池管理器、工作队列和线程池线程组成。</p>
-<p>线程池的基本概念是，在应用程序启动时创建一定数量的线程，并将它们保存在线程池中。当需要执行任务时，从线程池中获取一个空闲的线程，将任务分配给该线程执行。当任务执行完毕后，线程将返回到线程池，可以被其他任务复用。</p>
-<p>大白话：线程池的设计思想是为了避免频繁地创建和销毁线程的开销，以及控制并发执行的线程数量，从而提高系统的性能和资源利用率。线程池保证线程的可复用。</p>
-<h2 id="1-2-线程池的关键组成部分："><a href="#1-2-线程池的关键组成部分：" class="headerlink" title="1.2 线程池的关键组成部分："></a>1.2 线程池的关键组成部分：</h2><h3 id="1-2-1-线程池管理器（ThreadPoolExecutor）"><a href="#1-2-1-线程池管理器（ThreadPoolExecutor）" class="headerlink" title="1.2.1 线程池管理器（ThreadPoolExecutor）"></a>1.2.1 线程池管理器（ThreadPoolExecutor）</h3><p>负责创建、管理和控制线程池。它负责线程的创建、销毁和管理，以及线程池的状态监控和调度任务。</p>
-<h3 id="1-2-2-线程池阻塞队列（BlockingQueue）"><a href="#1-2-2-线程池阻塞队列（BlockingQueue）" class="headerlink" title="1.2.2 线程池阻塞队列（BlockingQueue）"></a>1.2.2 线程池阻塞队列（BlockingQueue）</h3><p>用于存储待执行的任务。当线程池中的线程都在执行任务时，新的任务会被放入工作队列中等待执行。</p>
-<h3 id="1-2-3-线程池线程（Worker-Thread）"><a href="#1-2-3-线程池线程（Worker-Thread）" class="headerlink" title="1.2.3 线程池线程（Worker Thread）"></a>1.2.3 线程池线程（Worker Thread）</h3><p>实际执行任务的线程。线程池中会维护一组线程，这些线程可以被重复使用，从而避免了频繁创建和销毁线程的开销。</p>
-<h2 id="1-3-八股：Java线程池中阻塞队列常用类型有哪些？"><a href="#1-3-八股：Java线程池中阻塞队列常用类型有哪些？" class="headerlink" title="1.3 八股：Java线程池中阻塞队列常用类型有哪些？"></a>1.3 八股：Java线程池中阻塞队列常用类型有哪些？</h2><p><code>ArrayBlockingQueue</code>是一个基于数组结构的有界阻塞队列，此队列按 FIFO（先进先出）原则 对元素进行排序。 </p>
-<p><code>LinkedBlockingQueue</code> 一个基于链表结构的阻塞队列，此队列按FIFO （先进先出） 排序元素，吞吐量通常要高于 ArrayBlockingQueue </p>
-<p><code>SynchronousQueue</code>一个不存储元素的阻塞队列。</p>
-<p><code>PriorityBlockingQueue</code>一个具有优先级的无限阻塞队列。PriorityBlockingQueue也是基于最小二叉堆实现。PriorityBlockingQueue 并<strong>不会阻塞数据生产者，而只会在没有可消费的数据时，阻塞数据的消费者。</strong><br>因此使用的时候要特别注意，<strong>生产者生产数据的速度绝对不能快于消费者消费数据的速度</strong>，否则时间一长，会最终耗尽所有的可用堆内存空间。</p>
-<p><code>DelayQueue</code> 阿里内部资料只有当其指定的延迟时间到了，才能够从队列中获取到该元素。 DelayQueue是一个没有大小限制的队列， 因此往队列中插入数据的操作（生产者）永远不会被阻塞，而只有获取数据的操作（消费者）才会被阻塞。 </p>
-<p>这里能说出前三种也就差不多了，如果能说全那是最好。</p>
-<h1 id="二、八股：常用的线程池"><a href="#二、八股：常用的线程池" class="headerlink" title="二、八股：常用的线程池"></a>二、八股：常用的线程池</h1><p><strong>newSingleThreadExecutor：</strong>创建一个单线程的线程池，此线程池保证所有任务的执行顺序按照任务的提交顺序执行。</p>
-<p><strong>newFixedThreadPool：</strong>创建固定大小的线程池，每次提交一个任务就创建一个线程，直到线程达到线程池的最大大小。</p>
-<p><strong>newCachedThreadPool：</strong>创建一个可缓存的线程池，此线程池不会对线程池大小做限制，线程池大小完全依赖于操作系统（或者说JVM）能够创建的最大线程大小。</p>
-<p><strong>newScheduledThreadPool：</strong>创建一个大小无限的线程池，此线程池支持定时以及周期性执行任务的需求。</p>
-<h1 id="三、使用线程池的步骤"><a href="#三、使用线程池的步骤" class="headerlink" title="三、使用线程池的步骤"></a>三、使用线程池的步骤</h1><h2 id="3-1-使用线程池的一般步骤如下："><a href="#3-1-使用线程池的一般步骤如下：" class="headerlink" title="3.1 使用线程池的一般步骤如下："></a>3.1 使用线程池的一般步骤如下：</h2><ol>
-<li><strong>创建线程池：</strong>使用Executors工具类提供的静态方法之一，或者直接使用ThreadPoolExecutor类来创建线程池。</li>
-</ol>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">ExecutorService</span> <span class="variable">executor</span> <span class="operator">=</span> Executors.newFixedThreadPool(<span class="number">5</span>); <span class="comment">// 创建固定大小的线程池</span></span><br></pre></td></tr></table></figure>
-
-<p><img src="Snipaste_2024-08-03_18-05-06.png" alt="使用executors工具类创建线程"></p>
-<p><code>newCachedThreadPool</code>说是没有上限的线程池，实际上还是有的，是int的最大值。并且普通电脑在创建几千个的时候就蚌埠住了，所以理论上是没有上限的线程池。</p>
-<ol start="2">
-<li><strong>提交任务：</strong>使用execute()或submit()方法将任务提交给线程池。</li>
-</ol>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">executor.execute(<span class="keyword">new</span> <span class="title class_">MyRunnable</span>()); <span class="comment">// 提交Runnable任务</span></span><br><span class="line">Future&lt;String&gt; future = executor.submit(<span class="keyword">new</span> <span class="title class_">MyCallable</span>()); <span class="comment">// 提交Callable任务，并返回Future对象</span></span><br></pre></td></tr></table></figure>
-<ol start="3">
-<li><strong>关闭线程池：</strong>在不再需要线程池时，需要调用shutdown()方法来关闭线程池。这将停止接受新任务，并逐渐关闭线程池中的线程。</li>
-</ol>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">executor.shutdown();</span><br></pre></td></tr></table></figure>
-
-<p>实际开发中不会关闭线程池，比如游戏的服务器之类的，实时打开，在学习的时候还是需要了解流程的。</p>
-<h2 id="3-2-八股：Java线程池中submit-和-execute-方法有什么区别？"><a href="#3-2-八股：Java线程池中submit-和-execute-方法有什么区别？" class="headerlink" title="3.2 八股：Java线程池中submit() 和 execute()方法有什么区别？"></a>3.2 八股：Java线程池中submit() 和 execute()方法有什么区别？</h2><p>两个方法都可以向线程池提交任务，execute()方法的返回类型是void，它定义在Executor接口中, 而submit()方法可以返回持有计算结果的Future对象，它定义在ExecutorService接口中，它扩展了 Executor接口，其它线程池类像ThreadPoolExecutor和ScheduledThreadPoolExecutor都有这些 方法。</p>
-<h2 id="3-3-演示线程池（个人认为理解线程池的需要看）"><a href="#3-3-演示线程池（个人认为理解线程池的需要看）" class="headerlink" title="3.3 演示线程池（个人认为理解线程池的需要看）"></a>3.3 演示线程池（个人认为理解线程池的需要看）</h2><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//线程类：</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MyRunnable</span> <span class="keyword">implements</span> <span class="title class_">Runnable</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</span><br><span class="line">            System.out.print1n(Thread.current <span class="title function_">Thread</span><span class="params">()</span>.getName() + ---<span class="string">&quot; );</span></span><br><span class="line"><span class="string">        &#125;</span></span><br><span class="line"><span class="string">    &#125;</span></span><br><span class="line"><span class="string">&#125;</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">//main方法：</span></span><br><span class="line"><span class="string">//1.获取线程池对象</span></span><br><span class="line"><span class="string">ExecutorService pool1 = Executors . newCachedThreadPool();</span></span><br><span class="line"><span class="string">//2.提交任务</span></span><br><span class="line"><span class="string">pool1. submit (new MyRunnable());</span></span><br><span class="line"><span class="string">//Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">poo11.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">//Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit(new MyRunnable());</span></span><br><span class="line"><span class="string">//Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit(new MyRunnable());</span></span><br><span class="line"><span class="string">//Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">poo11.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">//Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">//3.销毁线程池</span></span><br><span class="line"><span class="string">//pool1. shutdown();</span></span><br></pre></td></tr></table></figure>
-
-<p>首先，在main方法中，不让main线程sleep，那么打印的结果如下：可以看到，线程池1中创建了1,2,3,4,5，一共5个线程（打印结果比较长我就截图一部分，实际上是5个）</p>
-<p><img src="Snipaste_2024-08-03_18-21-34.png" alt="main线程没有sleep的打印结果"></p>
-<p><strong>如果让main线程睡眠，那么可以让线程1在main方法sleep时赶紧结束run方法中的逻辑，使得线程1执行结束后返回线程池，在main线程sleep的时间结束后，再次调用submit方法时，拿到的还是线程1</strong></p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//线程类：</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MyRunnable</span> <span class="keyword">implements</span> <span class="title class_">Runnable</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</span><br><span class="line">            System.out.print1n(Thread.current <span class="title function_">Thread</span><span class="params">()</span>.getName() + ---<span class="string">&quot; );</span></span><br><span class="line"><span class="string">        &#125;</span></span><br><span class="line"><span class="string">    &#125;</span></span><br><span class="line"><span class="string">&#125;</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">//main方法：</span></span><br><span class="line"><span class="string">//1.获取线程池对象</span></span><br><span class="line"><span class="string">ExecutorService pool1 = Executors . newCachedThreadPool();</span></span><br><span class="line"><span class="string">//2.提交任务</span></span><br><span class="line"><span class="string">pool1. submit (new MyRunnable());</span></span><br><span class="line"><span class="string">Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">poo11.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit(new MyRunnable());</span></span><br><span class="line"><span class="string">Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit(new MyRunnable());</span></span><br><span class="line"><span class="string">Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">poo11.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">//3.销毁线程池</span></span><br><span class="line"><span class="string">//pool1. shutdown();</span></span><br></pre></td></tr></table></figure>
-
-<p><img src="Snipaste_2024-08-03_18-26-05.png" alt="使main线程sleep的打印结果"></p>
-<h1 id="四、线程池原理"><a href="#四、线程池原理" class="headerlink" title="四、线程池原理"></a>四、线程池原理</h1><h2 id="4-1-ThreadPoolExecutor类"><a href="#4-1-ThreadPoolExecutor类" class="headerlink" title="4.1 ThreadPoolExecutor类"></a>4.1 ThreadPoolExecutor类</h2><p>在创建线程池的方法中（3.1节），曾经说过创建线程池使用工具类或者使用ThreadPoolExecutor类，实际上工具类的底层也是调用ThreadPoolExecutor类来创建线程池：</p>
-<p>Executors类提供4个静态工厂方法：newCachedThreadPool()、newFixedThreadPool(int)、newSingleThreadExecutor和newScheduledThreadPool(int)。这些方法最终都是通过ThreadPoolExecutor类来完成的。</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="title function_">ThreadPoolExecutor</span><span class="params">(<span class="type">int</span> corePoolSize,</span></span><br><span class="line"><span class="params">                          <span class="type">int</span> maximumPoolSize,</span></span><br><span class="line"><span class="params">                          <span class="type">long</span> keepAliveTime,</span></span><br><span class="line"><span class="params">                          TimeUnit unit,</span></span><br><span class="line"><span class="params">                          BlockingQueue&lt;Runnable&gt; workQueue,</span></span><br><span class="line"><span class="params">                          ThreadFactory threadFactory,</span></span><br><span class="line"><span class="params">                          RejectedExecutionHandler handler)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (corePoolSize &lt; <span class="number">0</span> ||</span><br><span class="line">        maximumPoolSize &lt;= <span class="number">0</span> ||</span><br><span class="line">        maximumPoolSize &lt; corePoolSize ||</span><br><span class="line">        keepAliveTime &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IllegalArgumentException</span>();</span><br><span class="line">    <span class="keyword">if</span> (workQueue == <span class="literal">null</span> || threadFactory == <span class="literal">null</span> || handler == <span class="literal">null</span>)</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">NullPointerException</span>();</span><br><span class="line">    <span class="built_in">this</span>.acc = System.getSecurityManager() == <span class="literal">null</span> ?</span><br><span class="line">            <span class="literal">null</span> :</span><br><span class="line">            AccessController.getContext();</span><br><span class="line">    <span class="built_in">this</span>.corePoolSize = corePoolSize;</span><br><span class="line">    <span class="built_in">this</span>.maximumPoolSize = maximumPoolSize;</span><br><span class="line">    <span class="built_in">this</span>.workQueue = workQueue;</span><br><span class="line">    <span class="built_in">this</span>.keepAliveTime = unit.toNanos(keepAliveTime);</span><br><span class="line">    <span class="built_in">this</span>.threadFactory = threadFactory;</span><br><span class="line">    <span class="built_in">this</span>.handler = handler;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p><strong>可以看到类里面有7个参数，这7个参数也就是线程池的核心参数。</strong></p>
-<h2 id="4-2-八股：线程池七大核心参数"><a href="#4-2-八股：线程池七大核心参数" class="headerlink" title="4.2 八股：线程池七大核心参数"></a>4.2 八股：线程池七大核心参数</h2><h3 id="4-2-1-黑马讲的故事（方便记忆参数，可以跳过）"><a href="#4-2-1-黑马讲的故事（方便记忆参数，可以跳过）" class="headerlink" title="4.2.1 黑马讲的故事（方便记忆参数，可以跳过）"></a>4.2.1 黑马讲的故事（方便记忆参数，可以跳过）</h3><p>故事就是讲了饭店内只有3名正式员工，同时招待的顾客最大6人，但是剩下的3名员工是临时工，只有招待人数大于3人的时候才会去招人，否则就不招，辞退这三个临时工。</p>
-<p><img src="Snipaste_2024-08-03_18-48-51.png"></p>
-<p>但是饭店小，只能允许10个人排队，超出的人就不给排队了</p>
-<p><img src="Snipaste_2024-08-03_18-53-22.png"></p>
-<p>OK，现在根据故事给出的7个参数代换： </p>
-<p><img src="Snipaste_2024-08-03_18-57-58.png" alt="7个参数代换"></p>
-<h3 id="4-2-2-八股：7个核心参数"><a href="#4-2-2-八股：7个核心参数" class="headerlink" title="4.2.2 八股：7个核心参数"></a>4.2.2 八股：7个核心参数</h3><ol>
-<li>int corePoolSize,核心线程数量，不能小于0 </li>
-<li>int maximumPoolSize,最大的线程数量，减去核心线程&#x3D;临时线程</li>
-<li>long keepAliveTime,空闲线程的最大存活时间</li>
-<li>TimeUnit unit,时间单位</li>
-<li>BlockingQueue<Runnable> workQueue,任务队列</Runnable></li>
-<li>ThreadFactory threadFactory,创建线程工厂</li>
-<li>RejectedExecutionHandler handler，任务的拒绝策略</li>
-</ol>
-<h2 id="4-3-线程池的工作原理流程（建议4-3全看，方便理解4-5的八股）"><a href="#4-3-线程池的工作原理流程（建议4-3全看，方便理解4-5的八股）" class="headerlink" title="4.3 线程池的工作原理流程（建议4.3全看，方便理解4.5的八股）"></a>4.3 线程池的工作原理流程（建议4.3全看，方便理解4.5的八股）</h2><h3 id="4-3-1-场景一"><a href="#4-3-1-场景一" class="headerlink" title="4.3.1 场景一"></a>4.3.1 场景一</h3><p>现在有如下场景：核心线程3个，临时线程3个，此时有5个任务进来的时候线程池应该如何创建线程？</p>
-<p><img src="Snipaste_2024-08-03_19-05-57.png"></p>
-<p>正确的是创建3个核心线程去处理前3个任务，而后两个任务应该排队，直到3个核心线程空闲出来才会被执行。</p>
-<p><img src="Snipaste_2024-08-03_19-07-50.png"></p>
-<h3 id="4-3-2-场景二"><a href="#4-3-2-场景二" class="headerlink" title="4.3.2 场景二"></a>4.3.2 场景二</h3><p>此时在场景一中，提交的任务数是8个，那么线程池如何创建线程？</p>
-<p>答案是1,2,3任务由核心线程处理，4,5,6任务进入阻塞队列，7,8任务交给临时线程处理。</p>
-<p><strong>重点：</strong></p>
-<ol>
-<li>只有阻塞队列满了以后，才会临时线程</li>
-<li>任务被线程处理的顺序不取决于先来先处理，比如案例中4,5,6任务先来但是7,8任务先被处理</li>
-</ol>
-<p><img src="Snipaste_2024-08-03_19-13-39.png"></p>
-<h3 id="4-3-3-场景三"><a href="#4-3-3-场景三" class="headerlink" title="4.3.3 场景三"></a>4.3.3 场景三</h3><p>当提交的任务数超过了核心线程数（参数1），临时线程数（参数2减去参数1），队列数（参数6，创建阻塞队列的时候给队列传递参数决定容量的大小，比如ArrayBlockingQueue指定数组大小，见1.3节）的时候，多出来的线程就会触发拒绝策略（参数7）</p>
-<p><img src="Snipaste_2024-08-03_19-23-56.png"></p>
-<h2 id="4-4-八股：任务拒绝策略（参数7）"><a href="#4-4-八股：任务拒绝策略（参数7）" class="headerlink" title="4.4 八股：任务拒绝策略（参数7）"></a>4.4 八股：任务拒绝策略（参数7）</h2><p><img src="Snipaste_2024-08-03_19-28-28.png" alt="任务拒绝策略"></p>
-<p><strong>主要的是使用默认的策略。</strong></p>
-<p>如果使用第三个，那么在场景三中，被抛弃的是任务4，然后加入任务10，队列为5&#x3D;&gt;6&#x3D;&gt;10</p>
-<p>如果使用第四个，那么任务10会跳过线程池，直接调用这个线程的run方法</p>
-<h2 id="4-5-阿里八股：线程池原理知道吗？以及核心参数？"><a href="#4-5-阿里八股：线程池原理知道吗？以及核心参数？" class="headerlink" title="4.5 阿里八股：线程池原理知道吗？以及核心参数？"></a>4.5 阿里八股：线程池原理知道吗？以及核心参数？</h2><p>首先线程池有几个核心的参数概念： </p>
-<ol>
-<li>最大线程数maximumPoolSize </li>
-<li>核心线程数corePoolSize </li>
-<li>活跃时间keepAliveTime </li>
-<li>阻塞队列workQueue </li>
-<li>拒绝策略RejectedExecutionHandler</li>
-</ol>
-<p>当提交一个新任务到线程池时，具体的执行流程如下： </p>
-<ol>
-<li>当我们提交任务，线程池会根据corePoolSize大小创建若干任务数量线程执行任务 </li>
-<li>当任务的数量超过corePoolSize数量，后续的任务将会进入阻塞队列阻塞排队 </li>
-<li>当阻塞队列也满了之后，那么将会继续创建(maximumPoolSize-corePoolSize)个数量的线程来 执行任务，如果任务处理完成，maximumPoolSize-corePoolSize额外创建的线程等待 keepAliveTime之后被自动销毁 </li>
-<li>如果达到maximumPoolSize，阻塞队列还是满的状态，那么将根据不同的拒绝策略对应处理</li>
-</ol>
-<p><img src="Snipaste_2024-08-03_19-33-13.png"></p>
-<p>这是阿里面试多线程&amp;JUC的35题，我直接照着搬答案过来了，是不是把第四大节看完后就很好理解了？</p>
-]]></content>
-      <categories>
-        <category>Java</category>
-      </categories>
-      <tags>
-        <tag>面试</tag>
-        <tag>多线程</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>JVM：详解GC</title>
-    <url>/2024/08/13/java%E5%A4%9A%E7%BA%BF%E7%A8%8B-gc/</url>
-    <content><![CDATA[<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>据我看到的面试题有：判断垃圾回收的算法有什么，以及是什么原理，垃圾收集算法有什么，常见的垃圾回收器有什么，什么是STW等，所以这篇博客基于GC给大家介绍，如果有其他面试题可以在评论区发言，博客可修改内容，可添加。</p>
-<h1 id="一、判断垃圾回收的算法"><a href="#一、判断垃圾回收的算法" class="headerlink" title="一、判断垃圾回收的算法"></a>一、判断垃圾回收的算法</h1><p>先提前说两个算法，分别是：</p>
-<ol>
-<li><p>引用标记算法</p>
-</li>
-<li><p>可达性分析算法</p>
-</li>
-</ol>
-<h2 id="1-引用标记算法"><a href="#1-引用标记算法" class="headerlink" title="1.引用标记算法"></a>1.引用标记算法</h2><p>引用标记算法是在Java对象头（Java对象头在介绍多线程的时候有详细的解释，直达链接：<a href="https://rengoku.top/2024/08/05/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E9%94%81/">Java多线程：三、多线程锁、java锁的实现</a>）中开辟空间，记录<strong>被引用的次数（Reference Count）</strong>，如果A变量被其他对象引用时计数器+1，引用A变量的其他变量被删除则-1，如果计数器为0时，则判断A变量需要被回收。</p>
-<p>举个例子：</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">String</span> <span class="variable">str</span> <span class="operator">=</span> <span class="string">&quot;我不想上早八&quot;</span>;</span><br></pre></td></tr></table></figure>
-
-<p>此时，在Java虚拟机栈（以下简称栈）开辟一个内存空间记录str，此时堆中的字符串常量池的“我不想上早八”，被引用的次数就是1（Reference Count&#x3D;1），此时我做修改操作：</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">String</span> <span class="variable">str</span> <span class="operator">=</span> <span class="string">&quot;其实我想上早七&quot;</span>;</span><br></pre></td></tr></table></figure>
-
-<p>此时，在栈中的变量str原本引用常量池的”我不想上早八”引用次数为0，那么这一块就会被回收。</p>
-<p>引用标记算法的回收机制遍布整个代码运行时期而没有集中于垃圾回收时期，因此不属于”Stop-The-World”的范围。</p>
-<blockquote>
-<p>“Stop The World”是 Java 垃圾收集中的一个重要概念。在垃圾收集过程中，JVM 会暂停所有的用户线程，这种暂停被称为”Stop The World”事件。</p>
-<p>这么做的主要原因是为了防止在垃圾收集过程中，用户线程修改了堆中的对象，导致垃圾收集器无法准确地收集垃圾。</p>
-</blockquote>
-<p><strong>引用标记算法存在的问题：</strong></p>
-<p>无法解决循环依赖的问题，看代码</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ReferenceCountingGC</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> Object instance;  <span class="comment">// 对象属性，用于存储对另一个 ReferenceCountingGC 对象的引用</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">ReferenceCountingGC</span><span class="params">(String name)</span> &#123;</span><br><span class="line">        <span class="comment">// 构造方法</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">testGC</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="comment">// 创建两个 ReferenceCountingGC 对象</span></span><br><span class="line">        <span class="type">ReferenceCountingGC</span> <span class="variable">a</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ReferenceCountingGC</span>(<span class="string">&quot;我爱玩原神&quot;</span>);</span><br><span class="line">        <span class="type">ReferenceCountingGC</span> <span class="variable">b</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ReferenceCountingGC</span>(<span class="string">&quot;那维莱特一次回调比得上3年的陪伴&quot;</span>);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 使 a 和 b 相互引用</span></span><br><span class="line">        a.instance = b;</span><br><span class="line">        b.instance = a;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 将 a 和 b 设置为 null</span></span><br><span class="line">        a = <span class="literal">null</span>;</span><br><span class="line">        b = <span class="literal">null</span>;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 这个位置是垃圾回收的触发点</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>在代码中a,b变量相互引用，即使将将 a 和 b 设置为 null，也无法将字符串的引用改变（即Reference Count没有被减到0）。从案例可以知道，这样写永远无法通知GC对这两个字符串进行收集。</p>
-<h2 id="2-可达性分析算法"><a href="#2-可达性分析算法" class="headerlink" title="2.可达性分析算法"></a>2.可达性分析算法</h2><p>现代虚拟机基本都是采用可达性分析算法来判断对象是否存活，可达性算法的原理是以一系列叫做  <strong>GC Root</strong> 的对象为起点出发，引出它们指向的下一个节点，再以下个节点为起点，引出此节点指向的下一个结点。这样通过 GC Root 串成的一条线就叫引用链），直到所有的结点都遍历完毕,如果相关对象不在任意一个以 <strong>GC Root</strong> 为起点的引用链中，则这些对象会被判断为垃圾对象,会被 GC 回收。</p>
-<p><img src="Snipaste_2024-08-13_10-31-47.png"></p>
-<p><strong>a, b 对象可回收，就一定会被回收吗?</strong></p>
-<p>并不是，对象的 finalize 方法给了对象一次垂死挣扎的机会，当对象不可达（可回收）时，当发生GC时，会先判断对象是否执行了 finalize 方法，如果未执行，则会先执行 finalize 方法，我们可以在此方法里将当前对象与 GC Roots 关联，这样执行 finalize 方法之后，GC 会再次判断对象是否可达，如果不可达，则会被回收，如果可达，则不回收！</p>
-<p><strong>注意：</strong> finalize 方法只会被执行一次，如果第一次执行 finalize 方法此对象变成了可达确实不会回收，但如果对象再次被 GC，则会忽略 finalize 方法，对象会被回收！这一点切记!</p>
-<p><strong>GC Roots 到底是什么东西呢，哪些对象可以作为 GC Root 呢？</strong></p>
-<ul>
-<li>虚拟机栈（栈帧中的本地变量表）中引用的对象</li>
-<li>本地方法栈中 JNI（即一般说的 Native 方法）引用的对象</li>
-<li>方法区中类静态属性引用的对象</li>
-<li>方法区中常量引用的对象</li>
-</ul>
-<p>关于这四个例子可以参考：<a href="https://blog.csdn.net/weixin_38007185/article/details/108093716">GC Roots 是什么？哪些对象可以作为 GC Root？看完秒懂！-CSDN博客</a></p>
-<h1 id="二、八股：垃圾收集算法"><a href="#二、八股：垃圾收集算法" class="headerlink" title="二、八股：垃圾收集算法"></a>二、八股：垃圾收集算法</h1><p>阿里八股16题，我们来详细的谈谈：</p>
-<h2 id="1-标记清除算法"><a href="#1-标记清除算法" class="headerlink" title="1.标记清除算法"></a>1.标记清除算法</h2><p>标记清除算法（Mark-Sweep）是最基础的一种垃圾回收算法，它分为 2 部分，先把内存区域中的这些对象进行标记，哪些属于可回收的标记出来（用前面提到的可达性分析法），然后把这些垃圾拎出来清理掉。</p>
-<p><img src="gc-20231227125304.png" alt="标记清除算法"></p>
-<p>标记清除算法存在一个缺陷，在垃圾回收以后会产生内存碎片，无法应对需要一口气分配大内存的情况。</p>
-<blockquote>
-<p>内存碎片化是指在内存分配和回收过程中，被释放的内存空间没有被合并成较大的连续空间，而是形成了许多小块的、不连续的内存区域。这会导致在后续需要分配大块连续内存时，系统可能无法找到足够的连续空间，从而影响程序的性能和稳定性。</p>
-</blockquote>
-<h2 id="2-复制算法"><a href="#2-复制算法" class="headerlink" title="2.复制算法"></a>2.复制算法</h2><p>复制算法（Copying）是在标记清除算法上演化而来的，用于解决标记清除算法的内存碎片问题。它将可用内存按容量划分为大小相等的两块，每次只使用其中的一块。</p>
-<p>当这一块的内存用完了，就将还存活着的对象复制到另外一块上面，然后再把已使用过的内存空间一次清理掉。这样就保证了内存的连续性，逻辑清晰，运行高效。</p>
-<p><img src="gc-20231227125751.png"></p>
-<p>但是也是存在一个大缺陷，相当于一大堆的内存我只能当一半用。</p>
-<h2 id="3-标记整理算法"><a href="#3-标记整理算法" class="headerlink" title="3.标记整理算法"></a>3.标记整理算法</h2><p>标记整理算法（Mark-Compact），标记过程仍然与标记清除算法一样，但后续步骤不是直接对可回收对象进行清理，而是让所有存活的对象都向一端移动，再清理掉端边界以外的内存区域。</p>
-<p><img src="gc-20231227130011.png"></p>
-<p>标记整理算法一方面在标记-清除算法上做了升级，解决了内存碎片的问题，也规避了复制算法只能利用一半内存区域的弊端。看起来很美好，但内存变动更频繁，需要整理所有存活对象的引用地址，在效率上比复制算法差很多。</p>
-<h2 id="4-分代收集算法"><a href="#4-分代收集算法" class="headerlink" title="4.分代收集算法"></a>4.分代收集算法</h2><h3 id="4-1-分代收集算法组合拳"><a href="#4-1-分代收集算法组合拳" class="headerlink" title="4.1 分代收集算法组合拳"></a>4.1 分代收集算法组合拳</h3><p>分代收集算法（Generational Collection）严格来说并不是一种思想或理论，而是融合上述 3 种基础的算法思想，而产生的针对不同情况所采用不同算法的一套组合拳。</p>
-<p>根据对象存活周期的不同会将内存划分为几块，一般是把 <strong>Java 堆分为新生代和老年代</strong>，这样就可以根据各个年代的特点采用最适当的收集算法。</p>
-<p><img src="gc-20231227131241.png"></p>
-<p>在新生代中，每次垃圾收集时都发现有大批对象死去，只有少量存活，那就选用复制算法，只需要付出少量存活对象的复制成本就可以完成收集。</p>
-<p>老年代中因为对象存活率高、没有额外空间对它进行分配担保，就必须使用标记清理或者标记整理算法来进行回收。</p>
-<blockquote>
-<p>这里提到了新生代和永久代，在JVM运行时数据区中也提到了一个”代“叫永久代，还记得永久代是什么吗？</p>
-<p>永久代也叫方法区，在jdk8之后被代替成了元空间，运行时常量池放在元空间中，而字符串常量池在堆中。</p>
-</blockquote>
-<h3 id="4-2-新生代和老年代"><a href="#4-2-新生代和老年代" class="headerlink" title="4.2 新生代和老年代"></a>4.2 新生代和老年代</h3><p>堆主要分为 2 个区域，年轻代与老年代，其中年轻代又分 Eden 区和 Survivor 区，其中 Survivor 区又分 From 和 To 两个区。</p>
-<p><img src="gc-20231227132701.png"></p>
-<h4 id="4-2-1-Eden-区"><a href="#4-2-1-Eden-区" class="headerlink" title="4.2.1 Eden 区"></a>4.2.1 Eden 区</h4><p>据 IBM 公司之前的研究表明，有将近 98% 的对象是朝生夕死，所以针对这一现状，大多数情况下，对象会在新生代 Eden 区中进行分配，当 Eden 区没有足够空间进行分配时，JVM 会发起一次 Minor GC，Minor GC 相比 Major GC 更频繁，回收速度也更快。</p>
-<p>通过 Minor GC 之后，Eden 区中绝大部分对象会被回收，而那些无需回收的存活对象，将会进到 Survivor 的 From 区，如果 From 区不够，则直接进入 To 区。</p>
-<p><strong>什么是Minor GC和Major GC？</strong></p>
-<p>Minor GC是新生代的GC，Major GC是老年代的GC</p>
-<p><strong>Survivor区的from和to角色切换</strong></p>
-<ol>
-<li>初始状态<ul>
-<li>在JVM启动时，两个Survivor区中的一个被指定为from区，另一个为to区。这个初始分配是任意的，但一旦确定，它们将在后续的GC过程中交替使用。</li>
-</ul>
-</li>
-<li>Minor GC过程<ul>
-<li>当Eden区满或JVM认为需要执行Minor GC时，GC过程开始。</li>
-<li>此时，from区存储着上一次GC后存活下来的对象。</li>
-<li>GC扫描Eden区和from区，将存活的对象复制到to区。</li>
-<li>如果对象的年龄（即经历Minor GC的次数）达到一定程度（默认是15次，但可以通过参数<code>-XX:MaxTenuringThreshold</code>来设定），则这些对象可能会被移动到老年代（Old Generation）。</li>
-<li>GC完成后，Eden区和from区的内容被清空，然后这两个区域的角色互换：原来的to区变为新的from区，原来的from区变为新的to区。</li>
-</ul>
-</li>
-<li>持续交替<ul>
-<li>上述过程在每次Minor GC时都会重复，导致Survivor区的from和to角色持续交替。</li>
-</ul>
-</li>
-</ol>
-<h4 id="4-2-2-Survivor-区"><a href="#4-2-2-Survivor-区" class="headerlink" title="4.2.2 Survivor 区"></a>4.2.2 Survivor 区</h4><p>Survivor 区相当于是 Eden 区和 Old 区的一个缓冲，类似于我们交通灯中的黄灯。</p>
-<p><strong>为啥需要 Survivor 区？</strong></p>
-<p>不就是新生代到老年代吗，直接 Eden 到 Old 不好了吗，为啥要这么复杂。</p>
-<p>如果没有 Survivor 区，Eden 区每进行一次 Minor GC，存活的对象就会被送到老年代，老年代很快就会被填满。而有很多对象虽然一次 Minor GC 没有消灭，但其实也并不会蹦跶多久，或许第二次，第三次就需要被清除。</p>
-<p>这时候移入老年区，很明显不是一个明智的决定。</p>
-<p>所以，Survivor 的存在意义就是减少被送到老年代的对象，进而减少 Major GC 的发生。Survivor 的预筛选保证，只有经历 16 次 Minor GC 还能在新生代中存活的对象，才会被送到老年代。</p>
-<p><strong>Survivor 区为啥划分为两块？</strong></p>
-<p>设置两个 Survivor 区最大的好处就是解决内存碎片化，我们先假设一下，Survivor 只有一个区域会怎样。</p>
-<p>Minor GC 执行后，Eden 区被清空，存活的对象放到了 Survivor 区，而之前 Survivor 区中的对象，可能也有一些是需要被清除的。那么问题来了，这时候我们怎么清除它们？</p>
-<p>在这种场景下，我们只能标记清除，而我们知道标记清除最大的问题就是内存碎片，在新生代这种经常会消亡的区域，采用标记清除必然会让内存产生严重的碎片化。</p>
-<p>但因为 Survivor 有 2 个区域，所以每次 Minor GC，会将之前 Eden 区和 From 区中的存活对象复制到 To 区域。第二次 Minor GC 时，From 与 To 职责兑换，这时候会将 Eden 区和 To 区中的存活对象再复制到 From 区域，以此反复。</p>
-<p>这种机制最大的好处就是，整个过程中，永远有一个 Survivor space 是空的，另一个非空的 Survivor space 是无碎片的。</p>
-<p>那么，Survivor 为什么不分更多块呢？比方说分成三个、四个、五个？</p>
-<p>显然，如果 Survivor 区再细分下去，每一块的空间就会比较小，容易导致 Survivor 区满，两块 Survivor 区可能是经过权衡之后的最佳方案。</p>
-<h4 id="4-2-3-Old-区"><a href="#4-2-3-Old-区" class="headerlink" title="4.2.3 Old 区"></a>4.2.3 Old 区</h4><p>老年代占据着 2&#x2F;3 的堆内存空间，只有在 Major GC 的时候才会进行清理，每次 GC 都会触发“Stop-The-World”。内存越大，STW 的时间也越长，所以内存也不仅仅是越大就越好。</p>
-<p>由于复制算法在对象存活率较高的老年代会进行很多次的复制操作，效率很低，所以老年代这里采用的是标记整理算法。</p>
-<h2 id="5-组合拳如何体现？"><a href="#5-组合拳如何体现？" class="headerlink" title="5.组合拳如何体现？"></a>5.组合拳如何体现？</h2><p>对于前三种收集算法，我们采用分代收集将前三种混合。</p>
-<p><strong>新生代，主要采用复制算法</strong>，我相信聪明的你能看得出来，<strong>Survivor 区的from和to区就是复制算法中提到的，将内存一分为二的部分。</strong></p>
-<p><strong>老年代，采用标记整理算法</strong>，理由有这些（ai部分）：</p>
-<ol>
-<li><strong>存活率高</strong>：老年代中的对象通常已经经过了多次垃圾回收周期，存活率较高。这意味着在每次垃圾回收时，只有少数对象会被回收，而大部分对象都会保留下来。如果使用复制算法，需要将存活的对象复制到另一块内存区域，这将导致大量的数据复制操作，不仅效率低下，还会增加系统的停顿时间。</li>
-<li><strong>内存空间</strong>：老年代通常占据堆内存的大部分空间，以容纳更多的长时间存活对象。如果采用复制算法，需要为老年代分配同样大小的额外内存空间作为复制的目标区域，这在很多情况下是不现实的，因为这将极大地增加内存的使用量。</li>
-<li><strong>内存碎片</strong>：虽然复制算法可以避免内存碎片的产生，但在老年代中，内存碎片的问题并不像新生代那样严重。老年代中的对象通常较大，且存活时间较长，因此内存碎片对性能的影响相对较小。相比之下，减少内存碎片并不是老年代选择垃圾收集算法的主要考虑因素。</li>
-<li><strong>算法适用性</strong>：不同的垃圾收集算法适用于不同的场景。复制算法由于其简单性和高效性，在新生代中得到了广泛应用。然而，在老年代中，由于对象的特性和内存空间的需求，更适合采用其他类型的垃圾收集算法，如标记-清除、标记-整理或混合使用多种算法（如G1收集器中的混合收集策略，G1收集器下文介绍）。</li>
-</ol>
-<h1 id="三、垃圾收集器"><a href="#三、垃圾收集器" class="headerlink" title="三、垃圾收集器"></a>三、垃圾收集器</h1><p>垃圾收集器在这篇博客有8种，我把总览放出来，然后讲几个比较常用的：<a href="https://blog.csdn.net/weixin_44772566/article/details/136248892">一文彻底搞懂八种JVM垃圾回收器_说一下 jvm 有哪些垃圾回收器?-CSDN博客</a></p>
-<p><img src="b7066e4374f7d7397613068ac5fdf5b1.png" alt="常用的垃圾收集器"></p>
-<h2 id="1-CMS收集器"><a href="#1-CMS收集器" class="headerlink" title="1.CMS收集器"></a>1.CMS收集器</h2><p><strong>CMS垃圾收集器旨在降低STW的时间，允许垃圾回收器进行垃圾回收的同时，与应用程序并发进行。</strong></p>
-<h3 id="1-1-步骤"><a href="#1-1-步骤" class="headerlink" title="1.1 步骤"></a>1.1 步骤</h3><p>CMS 垃圾收集器通过三色标记算法，实现了垃圾回收线程与用户线程的并发执行，从而极大地降低了系统响应时间，提高了强交互应用程序的体验。它的运行过程分为 4 个步骤，包括：</p>
-<ul>
-<li>初始标记</li>
-<li>并发标记</li>
-<li>重新标记</li>
-<li>并发清除</li>
-</ul>
-<p><strong>初始标记</strong>，指的是寻找所有被 GCRoots 引用的对象，该阶段需要「Stop the World」。这个步骤仅仅只是标记一下 GC Roots 能直接关联到的对象，并不需要做整个引用的扫描，因此速度很快。</p>
-<p><strong>并发标记</strong>，指的是对「初始标记阶段」标记的对象进行整个引用链的扫描，该阶段不需要「Stop the World」。 对整个引用链做扫描需要花费非常多的时间，因此通过垃圾回收线程与用户线程并发执行，可以降低垃圾回收的时间。</p>
-<p>这也是 CMS 能极大降低 GC 停顿时间的核心原因，但这也带来了一些问题，即：并发标记的时候，引用可能发生变化，因此可能发生漏标（本应该回收的垃圾没有被回收）和多标（本不应该回收的垃圾被回收）了。</p>
-<p><strong>重新标记</strong>，指的是对「并发标记」阶段出现的问题进行校正，该阶段需要「Stop the World」。正如并发标记阶段说到的，由于垃圾回收算法和用户线程并发执行，虽然能降低响应时间，但是会发生漏标和多标的问题。所以对于 CMS 来说，它需要在这个阶段做一些校验，解决并发标记阶段发生的问题。</p>
-<p><strong>并发清除</strong>，指的是将标记为垃圾的对象进行清除，该阶段不需要「Stop the World」。 在这个阶段，垃圾回收线程与用户线程可以并发执行，因此并不影响用户的响应时间。</p>
-<p><strong>注：</strong><br>收集区域： 老年代（见图常用的垃圾收集器。标记清除和标记整理也是用于老年代的垃圾收集算法，可以回看）<br>使用算法： 标记清除法+标记整理法<br>搜集方式： 多线程</p>
-<h3 id="1-2-优劣势"><a href="#1-2-优劣势" class="headerlink" title="1.2 优劣势"></a>1.2 优劣势</h3><p>优点总结就是支持垃圾回收和程序执行的并发，降低STW时间，详细的可以参考以下内容：</p>
-<p>并发标记和清除：CMS 垃圾收集器采用了并发标记和清除的方式，允许在垃圾收集过程中与应用程序并发执行。这意味着垃圾收集过程中只有一小部分时间需要暂停应用程序线程。<br>低停顿时间：由于并发执行的特性，CMS 垃圾收集器能够在较短的时间内完成垃圾回收操作，从而减少了应用程序的停顿时间。通常情况下，CMS 垃圾收集器能够将停顿时间控制在几百毫秒甚至更低。<br>老年代收集：CMS 垃圾收集器主要针对老年代进行垃圾回收，对于新生代则通常使用 ParNew 收集器。这种分代收集的方式能够更好地适应不同内存区域的特点和垃圾回收需求。</p>
-<blockquote>
-<p>这里提到了ParNew收集器，那么我也写一下，本来不想写来着（）</p>
-</blockquote>
-<p>劣势从算法考虑，无非就是会产生内存碎片，以及在垃圾收集与应用程序并发执行的过程中，应用程序也会一直产生垃圾，这个垃圾称为浮游垃圾，这部分只能等到下一次gc来处理，另外这两个并发的话，如果cpu的核心数（对线程的处理能力低）那么CMS的性能肯定会大打折扣。</p>
-<h2 id="2-ParNew收集器"><a href="#2-ParNew收集器" class="headerlink" title="2.ParNew收集器"></a>2.ParNew收集器</h2><p>在上边提到的CMS收集器是针对老年代的，而ParNew收集器针对新生代的部分进行垃圾回收，通常和CMS收集器共同进行gc。查到的资料有显示，ParNew收集器是唯一的一个可以和CMS收集器打配合的。</p>
-<p><strong>垃圾收集流程</strong><br>ParNew 收集器和 Parallel Scavenge 收集器在工作流程上确实非常相似，都是并行垃圾收集器。</p>
-<ol>
-<li><p>停止应用程序线程（Stop the World）：在进行垃圾收集之前，ParNew 收集器会暂停所有的用户线程。这一阶段被称为停止应用程序线程，以确保在垃圾收集过程中对象的状态不会被修改，保证垃圾回收的准确性。</p>
-</li>
-<li><p>多线程并行执行垃圾收集：一旦应用程序线程暂停，ParNew 收集器会启动多个线程并行执行垃圾回收操作。这些线程会同时在新生代中扫描和清理不再使用的对象，以释放内存空间。</p>
-</li>
-<li><p>暂停用户线程：在整个垃圾收集过程中，用户线程会一直处于暂停状态，直到垃圾收集完成。这个阶段也被称为“Stop the World”，在此期间应用程序无法执行任何操作。</p>
-</li>
-<li><p>恢复用户线程：当垃圾收集完成后，ParNew 收集器会恢复用户线程的执行。此时，垃圾已经被清理，堆中的内存空间得到了释放，用户线程可以继续执行。</p>
-</li>
-</ol>
-<p>ParNew 收集器的工作流程与 Parallel Scavenge 收集器类似，都是通过停止应用程序线程，然后利用多线程并行执行垃圾回收操作，最后恢复用户线程的执行。这种并行执行的方式能够提高垃圾收集的效率，同时在暂停用户线程期间确保垃圾收集的准确性。</p>
-<p><strong>注：</strong><br>收集区域： 新生代<br>使用算法： 标记复制法<br>搜集方式： 多线程。</p>
-<p>正常来说，ParNew收集器和CMS收集器是一起打配合的，他俩在分类来说都是分代收集器，一个作用于新生代，一个作用于老年代。</p>
-<h2 id="3-G1收集器"><a href="#3-G1收集器" class="headerlink" title="3.G1收集器"></a>3.G1收集器</h2><p>G1 垃圾收集器摒弃了传统的物理分区方式，而是将整个内存分成若干个大小不同的 Region 区域。每个 Region 在逻辑上组合成各个分代，这样做的好处是可以以 Region 为单位进行更细粒度的垃圾回收。G1 垃圾收集器在进行垃圾回收时，可以针对单个或多个 Region 进行回收，从而提高了收集效率和性能。</p>
-<p>下面介绍一下G1的相关内容：</p>
-<p><strong>分代：</strong>相信大家还记得我们上一讲中的年轻代和老年代，G1 也是基于这个思想进行设计的。<strong>G1舍弃分代，转变为分区，</strong>将堆内存分为多个大小相等的区域（Region），每个区域都可以是 Eden 区、Survivor 区或者 Old 区。</p>
-<p><img src="gc-collector-20231228213824.png" alt="G1收集器分区"></p>
-<p>可以通过 <code>-XX:G1HeapRegionSize=n</code> 来设置 Region 的大小，可以设定为 1M、2M、4M、8M、16M、32M（不能超过）。</p>
-<p>G1 有专门分配大对象的 Region 叫 Humongous 区，而不是让大对象直接进入老年代的 Region 中。在 G1 中，大对象的判定规则就是一个大对象超过了一个 Region 大小的 50%，比如每个 Region 是 2M，只要一个对象超过了 1M，就会被放入 Humongous 中，而且一个大对象如果太大，可能会横跨多个 Region 来存放。</p>
-<p>G1 会根据各个区域的垃圾回收情况来决定下一次垃圾回收的区域，这样就避免了对整个堆内存进行垃圾回收，从而降低了垃圾回收的时间。</p>
-<p>在进行老年代的垃圾回收时，G1 使用标记-整理算法。这个过程分为两个阶段：标记存活的对象和整理（压缩）堆空间。通过整理，G1 能够避免内存碎片化，提高内存利用率。年轻代的垃圾回收（Minor GC）使用复制算法，因为年轻代的对象通常是朝生夕死的。</p>
-<p><img src="gc-collector-20231230100404.png"></p>
-<p><strong>STW：</strong>G1 也是基于「标记-清除」算法，因此在进行垃圾回收的时候，仍然需要「Stop the World」。不过，G1 在停顿时间上添加了预测机制，用户可以指定期望停顿时间。</p>
-<p><strong>接下来介绍G1的三种回收机制：</strong></p>
-<p><img src="gc-collector-20231228215108.png"></p>
-<p>当 Eden 区的内存空间无法支持新对象的内存分配时，G1 会触发 Young GC。</p>
-<p>当需要分配对象到 Humongous 区域或者堆内存的空间占比超过 <code>-XX:G1HeapWastePercent</code> 设置的 InitiatingHeapOccupancyPercent 值时，G1 会触发一次 concurrent marking，它的作用就是计算老年代中有多少空间需要被回收，当发现垃圾的占比达到 <code>-XX:G1HeapWastePercent</code> 中所设置的 G1HeapWastePercent 比例时，在下次 Young GC 后会触发一次 Mixed GC。</p>
-<p>Mixed GC 是指回收年轻代的 Region 以及一部分老年代中的 Region。Mixed GC 和 Young GC 一样，采用的也是复制算法。</p>
-<p>在 Mixed GC 过程中，如果发现老年代空间还是不足，此时如果 G1HeapWastePercent 设定过低，可能引发 Full GC。<code>-XX:G1HeapWastePercent</code> 默认是 5，意味着只有 5% 的堆是“浪费”的。如果浪费的堆的百分比大于 G1HeapWastePercent，则运行 Full GC。</p>
-<p><strong>注：</strong><br>收集区域： 整个堆内存<br>使用算法： 标记复制法<br>搜集方式： 多线程</p>
-<h2 id="4-ZGC"><a href="#4-ZGC" class="headerlink" title="4.ZGC"></a>4.ZGC</h2><p>参考一开始的博客链接。</p>
-<h1 id="四、对象分配规则"><a href="#四、对象分配规则" class="headerlink" title="四、对象分配规则"></a>四、对象分配规则</h1><p>根据分代收集算法，将堆内存分为新生代和老年代，新生代分为eden区，Survivor from和Survivor to区，老年代为old区。</p>
-<p><strong>1.对象优先分配在Eden区，如果Eden区没有足够的空间时，虚拟机执行一次Minor GC。</strong> </p>
-<p>Minor GC 后，又创建的新对象会继续往 Eden 区分配。于是，随着新对象的创建，Eden 的剩余内存空间就会越来越少，又会触发 Minor GC，此时，JVM 会对 Eden 区和 From Survivor 区中的对象进行存活判断，对于存活的对象，会转移到 To Survivor 区。下一次 Minor GC，存活的对象又会从 To 到 From，这样就总有一个 Survivor 区是空的，而另外一个是无碎片的。</p>
-<p><strong>2.大对象直接进入老年代（大对象是指需要大量连续内存空间的对象）。</strong></p>
-<p>这样做的目的是避免在 Eden区和两个Survivor区之间发生大量的内存拷贝（新生代采用复制算法收集内存）。 </p>
-<p>可以通过 <code>-XX:PretenureSizeThreshold</code> 参数设置直接分配大对象到老年代的阈值。如果对象的大小超过这个阈值，它将直接在老年代中分配。例如，如果想将阈值设置为 1MB（1024KB），可以这样设置：</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">-XX:PretenureSizeThreshold=1048576</span><br></pre></td></tr></table></figure>
-
-<p><strong>3.长期存活的对象进入老年代。</strong></p>
-<p>虚拟机为每个对象定义了一个年龄计数器，如果对象经过了1次 Minor GC那么对象会进入Survivor区，之后每经过一次Minor GC（从一个 Survivor 区转移到另外一个 Survivor 区时）那么对象的年龄加1，直到达到阀值对象进入老年区。 </p>
-<p><strong>4.动态判断对象的年龄。</strong></p>
-<p>如果Survivor区中相同年龄的所有对象大小的总和大于Survivor空间的 一半，年龄大于或等于该年龄的对象可以直接进入老年代。 </p>
-<p><strong>5.空间分配担保。</strong></p>
-<p>整个流程如下：</p>
-<ul>
-<li>Minor GC 之前，JVM 会先检查老年代最大可用的连续空间是否大于新生代所有对象的总空间，如果大于，则发起 Minor GC。</li>
-<li>如果小于，则看 HandlePromotionFailure 有没有设置，如果没有设置，就发起 Full GC。</li>
-<li>如果设置了 HandlePromotionFailure，则看老年代最大可用的连续空间是否大于历次晋升到老年代对象的平均大小，如果小于，就发起 Full GC。</li>
-<li>如果大于，发起 Minor GC。Minor GC 后，看 Survivor 空间是否足够存放存活对象，如果不够，就放入老年代，如果够放，就直接存放 Survivor 空间。如果老年代都不够放存活对象，担保失败（Handle Promotion Failure），发起 Full GC。</li>
-</ul>
-<p><img src="whereis-the-object-8.png"></p>
-<h1 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h1><p>判断是否需要进行垃圾回收的算法有<strong>引用标记算法和可达性分析算法</strong>，前者使用Java对象头的Reference Count属性，后者依靠引用关系，解决前者不能解决循环依赖的问题。</p>
-<p>垃圾收集算法有标记清除算法（存在内存碎片化问题）、复制算法（内存分割出去不划算）、标记整理算法（需要改动引用对象地址，效率低）、分代收集算法（前三种的组合拳），其中学习了stop-to-world是什么，新生代和老年代是什么，复习了Java对象头和永久代，JVM运行时数据区。</p>
-<p>垃圾收集器介绍了CMS、ParNew、G1等，其中，CMS和ParNew作为分区收集器，共同打配合清理堆内存。</p>
-<p>基于分代收集的算法（组合拳），对象的分配规则由eden-&gt;Survivor-&gt;old区主键分配，其中根据不同的情况进行minor gc和full gc。</p>
-]]></content>
-      <categories>
-        <category>Java</category>
-      </categories>
-      <tags>
-        <tag>面试</tag>
-        <tag>JVM</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>Java多线程：四、详解ConcurrentHashMap构成</title>
-    <url>/2024/08/06/java%EF%BC%9A%E8%AF%A6%E8%A7%A3ConcurrentHashMap/</url>
-    <content><![CDATA[<h1 id="一、JDK-1-7"><a href="#一、JDK-1-7" class="headerlink" title="一、JDK 1.7"></a>一、JDK 1.7</h1><h2 id="1-1-加锁机制"><a href="#1-1-加锁机制" class="headerlink" title="1.1 加锁机制"></a>1.1 加锁机制</h2><p>ConcurrentHashMap 在 JDK 1.7 中，提供了一种粒度更细的加锁机制，这种机制叫分段锁「Lock Striping」。整个哈希表被分为多个段，每个段都独立锁定。读取操作不需要锁，写入操作仅锁定相关的段。这减小了锁冲突的几率，从而提高了并发性能。</p>
-<p>这种机制的优点：在并发环境下将实现更高的吞吐量，而在单线程环境下只损失非常小的性能。</p>
-<p>可以这样理解分段锁，就是<strong>将数据分段，对每一段数据分配一把锁</strong>。当一个线程占用锁访问其中一个段数据的时候，其他段的数据也能被其他线程访问。</p>
-<p>有些方法需要跨段，比如 <code>size()</code>、<code>isEmpty()</code>、<code>containsValue()</code>，它们可能需要锁定整个表而不仅仅是某个段，这需要按顺序锁定所有段，操作完后，再按顺序释放所有段的锁。如下图：</p>
-<p><img src="map-20230816155810.png" alt="jdk1.7之前的构成图"></p>
-<h2 id="1-2-八股：jdk1-7之前的构成"><a href="#1-2-八股：jdk1-7之前的构成" class="headerlink" title="1.2 八股：jdk1.7之前的构成"></a>1.2 八股：jdk1.7之前的构成</h2><p>敲重点！字体加粗了务必记好。</p>
-<p>ConcurrentHashMap 是由 <strong>Segment 数组结构和 HashEntry 数组</strong>构成的。Segment 是一种可重入的锁 <code>ReentrantLock</code>，HashEntry 则用于存储键值对数据。</p>
-<p>一个 ConcurrentHashMap 里包含<strong>一个 Segment 数组，数组中都是segment对象</strong>，Segment 的结构和 HashMap 类似，是一种数组和链表结构，一个 Segment 里包含一个 <strong>HashEntry 数组</strong>，每个 HashEntry 是一个链表结构的元素，每个 Segment 守护着一个 HashEntry 数组里的元素，当对 HashEntry 数组的数据进行修改时，必须首先获得它对应的 Segment 锁（可重入锁）。</p>
-<p><strong>HashEntry到底是什么？</strong></p>
-<p>我自己搜的时候都在介绍hashentry是数组，但是搜到的都是类似链表的结构，包括在1.1节中的图片看上去都是链表，这是怎么回事？</p>
-<p>其实，<code>HashEntry</code>本身是一个<strong>结构体（或内部类，同样segment也是内部类）</strong>，实际上是每个<code>Segment</code>内部的一个数组，用于封装键值对数据，并可能包含指向下一个<code>HashEntry</code>的引用以形成链表结构，用于处理哈希冲突。但由于哈希冲突的存在，这个数组的每个位置可能不仅仅是一个<code>HashEntry</code>对象，而是一个由<code>HashEntry</code>对象组成的链表（或更复杂的结构，如红黑树，但这在JDK 1.7中不是默认的）。</p>
-<p><code>ConcurrentHashMap</code>使用链表来存储这些具有相同索引值的键值对。具体来说，每个数组位置（在JDK 1.7中实际上是<code>Segment</code>内部的数组，而在JDK 1.8及以后是<code>Node</code>数组）存储的是链表的头节点。如果发生哈希冲突，新的键值对会被添加到这个链表的末尾。</p>
-<p>接下来看看Segment的结构组成：</p>
-<p>单一的 Segment 结构如下：</p>
-<p><img src="map-20230816160155.png"></p>
-<p>像这样的 Segment 对象，在 ConcurrentHashMap 集合中有多少个呢？有 2 的 N 次方个，共同保存在一个名为 segments 的数组当中。 因此整个 ConcurrentHashMap 的结构如下：</p>
-<p><img src="map-20230816160223.png"></p>
-<p>可以说，ConcurrentHashMap 是一个二级哈希表。在一个总的哈希表下面，有若干个子哈希表。</p>
-<p>Case1：不同 Segment 的并发写入（可以并发执行）</p>
-<p><img src="map-20230816160301.png"></p>
-<p>Case2：同一 Segment 的一写一读（可以并发执行）</p>
-<p><img src="map-20230816160316.png"></p>
-<p>Case3：同一 Segment 的并发写入</p>
-<p><img src="map-20230816160331.png"></p>
-<h1 id="二、JDK1-8往后"><a href="#二、JDK1-8往后" class="headerlink" title="二、JDK1.8往后"></a>二、JDK1.8往后</h1><p>而在 JDK 1.8 中，ConcurrentHashMap 主要做了两个优化：</p>
-<ul>
-<li>同<code>HashMap</code> 一样，链表也会在长度达到 8 的时候转化为红黑树，这样可以提升大量冲突时候的查询效率；</li>
-<li>以某个位置的头结点（链表的头结点或红黑树的 root 结点）为锁，**配合自旋+CAS(乐观锁)**避免不必要的锁开销，进一步提升并发性能。</li>
-</ul>
-<p><img src="map-20230816155924.png"></p>
-<p>相比 JDK1.7 中的 ConcurrentHashMap，JDK1.8 中的 ConcurrentHashMap 取消了 Segment 分段锁，采用 CAS + synchronized 来保证并发安全性，整个容器只分为一个 Segment，即 table 数组。</p>
-<p>JDK1.8 中的 ConcurrentHashMap 对节点 Node 类中的共享变量，和 JDK1.7 一样，使用 volatile 关键字，保证多线程操作时，变量的可见性。</p>
-]]></content>
-      <categories>
-        <category>Java</category>
-      </categories>
-      <tags>
-        <tag>面试</tag>
-        <tag>多线程</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>Java多线程：二、JMM、happens-before、volatile</title>
     <url>/2024/08/04/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9AJMM/</url>
     <content><![CDATA[<h1 id="一、内存模型（含八股内容）"><a href="#一、内存模型（含八股内容）" class="headerlink" title="一、内存模型（含八股内容）"></a>一、内存模型（含八股内容）</h1><h2 id="1-1-内存模型及并发问题"><a href="#1-1-内存模型及并发问题" class="headerlink" title="1.1 内存模型及并发问题"></a>1.1 内存模型及并发问题</h2><p>Java 内存模型（Java Memory Model，JMM）定义了 Java 程序中的变量、线程如何和主存以及工作内存进行交互的规则。它主要涉及到多线程环境下的共享变量可见性、指令重排等问题，是理解并发编程中的关键概念。</p>
@@ -1994,6 +1861,116 @@
 <h1 id="六、synchronized关键字"><a href="#六、synchronized关键字" class="headerlink" title="六、synchronized关键字"></a>六、synchronized关键字</h1><p>由于我写累了就不写基本用法了，就是修饰静态代码块，同步方法（实例方法），静态方法（类方法）三种用途，不懂的可以自己去查资料</p>
 <p>重点放在关键字保证的线程安全上，<strong>synchronized关键字是允许指令重排的，也就是说，满足了 happens-before模型的结果一致原则的指令重排。</strong></p>
 <p>另外，<strong>synchronized属于重入锁，这部分放到多线程和锁的内容去介绍。</strong></p>
+]]></content>
+      <categories>
+        <category>Java</category>
+      </categories>
+      <tags>
+        <tag>面试</tag>
+        <tag>多线程</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Java多线程：一、线程池</title>
+    <url>/2024/08/03/java-%E7%BA%BF%E7%A8%8B%E6%B1%A0/</url>
+    <content><![CDATA[<h1 id="前言："><a href="#前言：" class="headerlink" title="前言："></a>前言：</h1><p>全文了解线程池干货，<strong>要想看面试题直接看标题中带有八股的就行了。</strong></p>
+<h1 id="一、什么是线程池"><a href="#一、什么是线程池" class="headerlink" title="一、什么是线程池"></a>一、什么是线程池</h1><h2 id="1-1-什么是线程池？"><a href="#1-1-什么是线程池？" class="headerlink" title="1.1 什么是线程池？"></a>1.1 什么是线程池？</h2><p>线程池（Thread Pool）是一种并发编程中常用的技术，用于管理和重用线程。它由线程池管理器、工作队列和线程池线程组成。</p>
+<p>线程池的基本概念是，在应用程序启动时创建一定数量的线程，并将它们保存在线程池中。当需要执行任务时，从线程池中获取一个空闲的线程，将任务分配给该线程执行。当任务执行完毕后，线程将返回到线程池，可以被其他任务复用。</p>
+<p>大白话：线程池的设计思想是为了避免频繁地创建和销毁线程的开销，以及控制并发执行的线程数量，从而提高系统的性能和资源利用率。线程池保证线程的可复用。</p>
+<h2 id="1-2-线程池的关键组成部分："><a href="#1-2-线程池的关键组成部分：" class="headerlink" title="1.2 线程池的关键组成部分："></a>1.2 线程池的关键组成部分：</h2><h3 id="1-2-1-线程池管理器（ThreadPoolExecutor）"><a href="#1-2-1-线程池管理器（ThreadPoolExecutor）" class="headerlink" title="1.2.1 线程池管理器（ThreadPoolExecutor）"></a>1.2.1 线程池管理器（ThreadPoolExecutor）</h3><p>负责创建、管理和控制线程池。它负责线程的创建、销毁和管理，以及线程池的状态监控和调度任务。</p>
+<h3 id="1-2-2-线程池阻塞队列（BlockingQueue）"><a href="#1-2-2-线程池阻塞队列（BlockingQueue）" class="headerlink" title="1.2.2 线程池阻塞队列（BlockingQueue）"></a>1.2.2 线程池阻塞队列（BlockingQueue）</h3><p>用于存储待执行的任务。当线程池中的线程都在执行任务时，新的任务会被放入工作队列中等待执行。</p>
+<h3 id="1-2-3-线程池线程（Worker-Thread）"><a href="#1-2-3-线程池线程（Worker-Thread）" class="headerlink" title="1.2.3 线程池线程（Worker Thread）"></a>1.2.3 线程池线程（Worker Thread）</h3><p>实际执行任务的线程。线程池中会维护一组线程，这些线程可以被重复使用，从而避免了频繁创建和销毁线程的开销。</p>
+<h2 id="1-3-八股：Java线程池中阻塞队列常用类型有哪些？"><a href="#1-3-八股：Java线程池中阻塞队列常用类型有哪些？" class="headerlink" title="1.3 八股：Java线程池中阻塞队列常用类型有哪些？"></a>1.3 八股：Java线程池中阻塞队列常用类型有哪些？</h2><p><code>ArrayBlockingQueue</code>是一个基于数组结构的有界阻塞队列，此队列按 FIFO（先进先出）原则 对元素进行排序。 </p>
+<p><code>LinkedBlockingQueue</code> 一个基于链表结构的阻塞队列，此队列按FIFO （先进先出） 排序元素，吞吐量通常要高于 ArrayBlockingQueue </p>
+<p><code>SynchronousQueue</code>一个不存储元素的阻塞队列。</p>
+<p><code>PriorityBlockingQueue</code>一个具有优先级的无限阻塞队列。PriorityBlockingQueue也是基于最小二叉堆实现。PriorityBlockingQueue 并<strong>不会阻塞数据生产者，而只会在没有可消费的数据时，阻塞数据的消费者。</strong><br>因此使用的时候要特别注意，<strong>生产者生产数据的速度绝对不能快于消费者消费数据的速度</strong>，否则时间一长，会最终耗尽所有的可用堆内存空间。</p>
+<p><code>DelayQueue</code> 阿里内部资料只有当其指定的延迟时间到了，才能够从队列中获取到该元素。 DelayQueue是一个没有大小限制的队列， 因此往队列中插入数据的操作（生产者）永远不会被阻塞，而只有获取数据的操作（消费者）才会被阻塞。 </p>
+<p>这里能说出前三种也就差不多了，如果能说全那是最好。</p>
+<h1 id="二、八股：常用的线程池"><a href="#二、八股：常用的线程池" class="headerlink" title="二、八股：常用的线程池"></a>二、八股：常用的线程池</h1><p><strong>newSingleThreadExecutor：</strong>创建一个单线程的线程池，此线程池保证所有任务的执行顺序按照任务的提交顺序执行。</p>
+<p><strong>newFixedThreadPool：</strong>创建固定大小的线程池，每次提交一个任务就创建一个线程，直到线程达到线程池的最大大小。</p>
+<p><strong>newCachedThreadPool：</strong>创建一个可缓存的线程池，此线程池不会对线程池大小做限制，线程池大小完全依赖于操作系统（或者说JVM）能够创建的最大线程大小。</p>
+<p><strong>newScheduledThreadPool：</strong>创建一个大小无限的线程池，此线程池支持定时以及周期性执行任务的需求。</p>
+<h1 id="三、使用线程池的步骤"><a href="#三、使用线程池的步骤" class="headerlink" title="三、使用线程池的步骤"></a>三、使用线程池的步骤</h1><h2 id="3-1-使用线程池的一般步骤如下："><a href="#3-1-使用线程池的一般步骤如下：" class="headerlink" title="3.1 使用线程池的一般步骤如下："></a>3.1 使用线程池的一般步骤如下：</h2><ol>
+<li><strong>创建线程池：</strong>使用Executors工具类提供的静态方法之一，或者直接使用ThreadPoolExecutor类来创建线程池。</li>
+</ol>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">ExecutorService</span> <span class="variable">executor</span> <span class="operator">=</span> Executors.newFixedThreadPool(<span class="number">5</span>); <span class="comment">// 创建固定大小的线程池</span></span><br></pre></td></tr></table></figure>
+
+<p><img src="Snipaste_2024-08-03_18-05-06.png" alt="使用executors工具类创建线程"></p>
+<p><code>newCachedThreadPool</code>说是没有上限的线程池，实际上还是有的，是int的最大值。并且普通电脑在创建几千个的时候就蚌埠住了，所以理论上是没有上限的线程池。</p>
+<ol start="2">
+<li><strong>提交任务：</strong>使用execute()或submit()方法将任务提交给线程池。</li>
+</ol>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">executor.execute(<span class="keyword">new</span> <span class="title class_">MyRunnable</span>()); <span class="comment">// 提交Runnable任务</span></span><br><span class="line">Future&lt;String&gt; future = executor.submit(<span class="keyword">new</span> <span class="title class_">MyCallable</span>()); <span class="comment">// 提交Callable任务，并返回Future对象</span></span><br></pre></td></tr></table></figure>
+<ol start="3">
+<li><strong>关闭线程池：</strong>在不再需要线程池时，需要调用shutdown()方法来关闭线程池。这将停止接受新任务，并逐渐关闭线程池中的线程。</li>
+</ol>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">executor.shutdown();</span><br></pre></td></tr></table></figure>
+
+<p>实际开发中不会关闭线程池，比如游戏的服务器之类的，实时打开，在学习的时候还是需要了解流程的。</p>
+<h2 id="3-2-八股：Java线程池中submit-和-execute-方法有什么区别？"><a href="#3-2-八股：Java线程池中submit-和-execute-方法有什么区别？" class="headerlink" title="3.2 八股：Java线程池中submit() 和 execute()方法有什么区别？"></a>3.2 八股：Java线程池中submit() 和 execute()方法有什么区别？</h2><p>两个方法都可以向线程池提交任务，execute()方法的返回类型是void，它定义在Executor接口中, 而submit()方法可以返回持有计算结果的Future对象，它定义在ExecutorService接口中，它扩展了 Executor接口，其它线程池类像ThreadPoolExecutor和ScheduledThreadPoolExecutor都有这些 方法。</p>
+<h2 id="3-3-演示线程池（个人认为理解线程池的需要看）"><a href="#3-3-演示线程池（个人认为理解线程池的需要看）" class="headerlink" title="3.3 演示线程池（个人认为理解线程池的需要看）"></a>3.3 演示线程池（个人认为理解线程池的需要看）</h2><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//线程类：</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MyRunnable</span> <span class="keyword">implements</span> <span class="title class_">Runnable</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</span><br><span class="line">            System.out.print1n(Thread.current <span class="title function_">Thread</span><span class="params">()</span>.getName() + ---<span class="string">&quot; );</span></span><br><span class="line"><span class="string">        &#125;</span></span><br><span class="line"><span class="string">    &#125;</span></span><br><span class="line"><span class="string">&#125;</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">//main方法：</span></span><br><span class="line"><span class="string">//1.获取线程池对象</span></span><br><span class="line"><span class="string">ExecutorService pool1 = Executors . newCachedThreadPool();</span></span><br><span class="line"><span class="string">//2.提交任务</span></span><br><span class="line"><span class="string">pool1. submit (new MyRunnable());</span></span><br><span class="line"><span class="string">//Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">poo11.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">//Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit(new MyRunnable());</span></span><br><span class="line"><span class="string">//Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit(new MyRunnable());</span></span><br><span class="line"><span class="string">//Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">poo11.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">//Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">//3.销毁线程池</span></span><br><span class="line"><span class="string">//pool1. shutdown();</span></span><br></pre></td></tr></table></figure>
+
+<p>首先，在main方法中，不让main线程sleep，那么打印的结果如下：可以看到，线程池1中创建了1,2,3,4,5，一共5个线程（打印结果比较长我就截图一部分，实际上是5个）</p>
+<p><img src="Snipaste_2024-08-03_18-21-34.png" alt="main线程没有sleep的打印结果"></p>
+<p><strong>如果让main线程睡眠，那么可以让线程1在main方法sleep时赶紧结束run方法中的逻辑，使得线程1执行结束后返回线程池，在main线程sleep的时间结束后，再次调用submit方法时，拿到的还是线程1</strong></p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//线程类：</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MyRunnable</span> <span class="keyword">implements</span> <span class="title class_">Runnable</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</span><br><span class="line">            System.out.print1n(Thread.current <span class="title function_">Thread</span><span class="params">()</span>.getName() + ---<span class="string">&quot; );</span></span><br><span class="line"><span class="string">        &#125;</span></span><br><span class="line"><span class="string">    &#125;</span></span><br><span class="line"><span class="string">&#125;</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">//main方法：</span></span><br><span class="line"><span class="string">//1.获取线程池对象</span></span><br><span class="line"><span class="string">ExecutorService pool1 = Executors . newCachedThreadPool();</span></span><br><span class="line"><span class="string">//2.提交任务</span></span><br><span class="line"><span class="string">pool1. submit (new MyRunnable());</span></span><br><span class="line"><span class="string">Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">poo11.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit(new MyRunnable());</span></span><br><span class="line"><span class="string">Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit(new MyRunnable());</span></span><br><span class="line"><span class="string">Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">poo11.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">//3.销毁线程池</span></span><br><span class="line"><span class="string">//pool1. shutdown();</span></span><br></pre></td></tr></table></figure>
+
+<p><img src="Snipaste_2024-08-03_18-26-05.png" alt="使main线程sleep的打印结果"></p>
+<h1 id="四、线程池原理"><a href="#四、线程池原理" class="headerlink" title="四、线程池原理"></a>四、线程池原理</h1><h2 id="4-1-ThreadPoolExecutor类"><a href="#4-1-ThreadPoolExecutor类" class="headerlink" title="4.1 ThreadPoolExecutor类"></a>4.1 ThreadPoolExecutor类</h2><p>在创建线程池的方法中（3.1节），曾经说过创建线程池使用工具类或者使用ThreadPoolExecutor类，实际上工具类的底层也是调用ThreadPoolExecutor类来创建线程池：</p>
+<p>Executors类提供4个静态工厂方法：newCachedThreadPool()、newFixedThreadPool(int)、newSingleThreadExecutor和newScheduledThreadPool(int)。这些方法最终都是通过ThreadPoolExecutor类来完成的。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="title function_">ThreadPoolExecutor</span><span class="params">(<span class="type">int</span> corePoolSize,</span></span><br><span class="line"><span class="params">                          <span class="type">int</span> maximumPoolSize,</span></span><br><span class="line"><span class="params">                          <span class="type">long</span> keepAliveTime,</span></span><br><span class="line"><span class="params">                          TimeUnit unit,</span></span><br><span class="line"><span class="params">                          BlockingQueue&lt;Runnable&gt; workQueue,</span></span><br><span class="line"><span class="params">                          ThreadFactory threadFactory,</span></span><br><span class="line"><span class="params">                          RejectedExecutionHandler handler)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (corePoolSize &lt; <span class="number">0</span> ||</span><br><span class="line">        maximumPoolSize &lt;= <span class="number">0</span> ||</span><br><span class="line">        maximumPoolSize &lt; corePoolSize ||</span><br><span class="line">        keepAliveTime &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IllegalArgumentException</span>();</span><br><span class="line">    <span class="keyword">if</span> (workQueue == <span class="literal">null</span> || threadFactory == <span class="literal">null</span> || handler == <span class="literal">null</span>)</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">NullPointerException</span>();</span><br><span class="line">    <span class="built_in">this</span>.acc = System.getSecurityManager() == <span class="literal">null</span> ?</span><br><span class="line">            <span class="literal">null</span> :</span><br><span class="line">            AccessController.getContext();</span><br><span class="line">    <span class="built_in">this</span>.corePoolSize = corePoolSize;</span><br><span class="line">    <span class="built_in">this</span>.maximumPoolSize = maximumPoolSize;</span><br><span class="line">    <span class="built_in">this</span>.workQueue = workQueue;</span><br><span class="line">    <span class="built_in">this</span>.keepAliveTime = unit.toNanos(keepAliveTime);</span><br><span class="line">    <span class="built_in">this</span>.threadFactory = threadFactory;</span><br><span class="line">    <span class="built_in">this</span>.handler = handler;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>可以看到类里面有7个参数，这7个参数也就是线程池的核心参数。</strong></p>
+<h2 id="4-2-八股：线程池七大核心参数"><a href="#4-2-八股：线程池七大核心参数" class="headerlink" title="4.2 八股：线程池七大核心参数"></a>4.2 八股：线程池七大核心参数</h2><h3 id="4-2-1-黑马讲的故事（方便记忆参数，可以跳过）"><a href="#4-2-1-黑马讲的故事（方便记忆参数，可以跳过）" class="headerlink" title="4.2.1 黑马讲的故事（方便记忆参数，可以跳过）"></a>4.2.1 黑马讲的故事（方便记忆参数，可以跳过）</h3><p>故事就是讲了饭店内只有3名正式员工，同时招待的顾客最大6人，但是剩下的3名员工是临时工，只有招待人数大于3人的时候才会去招人，否则就不招，辞退这三个临时工。</p>
+<p><img src="Snipaste_2024-08-03_18-48-51.png"></p>
+<p>但是饭店小，只能允许10个人排队，超出的人就不给排队了</p>
+<p><img src="Snipaste_2024-08-03_18-53-22.png"></p>
+<p>OK，现在根据故事给出的7个参数代换： </p>
+<p><img src="Snipaste_2024-08-03_18-57-58.png" alt="7个参数代换"></p>
+<h3 id="4-2-2-八股：7个核心参数"><a href="#4-2-2-八股：7个核心参数" class="headerlink" title="4.2.2 八股：7个核心参数"></a>4.2.2 八股：7个核心参数</h3><ol>
+<li>int corePoolSize,核心线程数量，不能小于0 </li>
+<li>int maximumPoolSize,最大的线程数量，减去核心线程&#x3D;临时线程</li>
+<li>long keepAliveTime,空闲线程的最大存活时间</li>
+<li>TimeUnit unit,时间单位</li>
+<li>BlockingQueue<Runnable> workQueue,任务队列</Runnable></li>
+<li>ThreadFactory threadFactory,创建线程工厂</li>
+<li>RejectedExecutionHandler handler，任务的拒绝策略</li>
+</ol>
+<h2 id="4-3-线程池的工作原理流程（建议4-3全看，方便理解4-5的八股）"><a href="#4-3-线程池的工作原理流程（建议4-3全看，方便理解4-5的八股）" class="headerlink" title="4.3 线程池的工作原理流程（建议4.3全看，方便理解4.5的八股）"></a>4.3 线程池的工作原理流程（建议4.3全看，方便理解4.5的八股）</h2><h3 id="4-3-1-场景一"><a href="#4-3-1-场景一" class="headerlink" title="4.3.1 场景一"></a>4.3.1 场景一</h3><p>现在有如下场景：核心线程3个，临时线程3个，此时有5个任务进来的时候线程池应该如何创建线程？</p>
+<p><img src="Snipaste_2024-08-03_19-05-57.png"></p>
+<p>正确的是创建3个核心线程去处理前3个任务，而后两个任务应该排队，直到3个核心线程空闲出来才会被执行。</p>
+<p><img src="Snipaste_2024-08-03_19-07-50.png"></p>
+<h3 id="4-3-2-场景二"><a href="#4-3-2-场景二" class="headerlink" title="4.3.2 场景二"></a>4.3.2 场景二</h3><p>此时在场景一中，提交的任务数是8个，那么线程池如何创建线程？</p>
+<p>答案是1,2,3任务由核心线程处理，4,5,6任务进入阻塞队列，7,8任务交给临时线程处理。</p>
+<p><strong>重点：</strong></p>
+<ol>
+<li>只有阻塞队列满了以后，才会临时线程</li>
+<li>任务被线程处理的顺序不取决于先来先处理，比如案例中4,5,6任务先来但是7,8任务先被处理</li>
+</ol>
+<p><img src="Snipaste_2024-08-03_19-13-39.png"></p>
+<h3 id="4-3-3-场景三"><a href="#4-3-3-场景三" class="headerlink" title="4.3.3 场景三"></a>4.3.3 场景三</h3><p>当提交的任务数超过了核心线程数（参数1），临时线程数（参数2减去参数1），队列数（参数6，创建阻塞队列的时候给队列传递参数决定容量的大小，比如ArrayBlockingQueue指定数组大小，见1.3节）的时候，多出来的线程就会触发拒绝策略（参数7）</p>
+<p><img src="Snipaste_2024-08-03_19-23-56.png"></p>
+<h2 id="4-4-八股：任务拒绝策略（参数7）"><a href="#4-4-八股：任务拒绝策略（参数7）" class="headerlink" title="4.4 八股：任务拒绝策略（参数7）"></a>4.4 八股：任务拒绝策略（参数7）</h2><p><img src="Snipaste_2024-08-03_19-28-28.png" alt="任务拒绝策略"></p>
+<p><strong>主要的是使用默认的策略。</strong></p>
+<p>如果使用第三个，那么在场景三中，被抛弃的是任务4，然后加入任务10，队列为5&#x3D;&gt;6&#x3D;&gt;10</p>
+<p>如果使用第四个，那么任务10会跳过线程池，直接调用这个线程的run方法</p>
+<h2 id="4-5-阿里八股：线程池原理知道吗？以及核心参数？"><a href="#4-5-阿里八股：线程池原理知道吗？以及核心参数？" class="headerlink" title="4.5 阿里八股：线程池原理知道吗？以及核心参数？"></a>4.5 阿里八股：线程池原理知道吗？以及核心参数？</h2><p>首先线程池有几个核心的参数概念： </p>
+<ol>
+<li>最大线程数maximumPoolSize </li>
+<li>核心线程数corePoolSize </li>
+<li>活跃时间keepAliveTime </li>
+<li>阻塞队列workQueue </li>
+<li>拒绝策略RejectedExecutionHandler</li>
+</ol>
+<p>当提交一个新任务到线程池时，具体的执行流程如下： </p>
+<ol>
+<li>当我们提交任务，线程池会根据corePoolSize大小创建若干任务数量线程执行任务 </li>
+<li>当任务的数量超过corePoolSize数量，后续的任务将会进入阻塞队列阻塞排队 </li>
+<li>当阻塞队列也满了之后，那么将会继续创建(maximumPoolSize-corePoolSize)个数量的线程来 执行任务，如果任务处理完成，maximumPoolSize-corePoolSize额外创建的线程等待 keepAliveTime之后被自动销毁 </li>
+<li>如果达到maximumPoolSize，阻塞队列还是满的状态，那么将根据不同的拒绝策略对应处理</li>
+</ol>
+<p><img src="Snipaste_2024-08-03_19-33-13.png"></p>
+<p>这是阿里面试多线程&amp;JUC的35题，我直接照着搬答案过来了，是不是把第四大节看完后就很好理解了？</p>
 ]]></content>
       <categories>
         <category>Java</category>
@@ -2365,6 +2342,50 @@
 <p><code>StampedLock</code> 类是 Java 8 才发布的，也是 Doug Lea 大神所写，有人称它为锁的性能之王。</p>
 <p>StampedLock 没有实现 Lock 接口和 ReadWriteLock 接口，但它实现了“读写锁”的功能，并且性能比 ReentrantReadWriteLock 更高。StampedLock 还把读锁分为了“乐观读锁”和“悲观读锁”两种。</p>
 <p>感兴趣可以自行搜索，在这里的博客就只介绍面向八股的比较常见的锁啦</p>
+]]></content>
+      <categories>
+        <category>Java</category>
+      </categories>
+      <tags>
+        <tag>面试</tag>
+        <tag>多线程</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Java多线程：四、详解ConcurrentHashMap构成</title>
+    <url>/2024/08/06/java%EF%BC%9A%E8%AF%A6%E8%A7%A3ConcurrentHashMap/</url>
+    <content><![CDATA[<h1 id="一、JDK-1-7"><a href="#一、JDK-1-7" class="headerlink" title="一、JDK 1.7"></a>一、JDK 1.7</h1><h2 id="1-1-加锁机制"><a href="#1-1-加锁机制" class="headerlink" title="1.1 加锁机制"></a>1.1 加锁机制</h2><p>ConcurrentHashMap 在 JDK 1.7 中，提供了一种粒度更细的加锁机制，这种机制叫分段锁「Lock Striping」。整个哈希表被分为多个段，每个段都独立锁定。读取操作不需要锁，写入操作仅锁定相关的段。这减小了锁冲突的几率，从而提高了并发性能。</p>
+<p>这种机制的优点：在并发环境下将实现更高的吞吐量，而在单线程环境下只损失非常小的性能。</p>
+<p>可以这样理解分段锁，就是<strong>将数据分段，对每一段数据分配一把锁</strong>。当一个线程占用锁访问其中一个段数据的时候，其他段的数据也能被其他线程访问。</p>
+<p>有些方法需要跨段，比如 <code>size()</code>、<code>isEmpty()</code>、<code>containsValue()</code>，它们可能需要锁定整个表而不仅仅是某个段，这需要按顺序锁定所有段，操作完后，再按顺序释放所有段的锁。如下图：</p>
+<p><img src="map-20230816155810.png" alt="jdk1.7之前的构成图"></p>
+<h2 id="1-2-八股：jdk1-7之前的构成"><a href="#1-2-八股：jdk1-7之前的构成" class="headerlink" title="1.2 八股：jdk1.7之前的构成"></a>1.2 八股：jdk1.7之前的构成</h2><p>敲重点！字体加粗了务必记好。</p>
+<p>ConcurrentHashMap 是由 <strong>Segment 数组结构和 HashEntry 数组</strong>构成的。Segment 是一种可重入的锁 <code>ReentrantLock</code>，HashEntry 则用于存储键值对数据。</p>
+<p>一个 ConcurrentHashMap 里包含<strong>一个 Segment 数组，数组中都是segment对象</strong>，Segment 的结构和 HashMap 类似，是一种数组和链表结构，一个 Segment 里包含一个 <strong>HashEntry 数组</strong>，每个 HashEntry 是一个链表结构的元素，每个 Segment 守护着一个 HashEntry 数组里的元素，当对 HashEntry 数组的数据进行修改时，必须首先获得它对应的 Segment 锁（可重入锁）。</p>
+<p><strong>HashEntry到底是什么？</strong></p>
+<p>我自己搜的时候都在介绍hashentry是数组，但是搜到的都是类似链表的结构，包括在1.1节中的图片看上去都是链表，这是怎么回事？</p>
+<p>其实，<code>HashEntry</code>本身是一个<strong>结构体（或内部类，同样segment也是内部类）</strong>，实际上是每个<code>Segment</code>内部的一个数组，用于封装键值对数据，并可能包含指向下一个<code>HashEntry</code>的引用以形成链表结构，用于处理哈希冲突。但由于哈希冲突的存在，这个数组的每个位置可能不仅仅是一个<code>HashEntry</code>对象，而是一个由<code>HashEntry</code>对象组成的链表（或更复杂的结构，如红黑树，但这在JDK 1.7中不是默认的）。</p>
+<p><code>ConcurrentHashMap</code>使用链表来存储这些具有相同索引值的键值对。具体来说，每个数组位置（在JDK 1.7中实际上是<code>Segment</code>内部的数组，而在JDK 1.8及以后是<code>Node</code>数组）存储的是链表的头节点。如果发生哈希冲突，新的键值对会被添加到这个链表的末尾。</p>
+<p>接下来看看Segment的结构组成：</p>
+<p>单一的 Segment 结构如下：</p>
+<p><img src="map-20230816160155.png"></p>
+<p>像这样的 Segment 对象，在 ConcurrentHashMap 集合中有多少个呢？有 2 的 N 次方个，共同保存在一个名为 segments 的数组当中。 因此整个 ConcurrentHashMap 的结构如下：</p>
+<p><img src="map-20230816160223.png"></p>
+<p>可以说，ConcurrentHashMap 是一个二级哈希表。在一个总的哈希表下面，有若干个子哈希表。</p>
+<p>Case1：不同 Segment 的并发写入（可以并发执行）</p>
+<p><img src="map-20230816160301.png"></p>
+<p>Case2：同一 Segment 的一写一读（可以并发执行）</p>
+<p><img src="map-20230816160316.png"></p>
+<p>Case3：同一 Segment 的并发写入</p>
+<p><img src="map-20230816160331.png"></p>
+<h1 id="二、JDK1-8往后"><a href="#二、JDK1-8往后" class="headerlink" title="二、JDK1.8往后"></a>二、JDK1.8往后</h1><p>而在 JDK 1.8 中，ConcurrentHashMap 主要做了两个优化：</p>
+<ul>
+<li>同<code>HashMap</code> 一样，链表也会在长度达到 8 的时候转化为红黑树，这样可以提升大量冲突时候的查询效率；</li>
+<li>以某个位置的头结点（链表的头结点或红黑树的 root 结点）为锁，**配合自旋+CAS(乐观锁)**避免不必要的锁开销，进一步提升并发性能。</li>
+</ul>
+<p><img src="map-20230816155924.png"></p>
+<p>相比 JDK1.7 中的 ConcurrentHashMap，JDK1.8 中的 ConcurrentHashMap 取消了 Segment 分段锁，采用 CAS + synchronized 来保证并发安全性，整个容器只分为一个 Segment，即 table 数组。</p>
+<p>JDK1.8 中的 ConcurrentHashMap 对节点 Node 类中的共享变量，和 JDK1.7 一样，使用 volatile 关键字，保证多线程操作时，变量的可见性。</p>
 ]]></content>
       <categories>
         <category>Java</category>
@@ -2944,6 +2965,386 @@
       </tags>
   </entry>
   <entry>
+    <title>spring框架：面试知识</title>
+    <url>/2024/08/19/spring%E6%A1%86%E6%9E%B6%EF%BC%9A%E9%9D%A2%E8%AF%95%E7%9F%A5%E8%AF%86/</url>
+    <content><![CDATA[<h1 id="一、控制反转（IoC）和依赖注入（DI）"><a href="#一、控制反转（IoC）和依赖注入（DI）" class="headerlink" title="一、控制反转（IoC）和依赖注入（DI）"></a>一、控制反转（IoC）和依赖注入（DI）</h1><h2 id="1-控制反转"><a href="#1-控制反转" class="headerlink" title="1. 控制反转"></a>1. 控制反转</h2><p>　　<strong>Ioc—Inversion of Control，即“控制反转”，不是什么技术，而是一种设计思想。</strong>在Java开发中，<strong>Ioc意味着将你设计好的对象交给容器控制，而不是传统的在你的对象内部直接控制。</strong></p>
+<ul>
+<li><p>谁控制谁，控制什么：传统Java SE程序设计，我们直接在对象内部通过new进行创建对象，是程序主动去创建依赖对象；而IoC是有专门一个容器来创建这些对象，即由Ioc容器来控制对象的创建。</p>
+<p>谁控制谁？当然是IoC 容器控制了对象；控制什么？那就是主要控制了外部资源获取（不只是对象包括比如文件等）。</p>
+<blockquote>
+<p>这里提到的“外部资源”指的是IoC（Inversion of Control，控制反转）容器之外的资源。</p>
+</blockquote>
+</li>
+<li><p>为何是反转，哪些方面反转了：有反转就有正转，传统应用程序是由我们自己在对象中主动控制去直接获取依赖对象（new关键字），也就是正转；而反转则是由容器来帮忙创建及注入依赖对象。</p>
+<p>为何是反转？因为由容器帮我们查找及注入依赖对象，对象只是被动的接受依赖对象，所以是反转；哪些方面反转了？依赖对象的获取被反转了。</p>
+</li>
+</ul>
+<h2 id="2-依赖注入"><a href="#2-依赖注入" class="headerlink" title="2. 依赖注入"></a>2. 依赖注入</h2><h3 id="2-1-什么是依赖注入"><a href="#2-1-什么是依赖注入" class="headerlink" title="2.1 什么是依赖注入"></a>2.1 什么是依赖注入</h3><p><strong>DI—Dependency Injection，即“依赖注入”</strong>：<strong>组件之间依赖关系</strong>由容器在运行期决定，形象的说，即<strong>由容器动态的将某个依赖关系注入到组件之中</strong>。<strong>依赖注入的目的并非为软件系统带来更多功能，而是为了提升组件重用的频率，并为系统搭建一个灵活、可扩展的平台。</strong>通过依赖注入机制，我们只需要通过简单的配置，而无需任何代码就可指定目标需要的资源，完成自身的业务逻辑，而不需要关心具体的资源来自何处，由谁实现。</p>
+<p>理解DI的关键是：“谁依赖谁，为什么需要依赖，谁注入谁，注入了什么”　</p>
+<ul>
+<li><p>谁依赖于谁：当然是应用程序依赖于IoC容器； 　　</p>
+</li>
+<li><p>为什么需要依赖：应用程序需要IoC容器来提供对象需要的外部资源； 　　</p>
+</li>
+<li><p>谁注入谁：很明显是IoC容器注入应用程序某个对象，应用程序依赖的对象； 　　</p>
+</li>
+<li><p>注入了什么：就是注入某个对象所需要的<strong>外部资源（包括对象、资源、常量数据）</strong>。</p>
+<blockquote>
+<p>在依赖注入（DI）的上下文中，提到的“外部资源”并不严格地指IoC（Inversion of Control，控制反转）容器之外的资源，而是相对于被注入对象而言，该对象在执行其功能时所需要但不直接创建或管理的资源。这些资源可以是其他对象、数据访问接口（如数据库连接）、文件句柄、网络资源、配置信息等，它们对于被注入对象来说是外部的，因为它们不是由该对象自身直接创建或控制的。</p>
+</blockquote>
+</li>
+</ul>
+<h3 id="2-2-依赖注入的方式"><a href="#2-2-依赖注入的方式" class="headerlink" title="2.2 依赖注入的方式"></a>2.2 依赖注入的方式</h3><ul>
+<li><p><strong>构造器注入</strong></p>
+<p>这个简单，就是单纯的构造方法，<code>MyDependency</code>是一个类，然后我通过<code>MyClass</code>类对<code>myDependency</code>这个对象进行初始化。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MyClass</span> &#123;  </span><br><span class="line">    <span class="keyword">private</span> MyDependency myDependency;  </span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">MyClass</span><span class="params">(MyDependency myDependency)</span> &#123;  </span><br><span class="line">        <span class="built_in">this</span>.myDependency = myDependency;  </span><br><span class="line">    &#125;  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>setter方法注入</strong></p>
+<p>这个和构造器的很像，不过用的是set方法。构造器注入能确保两个对象（或者说类）具有绑定关系，而setter的偏向灵活性。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MyClass</span> &#123;  </span><br><span class="line">    <span class="keyword">private</span> MyDependency myDependency;  </span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">setMyDependency</span><span class="params">(MyDependency myDependency)</span> &#123;  </span><br><span class="line">        <span class="built_in">this</span>.myDependency = myDependency;  </span><br><span class="line">    &#125;  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>接口注入</strong></p>
+<p>通过对象实现一个特定的接口来注入依赖。接口中定义了注入依赖的方法，对象通过实现该接口来接收依赖项。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">DependencyInjector</span> &#123;  </span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">injectDependency</span><span class="params">(MyClass myClass, MyDependency myDependency)</span>;  </span><br><span class="line">&#125;  </span><br><span class="line"><span class="comment">// 实际应用中，接口注入可能通过框架的特定机制来实现，而不是直接这样使用</span></span><br></pre></td></tr></table></figure>
+
+<p>在<code>DependencyInjector</code>接口的实现类中，需要重写<code>injectDependency</code>方法，<code>injectDependency</code>方法应该包含注入对象的逻辑</p>
+</li>
+<li><p><strong>注解注入</strong></p>
+<p>这个没什么好说的，就是<code>@autowired</code>和<code>@resource</code>这两个注解了。一个主打<code>byType</code>注入，一个主打<code>byName</code>注入。</p>
+<p><strong>可以参考下文第二节：Bean的第6节。</strong></p>
+</li>
+</ul>
+<p>可以参考的文章，我基本写的差不多了：<a href="https://blog.csdn.net/bestone0213/article/details/47424255">依赖注入和控制反转的理解，写的太好了。-CSDN博客</a></p>
+<h2 id="3-循环依赖"><a href="#3-循环依赖" class="headerlink" title="3. 循环依赖"></a>3. 循环依赖</h2><p>循环依赖是bean互相引用的错误，在spring中可以通过<strong>三级缓存</strong>自动解决，但同时也存在三级缓存不能自主解决的情况。</p>
+<p>官方文档写的很好，必看内容：<a href="https://springdoc.cn/revisiting-spring-s-circular-dependencies/">再谈谈 Spring 中的循环依赖 - spring 中文网 (springdoc.cn)</a>，这里就简单的写一下三级缓存机制方便速查。</p>
+<h3 id="Spring框架中的三级缓存机制"><a href="#Spring框架中的三级缓存机制" class="headerlink" title="Spring框架中的三级缓存机制"></a>Spring框架中的三级缓存机制</h3><p>在Spring框架中，三级缓存机制主要用于解决单例Bean的循环依赖问题。这三级缓存分别是：</p>
+<ol>
+<li><strong>一级缓存（SingletonObjects）</strong>：用于存放完全初始化好的Bean实例。</li>
+<li><strong>二级缓存（earlySingletonObjects）</strong>：存放的是半初始化的Bean实例，这些Bean已经完成了实例化过程，但尚未进行属性填充和初始化方法调用。</li>
+<li><strong>三级缓存（singletonFactories）</strong>：存放的是能够生成Bean实例的 Lambda 表达式，这些Lambda 表达式在被调用时会返回相应的Bean实例，并且这些实例会被放入二级缓存中。</li>
+</ol>
+<p>在一级缓存和二级缓存中，缓存的 key 是 beanName，缓存的 value 则是一个 Bean 对象，但是在三级缓存中，缓存的 value 是一个 Lambda 表达式，通过这个 Lambda 表达式可以创建出来目标对象的一个代理对象。</p>
+<p>当Spring容器在创建Bean时遇到循环依赖，它会首先尝试从一级缓存中获取Bean实例，如果获取不到，则尝试从二级缓存中获取半初始化的Bean实例。如果二级缓存中也没有，Spring会查看三级缓存中是否有对应的工厂对象，如果有，则通过工厂对象生成Bean实例，并将其放入二级缓存中，同时返回给需要的Bean进行依赖注入。</p>
+<h1 id="二、Bean"><a href="#二、Bean" class="headerlink" title="二、Bean"></a>二、Bean</h1><h2 id="1-八股：bean生命周期"><a href="#1-八股：bean生命周期" class="headerlink" title="1. 八股：bean生命周期"></a>1. 八股：bean生命周期</h2><p>在上一节讲了，控制反转和依赖注入对bean的操作，那么bean是如何被创建出来，被使用，被销毁的？</p>
+<p>Bean 的生命周期概括起来就是 <strong>4 个阶段</strong>：</p>
+<ol>
+<li>实例化（Instantiation）</li>
+<li>属性赋值（Populate）</li>
+<li>初始化（Initialization）</li>
+<li>销毁（Destruction）</li>
+</ol>
+<p><img src="ac4ecbed750bc3f4df7a68f951fd9daa.jpeg"></p>
+<ol>
+<li>Spring对Bean 进行实例化．</li>
+<li>Spring 将值和Bean的引用注入进Bean对应的属性中。</li>
+<li>如果Bean 实现了<code>BeanNameAware</code> 接口， Spring 将bean 的ID 传递给<code>setBeanName()</code> 接口方法．</li>
+<li>如果Bean实现了<code>BeanFactoryAware </code>接口（前置处理）， Spring 将调用<code>setBeanFactory()</code>接口方法，将BeanFactory容器实例传入．</li>
+<li>如果Bean 实现了<code>ApplicationcontextAware</code> 接口 Spring 将调用<code>setApplicationContext() </code>接口方法，将应用上下文的引用传入。</li>
+<li>如果Bean实现了<code>BeanPostProcessor</code> 接口Spring 将调用它们的<code>postProcessBeforeInitialization</code> 接口方法。</li>
+<li>如果Bean 实现了<code>InitializingBean</code> 接口，Spring 将调用它们的<code>afterPropertiesSet()</code>接口方法． 类似地，如果Bean 使用<code>init-method </code>声明了初始化方法，该方法也会被调用。</li>
+<li>如果Bean 实现了<code>BeanPostProcessor</code> 接口（后置处理）， Spring 将调用它们的<code>postPoressAfterInitilization</code>方法．</li>
+<li>此时此刻Bean 已经准备就绪，可以被应用程序使用了。 它们将一直驻留在应用上下文中，直到该应用上下文补销毁。</li>
+<li>如果Bean实现了<code>DisposableBean </code>接口，Spring 将调用它的<code>destroy()</code>接口方法。同样，如果Bean 使用<code>destroy-method </code>声明了销毁方法，方法也会被调用。</li>
+</ol>
+<p><strong>背起来困难可以看介绍：</strong></p>
+<p><strong>BeanPostProcessor是什么？</strong></p>
+<p>BeanPostProcessor是Spring IOC容器给我们提供的一个扩展接口，它可以在Spring容器实例化bean之后，在执行bean的初始化方法前后，允许我们自定义修改新的bean实例，如修改bean的属性，可以给bean生成一个动态代理实例等等，Spring AOP的底层处理也是通过实现BeanPostProcessor来执行代理包装逻辑的。</p>
+<p><strong>BeanFactoryAware接口是什么？</strong></p>
+<p>BeanFactoryAware是Spring框架中的一个接口，用于在Bean实例化后，将BeanFactory实例注入到Bean中。通过实现该接口，Bean可以获取到BeanFactory实例，从而可以在运行时动态获取其他Bean的实例。具体来说，BeanFactoryAware接口的作用是让Bean能够感知到所在的BeanFactory，从而可以在需要时获取其他Bean的实例。这对于需要动态获取其他Bean的实例的情况非常有用，例如在AOP中需要获取代理对象等。</p>
+<p><strong>ApplicationcontextAware接口是什么？</strong></p>
+<p><code>ApplicationContextAware</code>是Spring框架中的一个回调接口，它允许实现了该接口的Bean获取对<code>ApplicationContext</code>的引用。当Spring容器实例化Bean后，如果Bean实现了<code>ApplicationContextAware</code>接口，容器会自动调用该Bean的<code>setApplicationContext(ApplicationContext applicationContext)</code>方法，并将当前容器的<code>ApplicationContext</code>对象作为参数传递给这个方法。这样，Bean就可以在需要的时候访问<code>ApplicationContext</code>，进而获取容器中的其他Bean和资源。</p>
+<h2 id="2-八股：BeanFactory和ApplicationContext有什么区别？"><a href="#2-八股：BeanFactory和ApplicationContext有什么区别？" class="headerlink" title="2. 八股：BeanFactory和ApplicationContext有什么区别？"></a>2. 八股：BeanFactory和ApplicationContext有什么区别？</h2><p><strong>BeanFactory 可以理解为含有bean集合的工厂类。</strong>BeanFactory 包含了种bean的定义，以便在接收到客户端请求时将对应的bean实例化。</p>
+<p>BeanFactory还能在实例化对象的时生成协作类之间的关系。此举将bean自身与bean客户端的配置中解放出来。BeanFactory还包含了bean生命周期的控制，调用客户端的初始化方法（initialization methods）和销毁方法（destruction methods）。</p>
+<p><strong>ApplicationContext是BeanFactory的子接口</strong>。application context如同bean factory一样具有bean定义、bean关联关系的设置，根据请求分发bean的功能。但application context在此基础上还提供了其他的功能:</p>
+<ul>
+<li><p>提供了支持国际化的文本消息</p>
+</li>
+<li><p>统一的资源文件读取方式</p>
+</li>
+<li><p>已在监听器中注册的bean的事件</p>
+</li>
+</ul>
+<h2 id="3-八股：解释Spring支持的几种bean的作用域。"><a href="#3-八股：解释Spring支持的几种bean的作用域。" class="headerlink" title="3. 八股：解释Spring支持的几种bean的作用域。"></a>3. 八股：解释Spring支持的几种bean的作用域。</h2><p>Spring容器中的bean可以分为5个范围：</p>
+<ol>
+<li><p>singleton：默认，每个容器中只有一个bean的实例，单例的模式由BeanFactory自身来维护。</p>
+</li>
+<li><p>prototype：为每一个bean请求提供一个实例。</p>
+</li>
+<li><p>request：为每一个网络请求创建一个实例，在请求完成以后，bean会失效并被垃圾回收器回收。</p>
+</li>
+<li><p>session：与request范围类似，确保每个session中有一个bean的实例，在session过期后，bean会随之失效。</p>
+</li>
+<li><p>global-session：全局作用域，global-session和Portlet应用相关。当你的应用部署在Portlet容器中工作时，它包含很多portlet。如果你想要声明让所有的portlet共用全局的存储变量的话，那么这全局变量需要存储在global-session中。全局作用域与Servlet中的session作用域效果相同。</p>
+</li>
+</ol>
+<blockquote>
+<p>什么是portlet？</p>
+<p>还记得我们学web应用和servlet容器吧？最常用的就是tomcat，类似的github上开源的基础框架可能还有undertow、portlet容器，portlet就是portlet容器的web组件。</p>
+</blockquote>
+<h2 id="4-八股：Spring框架中的单例Beans是线程安全的么？"><a href="#4-八股：Spring框架中的单例Beans是线程安全的么？" class="headerlink" title="4. 八股：Spring框架中的单例Beans是线程安全的么？"></a>4. 八股：Spring框架中的单例Beans是线程安全的么？</h2><p>Spring框架并没有对单例bean进行任何多线程的封装处理。关于单例bean的线程安全和并发问题需要开发者自行去搞定。但实际上，大部分的Spring bean并没有可变的状态(比如Serview类和DAO类)，所以在某种程度上说Spring的单例bean是线程安全的。如果你的bean有多种状态的话（比如 View Model 对象），就需要自行保证线程安全。最浅显的解决办法就是将多态bean的作用域由“singleton”变更为“prototype”。</p>
+<h2 id="5-八股：bean自动装配的规则"><a href="#5-八股：bean自动装配的规则" class="headerlink" title="5. 八股：bean自动装配的规则"></a>5. 八股：bean自动装配的规则</h2><p>Spring框架中的自动装配提供了四种主要类型，它们分别是：</p>
+<ol>
+<li>byName<ul>
+<li><strong>工作原理</strong>：在IoC容器中寻找与Bean的属性名相同的id（或name）对应的Bean，并自动装配到该Bean的属性上。</li>
+<li><strong>特殊情况</strong>：如果找不到与属性名相匹配的Bean，则该属性将不会被装配。</li>
+<li><strong>示例</strong>：假设有一个Bean的某个属性名为<code>customerDao</code>，Spring会在IoC容器中查找id或name为<code>customerDao</code>的Bean，并将其装配到该属性上。</li>
+</ul>
+</li>
+<li>byType<ul>
+<li><strong>工作原理</strong>：在IoC容器中寻找与Bean的属性类型相同的Bean，并自动装配到该Bean的属性上。</li>
+<li><strong>特殊情况</strong><ul>
+<li>如果没有找到与属性类型相匹配的Bean，则该属性将不会被装配。</li>
+<li>如果找到多个与属性类型相匹配的Bean，则会抛出异常（如<code>UnsatisfiedDependencyException</code>），指出不能使用byType方式进行自动装配。</li>
+</ul>
+</li>
+<li><strong>示例</strong>：如果有一个Bean的属性类型为<code>CustomerDao</code>，Spring会在IoC容器中查找类型为<code>CustomerDao</code>的Bean，并将其装配到该属性上。</li>
+</ul>
+</li>
+<li>constructor<ul>
+<li><strong>工作原理</strong>：在IoC容器中寻找与Bean的构造器参数类型相匹配的Bean，并自动装配到构造器的对应参数上。</li>
+<li><strong>特殊情况</strong><ul>
+<li>如果存在不确定的Bean或构造方法，容器会抛出异常（如<code>UnsatisfiedDependencyException</code>）。</li>
+<li>这种方式通常要求Bean只有一个构造方法，或者至少有一个构造方法的参数可以通过自动装配解决。</li>
+</ul>
+</li>
+<li><strong>示例</strong>：如果有一个Bean的构造器接受一个<code>CustomerDao</code>类型的参数，Spring会在IoC容器中查找类型为<code>CustomerDao</code>的Bean，并将其作为参数传递给该构造器。</li>
+</ul>
+</li>
+<li>autodetect<ul>
+<li><strong>工作原理</strong>：这是一种自动检测的模式，它首先尝试使用constructor方式进行自动装配，如果失败（如没有找到匹配的构造方法或构造方法参数无法自动装配），则再尝试使用byType方式进行自动装配。</li>
+<li><strong>特殊情况</strong>：其不确定性处理与constructor和byType方式相同。</li>
+<li><strong>示例</strong>：Spring会首先尝试通过构造方法自动装配Bean，如果失败，则会尝试通过类型自动装配Bean的属性。</li>
+</ul>
+</li>
+</ol>
+<h2 id="6-八股：-autowired和-resource的区别"><a href="#6-八股：-autowired和-resource的区别" class="headerlink" title="6. 八股：@autowired和@resource的区别"></a>6. 八股：@autowired和@resource的区别</h2><p><code>@autowired</code>和<code>@resource</code>注解，一个主打<code>byType</code>注入，一个主打<code>byName</code>注入。</p>
+<p>如果<code>@autowired</code>想要走<code>byName</code>，那么可以结合<code>@qualifier</code>注解。</p>
+<p><code>@resource</code>如果<code>byName</code>失败，会自动走<code>byType</code>。</p>
+<h1 id="三、八股重点：Spring-AOP"><a href="#三、八股重点：Spring-AOP" class="headerlink" title="三、八股重点：Spring AOP"></a>三、八股重点：Spring AOP</h1><h2 id="1-什么是AOP"><a href="#1-什么是AOP" class="headerlink" title="1. 什么是AOP"></a>1. 什么是AOP</h2><p><img src="Snipaste_2024-08-20_02-33-23.png" alt="什么是AOP"></p>
+<p>在图中的场景可以说是一个入门的场景：现在想要统计一个方法的执行时间，那么可以使用system类提供的currentTimeMillis() 方法进行统计。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 1.调用方法记录方法运行前的时间戳</span></span><br><span class="line"><span class="type">long</span> <span class="variable">before</span> <span class="operator">=</span> System.currentTimeMillis();</span><br><span class="line"><span class="comment">// 2.调用被测的方法</span></span><br><span class="line">List&lt;Dept&gt; list = deptMapper.list();</span><br><span class="line"><span class="comment">// 3.调用方法记录方法运行后的时间戳</span></span><br><span class="line"><span class="type">long</span> <span class="variable">after</span> <span class="operator">=</span> System.currentTimeMillis();</span><br><span class="line"></span><br><span class="line"><span class="comment">// 4.打印运行时间</span></span><br><span class="line">System.out.PrintIn(after - before);</span><br></pre></td></tr></table></figure>
+
+<p>可以看到这样非常麻烦。如果要测试的方法多起来，难不成还要在每个方法前后都这么写？</p>
+<p>其实在Java基础的时候，我们是学过的<strong>动态代理</strong>可以解决这个问题。<strong>动态代理可以无代码入侵的让对象的方法进行功能性增强。</strong>而AOP的思想底层也就是根据动态代理来实现。</p>
+<blockquote>
+<p>动态代理主要分为两种：</p>
+<ol>
+<li><strong>基于接口的动态代理</strong>：Java的动态代理机制是基于接口的。它使用<code>java.lang.reflect.Proxy</code>类和<code>java.lang.reflect.InvocationHandler</code>接口来创建代理对象。在这种方式下，代理类需要实现和原始类相同的接口。</li>
+<li><strong>基于继承的动态代理</strong>：这种方式使用<code>CGLIB</code>库来实现。<code>CGLIB</code>是一个强大的、高性能的代码生成库，用于扩展Java类和实现Java接口。基于继承的动态代理是通过继承原始类来创建代理对象的，因此不需要原始类实现接口。</li>
+</ol>
+<p>目前对于我来说常用的是<strong>基于接口的动态代理。</strong>不仅仅是学习还是开发，这个接触的底层会更多一些，<code>CGLIB</code>库我目前没接触过。</p>
+</blockquote>
+<p><strong>现在正式的介绍什么是AOP：</strong></p>
+<p>AOP直译过来就是 <strong>面向切面编程</strong>，AOP 是一种编程思想，是面向对象编程（OOP）的一种补充。AOP可以拦截指定的方法并且对方法增强，而且无需侵入到业务代码中，使业务与非业务处理逻辑分离，比如Spring的事务，通过事务的注解配置，Spring会自动在业务方法中开启、提交业务，并且在业务处理失败时，执行相应的回滚策略。</p>
+<h2 id="2-Spring-AOP中的重要概念"><a href="#2-Spring-AOP中的重要概念" class="headerlink" title="2. Spring AOP中的重要概念"></a>2. Spring AOP中的重要概念</h2><p><img src="%E5%9B%BE%E7%89%871.png"></p>
+<p><strong>直接看我在下面写的文字：</strong></p>
+<ul>
+<li><p><strong>连接点：</strong>JoinPoint。指的是可以被AOP控制的方法，图中<code>list()</code>，<code>delete()</code>，<code>save()</code>方法都是连接点。<strong>同时也是潜在的切入点，</strong>是否成为真正的切入点由切入点表达式决定。</p>
+</li>
+<li><p><strong>通知：</strong>在图中，<code>recordTime</code>方法以及实现逻辑就是通知。<strong>通知的处理重复的代码逻辑，增强对象的方法的功能的部分。</strong></p>
+</li>
+<li><p><strong>切入点：</strong>PointCut。匹配连接点的条件，也是一组连接点，实际上是真正被AOP控制的方法。<strong>切入点的条件由切入点表达式决定。</strong></p>
+</li>
+<li><p><strong>切入点表达式：</strong>图中的<code>execution(* com.itheima.service.impl.DeptServiceImpl.list()) </code>这段代码就是切入点表达式。</p>
+<p>这个代码表示，在匹配<code>com.itheima.service.impl</code>包下的<code>DeptServiceImpl</code>类的<code>list()</code>方法。</p>
+</li>
+<li><p><strong>切面：</strong>通知+切入点。通常使用<code>@Aspect</code>注解标识，当前类是一个切面类。</p>
+</li>
+<li><p><strong>目标对象：</strong>Target，通知所应用的对象。图中<code>DeptServiceImpl</code>是目标对象。</p>
+</li>
+</ul>
+<h2 id="3-AOP执行流程"><a href="#3-AOP执行流程" class="headerlink" title="3. AOP执行流程"></a>3. AOP执行流程</h2><p><img src="Snipaste_2024-08-20_03-24-33.png"></p>
+<p>在一开始的切面类<code>TimeAspect</code>和目标对象<code>DeptServiceImpl</code>类中，是我们书写的代码逻辑。AOP在执行过程中，会生成<code>DeptServiceImpl</code>的动态代理类<code>DeptServicePorxy</code>。AOP中的调用原始方法（<code>joinPoint.proceed()</code>在下文介绍）的方法，将在代理对象中换成真正原始方法，并且将生成的代理对象注入到实例中。</p>
+<p><strong>八股：织入的时机有哪些？</strong></p>
+<p>在AOP中，<strong>将切面应用到目标对象来创建新的代理对象的过程称为织入（Waving）。</strong></p>
+<ol>
+<li><p>编译期——切面在目标类编译时被织入。</p>
+</li>
+<li><p>类加载期——切面在目标类加载到JVM时被织入，这种方式需要特殊的类加载器，可以在目标类被引入应用之前增强该目标类的字节。</p>
+</li>
+<li><p>运行期——切面在应用运行的某个时刻被织入，一般情况下，在织入切面时，AOP容器会为目标对象动态地创建一个代表对象。</p>
+</li>
+</ol>
+<h2 id="4-通知类型"><a href="#4-通知类型" class="headerlink" title="4. 通知类型"></a>4. 通知类型</h2><p>通知类型指定在切入点表达式，用于表示代理的逻辑运行时机。</p>
+<p><img src="%E5%9B%BE%E7%89%872.png" alt="通知类型"></p>
+<p>现在对<code>@Around</code>这个注解再来进行介绍，还是这张图：</p>
+<p><img src="%E5%9B%BE%E7%89%871.png" alt="介绍@around"></p>
+<p>我们可以看到，之前这个案例是使用<code>@Around</code>注解的。</p>
+<p>在原始方法执行之前一段逻辑，原始方法后又执行一段逻辑，<strong>那么如何调用原始方法？</strong></p>
+<ul>
+<li><p>我们需要使用<code>ProceedingJoinPoint</code>类提供的<code>proceed()</code>方法，可以调用原始方法。调用原始方法可能会出现异常，直接在方法上抛。</p>
+<blockquote>
+<p><code>ProceedingJoinPoint</code>类下文介绍更详细的内容，可以看第6节。</p>
+</blockquote>
+</li>
+<li><p>方法具备返回值且是<code>Object</code>类型的，如果方法最后不 return ，方法是拿不到返回值的。所以<code>recordTime</code>方法的返回值类型是<code>Object</code>类型的这个你发现了吗？</p>
+</li>
+</ul>
+<p>ok，我们到下一个模块的内容。</p>
+<p>如果<code>TimeAspect</code>类中，有多个<code>recordTime</code>方法，比如<code>recordTime1</code>，<code>recordTime2</code>，那么每个方法都需要写切入点表达式是不是很麻烦？</p>
+<p>yes，其实还是有改进方式的，那就是<code>PointCut</code>注解。</p>
+<p><img src="%E5%9B%BE%E7%89%873.png" alt="pointcut注解">拿一个具体的代码看看：</p>
+<p><img src="Snipaste_2024-08-20_03-44-37.png" alt="举个例子"></p>
+<p>OK，下一个模块。</p>
+<p>如果多个切面的切入点都匹配到了目标方法，可以使用<code>@Order</code>注解指定顺序。</p>
+<p><img src="Snipaste_2024-08-20_03-47-44.png" alt="通知顺序"></p>
+<h2 id="5-切入点表达式"><a href="#5-切入点表达式" class="headerlink" title="5. 切入点表达式"></a>5. 切入点表达式</h2><p>切入点表达式除了刚刚演示的<code>execution</code>，还有基于注解的<code>@annotation</code>。</p>
+<p><img src="Snipaste_2024-08-20_10-05-07.png"></p>
+<p><code>execution</code>这里就不多介绍了，直接看图</p>
+<p><img src="Snipaste_2024-08-20_10-08-50.png"></p>
+<p>这里主要介绍<code>@annotation</code>的方式。</p>
+<p>首先肯定需要有一个注解类型的类啦，Java中使用的是<code>@interface</code>表示一个类为注解类，就相当于<code>interface</code>表示接口，&#96;class&#96;&#96;表示类一样。</p>
+<p><img src="%E6%B3%A8%E8%A7%A3.png"></p>
+<p>之后在想要生效的方法上加上这个注解的类名就可以生效切入点表达式。</p>
+<p><img src="%E6%B3%A8%E8%A7%A32.png"></p>
+<p><img src="%E6%B3%A8%E8%A7%A33.png"></p>
+<h2 id="6-连接点"><a href="#6-连接点" class="headerlink" title="6. 连接点"></a>6. 连接点</h2><p><img src="Snipaste_2024-08-20_10-14-35.png"></p>
+<p><code>ProceedingJoinPoint</code>类和<code>JoinPoint</code>类获取原始方法取决于通知类型。</p>
+<p>除了获取原始方法，还有一些其他的api，可以大致看一下：</p>
+<p><img src="%E5%9B%BE%E7%89%874.png"></p>
+<h2 id="7-八股：Spring-AOP和AspectJ-AOP有什么区别？"><a href="#7-八股：Spring-AOP和AspectJ-AOP有什么区别？" class="headerlink" title="7. 八股：Spring AOP和AspectJ AOP有什么区别？"></a>7. 八股：Spring AOP和AspectJ AOP有什么区别？</h2><p> Spring AOP是属于运行时增强，而AspectJ是编译时增强。Spring AOP基于代理（Proxying），而 AspectJ基于字节码操作（Bytecode Manipulation）。 Spring AOP已经集成了AspectJ，AspectJ应该算得上是Java生态系统中最完整的AOP框架了。 AspectJ相比于Spring AOP功能更加强大，但是Spring AOP相对来说更简单。 如果我们的切面比较少，那么两者性能差异不大。但是，当切面太多的话，最好选择AspectJ，它比 SpringAOP快很多。</p>
+<h1 id="四、事务"><a href="#四、事务" class="headerlink" title="四、事务"></a>四、事务</h1><h2 id="1-事务隔离级别"><a href="#1-事务隔离级别" class="headerlink" title="1. 事务隔离级别"></a>1. 事务隔离级别</h2><p>这个必须知道的，附上一篇博客参考：<a href="https://blog.csdn.net/justlpf/article/details/106835122">MySQL 四种事务隔离级别详解介绍_mysql中的四种事务隔离级别是什么-CSDN博客</a></p>
+<h2 id="2-事务传播级别"><a href="#2-事务传播级别" class="headerlink" title="2. 事务传播级别"></a>2. 事务传播级别</h2><p>Spring事务的传播行为说的是，当多个事务同时存在的时候，Spring如何处理这些事务的行为。</p>
+<ol>
+<li><p>PROPAGATION_REQUIRED – 支持当前事务，如果当前没有事务，就新建一个事务。这是最常见的选择。</p>
+</li>
+<li><p>PROPAGATION_SUPPORTS – 支持当前事务，如果当前没有事务，就以非事务方式执行。</p>
+</li>
+<li><p>PROPAGATION_MANDATORY – 支持当前事务，如果当前没有事务，就抛出异常。</p>
+</li>
+<li><p>PROPAGATION_REQUIRES_NEW – 新建事务，如果当前存在事务，把当前事务挂起。</p>
+</li>
+<li><p>PROPAGATION_NOT_SUPPORTED – 以非事务方式执行操作，如果当前存在事务，就把当前事务挂起。</p>
+</li>
+<li><p>PROPAGATION_NEVER – 以非事务方式执行，如果当前存在事务，则抛出异常。</p>
+</li>
+<li><p>PROPAGATION_NESTED – 如果当前存在事务，则在嵌套事务内执行。如果当前没有事务，则进行与PROPAGATION_REQUIRED类似的操作。</p>
+</li>
+</ol>
+<p>备注：常用的两个事务传播属性是1和4，即PROPAGATION_REQUIRED，PROPAGATION_REQUIRES_NEW</p>
+<h2 id="3-事务种类"><a href="#3-事务种类" class="headerlink" title="3. 事务种类"></a>3. 事务种类</h2><p>Spring支持<strong>编程式事务管理和声明式事务</strong>管理两种方式：</p>
+<p>a) 编程式事务管理使用<code>TransactionTemplate</code>。</p>
+<p>b) 声明式事务管理建立在AOP之上的。其本质是通过AOP功能，对方法前后进行拦截，将事务处理的功能编织到拦截的方法中，也就是在目标方法开始之前加入一个事务，在执行完目标方法之后根据执行情况提交或者回滚事务。</p>
+<p>声明式事务最大的优点就是不需要在业务逻辑代码中掺杂事务管理的代码，只需在配置文件中做相关的事务规则声明或通过&#96;@Transactional&#96;&#96;注解的方式，便可以将事务规则应用到业务逻辑中。</p>
+<h2 id="4-Spring事务三要素"><a href="#4-Spring事务三要素" class="headerlink" title="4. Spring事务三要素"></a>4. Spring事务三要素</h2><ol>
+<li>数据源：表示具体的事务性资源，是事务的真正处理者，如MySQL等。</li>
+<li>事务管理器：像一个大管家，从整体上管理事务的处理过程，如打开、提交、回滚等。</li>
+<li>事务应用和属性配置：像一个标识符，表明哪些方法要参与事务，如何参与事务，以及一些相关属性如隔离级别、超时时间等。</li>
+</ol>
+]]></content>
+      <categories>
+        <category>后端开发</category>
+      </categories>
+      <tags>
+        <tag>面试</tag>
+        <tag>spring</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>搭建一个博客？本站搭建博客花费了多少精力？</title>
+    <url>/2024/07/14/%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2%EF%BC%9F%E6%9C%AC%E7%AB%99%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2%E8%8A%B1%E8%B4%B9%E4%BA%86%E5%A4%9A%E5%B0%91%E7%B2%BE%E5%8A%9B%EF%BC%9F/</url>
+    <content><![CDATA[<h1 id="哇塞-终于费劲心思把这个博客建好了"><a href="#哇塞-终于费劲心思把这个博客建好了" class="headerlink" title="哇塞~终于费劲心思把这个博客建好了"></a>哇塞~终于费劲心思把这个博客建好了</h1><p>哇塞~终于费劲心思把这个博客建好了，我要写一篇博客记录这个过程以及如何实现的。</p>
+<p>本博客基于hexo搭建起来，起因也是我专业的朋友给我推送了这个视频，晚上睡不着觉突然又刷到了，于是第二天就开始马上着手准备~</p>
+<h1 id="1-hexo"><a href="#1-hexo" class="headerlink" title="1.hexo"></a>1.hexo</h1><p>众所周知搭建一个博客的有hexo，以及其他我不用的框架，使用博客框架搭建起来非常快，而不是需要真的说去写一个前后端来实现，对非计算机专业的同学要求也不是那么高（如果你需要实现主题样式那就很高了），所以hexo真的是十分的nice啊~</p>
+<p>不过需要去另外会用git，安装nodeJS，直接给它拿下</p>
+<p><img src="1.png"></p>
+<p><img src="Snipaste_2024-07-14_17-18-28.png"></p>
+<p>当初按照下来的步骤很简单，不过在git上确实有问题，有时候<code>git bash命令</code>下载失败，有时候<code>npm命令</code>查找不到，单单装hexo下来就费劲了很多脑子~</p>
+<p>仔细一想nodeJs我已经用nvm做版本管理了，才记得把hexo生成的文件夹扔到nvm下才生效，又花费了一点时间</p>
+<p><img src="Snipaste_2024-07-14_17-15-03.png"></p>
+<p>ok，咱也是直接拿下</p>
+<p><img src="Snipaste_2024-07-14_17-20-01.png"></p>
+<h1 id="2-主题样式"><a href="#2-主题样式" class="headerlink" title="2.主题样式"></a>2.主题样式</h1><p>接下来访问本地hexo成功以后就是选择主题了，hexo官方截止2024年7月14日有407个主题，每隔一段时间都会有开发者将自己的主题扔上去</p>
+<p><img src="Snipaste_2024-07-14_17-23-07.png"></p>
+<p><img src="Snipaste_2024-07-14_17-24-22.png"></p>
+<p>最终我选择了当前的solitude主题，看上去比较符合我的要求，就这个了</p>
+<p><img src="Snipaste_2024-07-14_17-25-15.png"></p>
+<p>接下来也就是用git把代码拉到本地就行了</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">npm i hexo-theme-solitude</span><br></pre></td></tr></table></figure>
+
+<p><img src="Snipaste_2024-07-14_17-26-00.png"></p>
+<p>下载下来了以后其实和你现在看到的我的博客大差不差了，主要是需要逐步的添加功能</p>
+<h1 id="3-评论区如何实现"><a href="#3-评论区如何实现" class="headerlink" title="3.评论区如何实现"></a>3.评论区如何实现</h1><p>博客的留言板是需要配置界面的，可以看文档手册；最主要的是如何实现帖子的评论区，实现以后留言板用同一个就好</p>
+<p><img src="Snipaste_2024-07-14_17-29-48.png"></p>
+<p><img src="Snipaste_2024-07-14_17-32-24.png"></p>
+<p>在文档中，提供了多个实现评论区的方式</p>
+<p><img src="Snipaste_2024-07-14_17-33-31.png"></p>
+<p>我用的是vercel + twikoo。twikoo有个很优秀的地方，就是输入qq邮箱可以获取到本人的qq信息，也可以评论后有回复的信息通过qq邮箱发送，就和B站抖音一样，也可以配置反垃圾处理等等功能十分优秀；vercel作为云部署的后端部分，加上<strong>MongoDB</strong>存储数据即可。</p>
+<p><img src="Snipaste_2024-07-14_17-36-14.png"></p>
+<p>不过缺点就是vercel和MongoDB的网站确实很难进，取决于你科学上网的实力了，不好的魔法开了也很费时间</p>
+<p><img src="Snipaste_2024-07-14_17-38-27.png"></p>
+<p><img src="Snipaste_2024-07-14_17-39-17.png"></p>
+<p>此时还有一个最大的问题就是vercel是被墙了的，需要科学上网，不然进去非常慢，此时教程有说使用一个个人域名替换他就快很多，就是图中domains的地方</p>
+<h1 id="4-购买域名"><a href="#4-购买域名" class="headerlink" title="4.购买域名"></a>4.购买域名</h1><p>这个就比较简单，华为云，腾讯云，阿里云都提供了购买域名的途径，而且一年下来10+块钱就可以了，比如说本站的域名在阿里云已经被我注册了。</p>
+<p><strong>不过购买域名需要实名等等个人信息核查，最长需要一天，</strong>其他没什么问题。</p>
+<p><img src="Snipaste_2024-07-14_17-43-58.png"></p>
+<p>随便挑一个，然后把vercel里面的域名换掉就行了</p>
+<p><img src="Snipaste_2024-07-14_17-45-08.png"></p>
+<p>OK，在主题的yaml文件打开评论区就实现了</p>
+<h1 id="5-博客ai"><a href="#5-博客ai" class="headerlink" title="5.博客ai"></a>5.博客ai</h1><p>这个主题可以使用的ai有两个，这个弄起来也比较简单，跟着弄就可以了，没啥难度</p>
+<p><img src="Snipaste_2024-07-14_17-46-15.png"></p>
+<p>postai一个月18！！！！！！！钱包好痛</p>
+<p><img src="Snipaste_2024-07-14_17-50-52.png"></p>
+<p>博客的聊天机器人和摘要ai都可以用了</p>
+<p><img src="Snipaste_2024-07-14_17-51-45.png"></p>
+<p><img src="Snipaste_2024-07-14_17-52-02.png"></p>
+<h1 id="6-页面图片"><a href="#6-页面图片" class="headerlink" title="6.页面图片"></a>6.页面图片</h1><p>一开始我是打算用阿里云OSS的，不过免费的容量很小，果断放弃；</p>
+<p><img src="Snipaste_2024-07-14_17-54-24.png"></p>
+<p>再来打算使用图床，麻烦，放弃，反正我不用</p>
+<p><img src="Snipaste_2024-07-14_17-57-00.png"></p>
+<p>存本地，简单实用（其实一开始不确定可不可以存本地）</p>
+<p><img src="Snipaste_2024-07-14_17-56-26.png"></p>
+<p>有些图片也不是存本地的，其实可以去网页偷一下，比如mbti的那个，仔细一看连接是16人格官网的，看了他们的源代码也是部署到公网上，那么自然也可以直接引用他们的</p>
+<p><img src="Snipaste_2024-07-14_18-00-01.png"></p>
+<p>偷，都可以偷</p>
+<p><img src="Snipaste_2024-07-14_18-02-18.png"></p>
+<h1 id="7-矢量图标库"><a href="#7-矢量图标库" class="headerlink" title="7.矢量图标库"></a>7.矢量图标库</h1><p>你不得不说阿里巴巴矢量图标库很好用，这些都是从里面下的。下载得到的图片可以是svg格式的，你也可以换jpg&#x2F;png</p>
+<p><img src="Snipaste_2024-07-14_18-05-26.png"></p>
+<p>我特别喜欢影视飓风，干脆把他们公司的口号搜一下也有</p>
+<p><img src="Snipaste_2024-07-14_18-06-01.png"></p>
+<p>svg格式的图片有一个效果，就是图片的背景可以跟随主题背景变化</p>
+<p><img src="Snipaste_2024-07-14_18-11-31.png"></p>
+<p><img src="Snipaste_2024-07-14_18-11-51.png"></p>
+<p><img src="2.png"></p>
+<h1 id="8-公网访问"><a href="#8-公网访问" class="headerlink" title="8.公网访问"></a>8.公网访问</h1><p>在hexo下载到本地后，只能部署到本地，但是为了让大家都能访问得到需要放到公网上，因此围绕这个的实践就此展开….</p>
+<h2 id="8-1-云服务器"><a href="#8-1-云服务器" class="headerlink" title="8.1 云服务器"></a>8.1 云服务器</h2><p>云服务器就是一台云端的服务器，可以在华为云、腾讯云、阿里云中购买，这个服务器具备公网ip，大家是可以访问到的。</p>
+<p>以我的为例，我在阿里云免费试用了三个月，什么都好，就是我用不惯，部署一个博客有种大炮打蚊子的感觉</p>
+<p><img src="Snipaste_2024-07-14_18-16-49.png"></p>
+<p>而且，当时公网ip我还没有配置域名，泄露了一下就DDoS了（俗称恶意访问ip，访问量超过限制）</p>
+<p><img src="DDoS.png"></p>
+<p>在finalshell里面配置nginx等也非常麻烦，改一次就弄一次，上传文件也要挺久的，不推荐</p>
+<p><img src="Snipaste_2024-07-14_18-20-59.png"></p>
+<h2 id="8-2-githubpage"><a href="#8-2-githubpage" class="headerlink" title="8.2 githubpage"></a>8.2 githubpage</h2><p>这个真福音，但是也是真的慢。githubpage面向静态页面的功能，专门为部署博客这种静态页面而设计。但是众所周知，github是被墙的，所以部署到github上直接访问io文件特别慢，我自己进都半天。gitee原本是有这个功能的，但是现在封了，另选方法。</p>
+<p><img src="Snipaste_2024-07-14_18-23-57.png"></p>
+<h2 id="8-3-改用vercel部署"><a href="#8-3-改用vercel部署" class="headerlink" title="8.3 改用vercel部署"></a>8.3 改用vercel部署</h2><p>这个可行度取决于科学上网的实力。</p>
+<p><img src="Snipaste_2024-07-14_18-27-26.png"></p>
+<p>不过我用这个的时候版本问题搞得我头大，有时候我都推送上来了但是都不更新这个版本。</p>
+<p><img src="Cache_7fd171c3712b5284.jpg" alt="版本问题"></p>
+<p>无所谓了，我现在也没用这个了，我把域名映射关掉了</p>
+<p><img src="Snipaste_2024-07-14_18-30-43.png" alt="取消vercel对域名的映射"></p>
+<h2 id="8-4-cdn加速"><a href="#8-4-cdn加速" class="headerlink" title="8.4 cdn加速"></a>8.4 cdn加速</h2><p>cdn，context distributed network，内容分发网络，说白了就是就近访问cdn节点，不需要跨一系列的计算机网络到达提供服务的服务器，理论上可行的</p>
+<p>但是阿里云这个需要icp备案，要求云产品下面需要有实例（比如买了一个云服务器），劝退我了</p>
+<p><img src="Snipaste_2024-07-14_18-35-09.png" alt="ICP备案"></p>
+<p>第二个就是用cloudflare给的dns服务器，亲测只能说拉了依托大的。免费版的链接换进阿里云了以后花了两天都没给他换完，进行测速的时候基本上占比进展特别慢，而且多次搞这个还让我一个域名报废了，重定向次数过多。</p>
+<p><img src="Snipaste_2024-07-14_18-38-06.png"></p>
+<h2 id="8-5-4everland"><a href="#8-5-4everland" class="headerlink" title="8.5 4everland"></a>8.5 4everland</h2><p>在掘金看到的一篇博客：<a href="https://juejin.cn/post/7009209925024874526?enable_transcoding_confirm=true">忘了缓慢的GithubPage，免费加速你的Hexo静态博客吧 - 掘金 (juejin.cn)</a></p>
+<p>真神降临。动手尝试真的可以，现在进来都不那么慢了。甚至不需要再推仓库，正常的推送静态资源到github以后这里也会更新，所以只需要把4everland的映射绑定到域名上就可以了。现在进来的速度那么快都是因为用了4everland部署的哈哈，强烈推荐</p>
+<p><img src="Snipaste_2024-07-14_18-42-54.png"></p>
+<p>至此，基本没什么问题了</p>
+<h1 id="9-来访者api"><a href="#9-来访者api" class="headerlink" title="9.来访者api"></a>9.来访者api</h1><p>这个定位的功能用一个博主的api，可以直接定位所在地或者ip，不知道准不准确。不过不需要害怕暴露ip，真正定位的是MAC地址而非是你的ip，下次切个网啥的就换掉了~</p>
+<p><img src="Snipaste_2024-07-14_18-43-49.png"></p>
+<h1 id="至最后"><a href="#至最后" class="headerlink" title="至最后"></a>至最后</h1><p>搭建出来确实累，不过可以有一个记录的地方啦，就当做个人的qq空间或者朋友圈吧~博客的最后至看到这里的每位朋友，正如本站的介绍：</p>
+<p><strong>这里与大多数垂直类的技术博客不同，这里的种类会非常的繁杂，有技能的教程干货、有生活上的吐槽和妙招、有话题上的思考和想法。一般我研究什么、发现了什么都会分享在这里。</strong><br><strong>这些就是创造这个小站的本意，也是我分享生活的方式。有幸能和你相遇在这里，相信我们能共同留下一段美好记忆~</strong></p>
+]]></content>
+      <categories>
+        <category>生活记录</category>
+      </categories>
+      <tags>
+        <tag>软件技术</tag>
+        <tag>hexo</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>操作系统：（一）快速学习存储器</title>
     <url>/2024/07/03/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F%EF%BC%9A%EF%BC%88%E4%B8%80%EF%BC%89%E5%BF%AB%E9%80%9F%E5%AD%A6%E4%B9%A0%E5%AD%98%E5%82%A8%E5%99%A8/</url>
     <content><![CDATA[<h2 id="一、CPU"><a href="#一、CPU" class="headerlink" title="一、CPU"></a>一、CPU</h2><h3 id="1、冯诺依曼模型"><a href="#1、冯诺依曼模型" class="headerlink" title="1、冯诺依曼模型"></a>1、冯诺依曼模型</h3><p>在 1945 年冯诺依曼和其他计算机科学家们提出了计算机具体实现的报告，其遵循了图灵机的设计，而且还提出用电子元件构造计算机，并约定了用二进制进行计算和存储。</p>
@@ -3078,148 +3479,6 @@
       </tags>
   </entry>
   <entry>
-    <title>操作系统：（二）原码，反码，补码，计算丢失精度</title>
-    <url>/2024/07/30/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F%EF%BC%9A%EF%BC%88%E4%BA%8C%EF%BC%89%E4%B8%BA%E4%BB%80%E4%B9%880-1-0-2%E4%B8%8D%E7%AD%89%E4%BA%8E0-3/</url>
-    <content><![CDATA[<h1 id="1-原码"><a href="#1-原码" class="headerlink" title="1.原码"></a>1.原码</h1><p>对于一个数， 计算机要使用一定的编码方式进行存储。<strong>原码， 反码， 补码</strong>是机器存储一个具体数字的编码方式。<strong>在计算机中数据存储都是以二进制的形式表示数据，那么将一个十进制数转换为其二进制形式称为其原码。</strong>二进制最左边的是符号位，0为正，1为负。</p>
-<p>计算机中存储的最小单元是<code>字节</code>，字节以二进制存储数据，一个字节对应<code>8个比特位</code>。也就是说一个字节的最大值的二进制表示形式为<code>0111 1111</code>，其中第一个0为符号位，最大值对应十进制就是127。最小值为<code>1111 1111</code>，十进制为-127。</p>
-<h1 id="2-反码"><a href="#2-反码" class="headerlink" title="2.反码"></a>2.反码</h1><p><strong>当前讨论的反码和补码都是讨论负数，正数的反码和补码等于其原码</strong></p>
-<p>在原码为负数的情况进行相加，会出现运算结果不一致的情况，例如<code>1000 0001</code>，加1，那么理论得到的结果应该是<code>1000 0000</code>（十进制0），实际得到的是100000010（十进制-2）。</p>
-<p>为了解决原码不能计算负数，遵循以下反码的计算规则：正数反码不变，负数的反码在原码的基础上，符号位不变，0变1,1变0。计算完后再取反码就可以得到负数的运算结果。</p>
-<p><strong>但是在跨0计算的时候会存在误差：例如-5+6得0（当前讨论一个字节，多出去的1直接忽略）</strong></p>
-<p><img src="%E5%8F%8D%E7%A0%81%E9%97%AE%E9%A2%981.png" alt="反码原理以及反码存在的问题"></p>
-<h1 id="3-补码"><a href="#3-补码" class="headerlink" title="3.补码"></a>3.补码</h1><p><strong>当前讨论的反码和补码都是讨论负数，正数的反码和补码等于其原码</strong></p>
-<p>为了针对0在二进制中有两个表示形式，引出使用补码进行计算，<strong>即负数的补码等于负数的反码+1</strong></p>
-<p><img src="%E8%A1%A5%E7%A0%81.png" alt="负数补码等于其反码+1"></p>
-<p>由于原码的0占了两个反码，在修改成补码后会多出一个数字，二进制数字为<code>1000 0000</code>，即-128，所以规定-128的补码为<code>1000 0000</code>。</p>
-<p><img src="-128%E7%9A%84%E8%A1%A5%E7%A0%81.png" alt="-128补码"></p>
-<p><strong>在计算机中存储和计算都采用补码</strong>，所以即使-128没有原码和反码也不碍事（在1个字节的情况下）。</p>
-<h1 id="4-Java中的隐式转换和强制转换（拓展）"><a href="#4-Java中的隐式转换和强制转换（拓展）" class="headerlink" title="4.Java中的隐式转换和强制转换（拓展）"></a>4.Java中的隐式转换和强制转换（拓展）</h1><p>隐式转换直接加0</p>
-<p><img src="Snipaste_2024-07-30_16-19-43.png" alt="隐式转换"></p>
-<p>强制转换直接删掉字节前面的全部内容，得到补码进行计算（<strong>在计算机中存储和计算都采用补码</strong>）</p>
-<p><img src="Snipaste_2024-07-30_16-20-57.png" alt="强制转换"></p>
-<p>b的值就是二进制-1后取反，得到原码，最后是-56。因为b是补码形式的二进制数据。</p>
-<h1 id="5-其他运算符（拓展）"><a href="#5-其他运算符（拓展）" class="headerlink" title="5.其他运算符（拓展）"></a>5.其他运算符（拓展）</h1><p><img src="%E9%80%BB%E8%BE%91%E4%B8%8E.png" alt="逻辑与"></p>
-<p>左移一次乘2，右移一次除2。</p>
-<p><img src="%E5%B7%A6%E7%A7%BB%E8%BF%90%E7%AE%97%E7%AC%A6.png" alt="左移"></p>
-<h1 id="6-十进制转二进制"><a href="#6-十进制转二进制" class="headerlink" title="6.十进制转二进制"></a>6.十进制转二进制</h1><p>小数部分的转换不同于整数部分，它采用的是乘2取整法，将十进制中的小数部分乘以2作为二进制的一位，然后继续取小数部分乘以2作为下一位，直到不存在小数为止。</p>
-<p><img src="%E5%8D%81%E8%BF%9B%E5%88%B6%E5%B0%8F%E6%95%B0%E8%BD%AC%E4%BA%8C%E8%BF%9B%E5%88%B6.webp" alt="十进制转二进制"></p>
-<p>但是，并不是所有小数都可以用二进制表示，前面提到的0.625小数是一个特例，刚好通过乘2取整法的方式完整的转换成二进制。<br>如果我们用相同的方式，来把0.1 转换成二进制，过程如下:</p>
-<p><img src="%E6%97%A0%E9%99%90%E5%B0%8F%E6%95%B0.webp"></p>
-<p>所以只能无限接近0.1而取不到0.1的值，所以算出来就不是0.3</p>
-]]></content>
-      <categories>
-        <category>OS</category>
-      </categories>
-      <tags>
-        <tag>面试</tag>
-        <tag>操作系统</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>搭建一个博客？本站搭建博客花费了多少精力？</title>
-    <url>/2024/07/14/%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2%EF%BC%9F%E6%9C%AC%E7%AB%99%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2%E8%8A%B1%E8%B4%B9%E4%BA%86%E5%A4%9A%E5%B0%91%E7%B2%BE%E5%8A%9B%EF%BC%9F/</url>
-    <content><![CDATA[<h1 id="哇塞-终于费劲心思把这个博客建好了"><a href="#哇塞-终于费劲心思把这个博客建好了" class="headerlink" title="哇塞~终于费劲心思把这个博客建好了"></a>哇塞~终于费劲心思把这个博客建好了</h1><p>哇塞~终于费劲心思把这个博客建好了，我要写一篇博客记录这个过程以及如何实现的。</p>
-<p>本博客基于hexo搭建起来，起因也是我专业的朋友给我推送了这个视频，晚上睡不着觉突然又刷到了，于是第二天就开始马上着手准备~</p>
-<h1 id="1-hexo"><a href="#1-hexo" class="headerlink" title="1.hexo"></a>1.hexo</h1><p>众所周知搭建一个博客的有hexo，以及其他我不用的框架，使用博客框架搭建起来非常快，而不是需要真的说去写一个前后端来实现，对非计算机专业的同学要求也不是那么高（如果你需要实现主题样式那就很高了），所以hexo真的是十分的nice啊~</p>
-<p>不过需要去另外会用git，安装nodeJS，直接给它拿下</p>
-<p><img src="1.png"></p>
-<p><img src="Snipaste_2024-07-14_17-18-28.png"></p>
-<p>当初按照下来的步骤很简单，不过在git上确实有问题，有时候<code>git bash命令</code>下载失败，有时候<code>npm命令</code>查找不到，单单装hexo下来就费劲了很多脑子~</p>
-<p>仔细一想nodeJs我已经用nvm做版本管理了，才记得把hexo生成的文件夹扔到nvm下才生效，又花费了一点时间</p>
-<p><img src="Snipaste_2024-07-14_17-15-03.png"></p>
-<p>ok，咱也是直接拿下</p>
-<p><img src="Snipaste_2024-07-14_17-20-01.png"></p>
-<h1 id="2-主题样式"><a href="#2-主题样式" class="headerlink" title="2.主题样式"></a>2.主题样式</h1><p>接下来访问本地hexo成功以后就是选择主题了，hexo官方截止2024年7月14日有407个主题，每隔一段时间都会有开发者将自己的主题扔上去</p>
-<p><img src="Snipaste_2024-07-14_17-23-07.png"></p>
-<p><img src="Snipaste_2024-07-14_17-24-22.png"></p>
-<p>最终我选择了当前的solitude主题，看上去比较符合我的要求，就这个了</p>
-<p><img src="Snipaste_2024-07-14_17-25-15.png"></p>
-<p>接下来也就是用git把代码拉到本地就行了</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">npm i hexo-theme-solitude</span><br></pre></td></tr></table></figure>
-
-<p><img src="Snipaste_2024-07-14_17-26-00.png"></p>
-<p>下载下来了以后其实和你现在看到的我的博客大差不差了，主要是需要逐步的添加功能</p>
-<h1 id="3-评论区如何实现"><a href="#3-评论区如何实现" class="headerlink" title="3.评论区如何实现"></a>3.评论区如何实现</h1><p>博客的留言板是需要配置界面的，可以看文档手册；最主要的是如何实现帖子的评论区，实现以后留言板用同一个就好</p>
-<p><img src="Snipaste_2024-07-14_17-29-48.png"></p>
-<p><img src="Snipaste_2024-07-14_17-32-24.png"></p>
-<p>在文档中，提供了多个实现评论区的方式</p>
-<p><img src="Snipaste_2024-07-14_17-33-31.png"></p>
-<p>我用的是vercel + twikoo。twikoo有个很优秀的地方，就是输入qq邮箱可以获取到本人的qq信息，也可以评论后有回复的信息通过qq邮箱发送，就和B站抖音一样，也可以配置反垃圾处理等等功能十分优秀；vercel作为云部署的后端部分，加上<strong>MongoDB</strong>存储数据即可。</p>
-<p><img src="Snipaste_2024-07-14_17-36-14.png"></p>
-<p>不过缺点就是vercel和MongoDB的网站确实很难进，取决于你科学上网的实力了，不好的魔法开了也很费时间</p>
-<p><img src="Snipaste_2024-07-14_17-38-27.png"></p>
-<p><img src="Snipaste_2024-07-14_17-39-17.png"></p>
-<p>此时还有一个最大的问题就是vercel是被墙了的，需要科学上网，不然进去非常慢，此时教程有说使用一个个人域名替换他就快很多，就是图中domains的地方</p>
-<h1 id="4-购买域名"><a href="#4-购买域名" class="headerlink" title="4.购买域名"></a>4.购买域名</h1><p>这个就比较简单，华为云，腾讯云，阿里云都提供了购买域名的途径，而且一年下来10+块钱就可以了，比如说本站的域名在阿里云已经被我注册了。</p>
-<p><strong>不过购买域名需要实名等等个人信息核查，最长需要一天，</strong>其他没什么问题。</p>
-<p><img src="Snipaste_2024-07-14_17-43-58.png"></p>
-<p>随便挑一个，然后把vercel里面的域名换掉就行了</p>
-<p><img src="Snipaste_2024-07-14_17-45-08.png"></p>
-<p>OK，在主题的yaml文件打开评论区就实现了</p>
-<h1 id="5-博客ai"><a href="#5-博客ai" class="headerlink" title="5.博客ai"></a>5.博客ai</h1><p>这个主题可以使用的ai有两个，这个弄起来也比较简单，跟着弄就可以了，没啥难度</p>
-<p><img src="Snipaste_2024-07-14_17-46-15.png"></p>
-<p>postai一个月18！！！！！！！钱包好痛</p>
-<p><img src="Snipaste_2024-07-14_17-50-52.png"></p>
-<p>博客的聊天机器人和摘要ai都可以用了</p>
-<p><img src="Snipaste_2024-07-14_17-51-45.png"></p>
-<p><img src="Snipaste_2024-07-14_17-52-02.png"></p>
-<h1 id="6-页面图片"><a href="#6-页面图片" class="headerlink" title="6.页面图片"></a>6.页面图片</h1><p>一开始我是打算用阿里云OSS的，不过免费的容量很小，果断放弃；</p>
-<p><img src="Snipaste_2024-07-14_17-54-24.png"></p>
-<p>再来打算使用图床，麻烦，放弃，反正我不用</p>
-<p><img src="Snipaste_2024-07-14_17-57-00.png"></p>
-<p>存本地，简单实用（其实一开始不确定可不可以存本地）</p>
-<p><img src="Snipaste_2024-07-14_17-56-26.png"></p>
-<p>有些图片也不是存本地的，其实可以去网页偷一下，比如mbti的那个，仔细一看连接是16人格官网的，看了他们的源代码也是部署到公网上，那么自然也可以直接引用他们的</p>
-<p><img src="Snipaste_2024-07-14_18-00-01.png"></p>
-<p>偷，都可以偷</p>
-<p><img src="Snipaste_2024-07-14_18-02-18.png"></p>
-<h1 id="7-矢量图标库"><a href="#7-矢量图标库" class="headerlink" title="7.矢量图标库"></a>7.矢量图标库</h1><p>你不得不说阿里巴巴矢量图标库很好用，这些都是从里面下的。下载得到的图片可以是svg格式的，你也可以换jpg&#x2F;png</p>
-<p><img src="Snipaste_2024-07-14_18-05-26.png"></p>
-<p>我特别喜欢影视飓风，干脆把他们公司的口号搜一下也有</p>
-<p><img src="Snipaste_2024-07-14_18-06-01.png"></p>
-<p>svg格式的图片有一个效果，就是图片的背景可以跟随主题背景变化</p>
-<p><img src="Snipaste_2024-07-14_18-11-31.png"></p>
-<p><img src="Snipaste_2024-07-14_18-11-51.png"></p>
-<p><img src="2.png"></p>
-<h1 id="8-公网访问"><a href="#8-公网访问" class="headerlink" title="8.公网访问"></a>8.公网访问</h1><p>在hexo下载到本地后，只能部署到本地，但是为了让大家都能访问得到需要放到公网上，因此围绕这个的实践就此展开….</p>
-<h2 id="8-1-云服务器"><a href="#8-1-云服务器" class="headerlink" title="8.1 云服务器"></a>8.1 云服务器</h2><p>云服务器就是一台云端的服务器，可以在华为云、腾讯云、阿里云中购买，这个服务器具备公网ip，大家是可以访问到的。</p>
-<p>以我的为例，我在阿里云免费试用了三个月，什么都好，就是我用不惯，部署一个博客有种大炮打蚊子的感觉</p>
-<p><img src="Snipaste_2024-07-14_18-16-49.png"></p>
-<p>而且，当时公网ip我还没有配置域名，泄露了一下就DDoS了（俗称恶意访问ip，访问量超过限制）</p>
-<p><img src="DDoS.png"></p>
-<p>在finalshell里面配置nginx等也非常麻烦，改一次就弄一次，上传文件也要挺久的，不推荐</p>
-<p><img src="Snipaste_2024-07-14_18-20-59.png"></p>
-<h2 id="8-2-githubpage"><a href="#8-2-githubpage" class="headerlink" title="8.2 githubpage"></a>8.2 githubpage</h2><p>这个真福音，但是也是真的慢。githubpage面向静态页面的功能，专门为部署博客这种静态页面而设计。但是众所周知，github是被墙的，所以部署到github上直接访问io文件特别慢，我自己进都半天。gitee原本是有这个功能的，但是现在封了，另选方法。</p>
-<p><img src="Snipaste_2024-07-14_18-23-57.png"></p>
-<h2 id="8-3-改用vercel部署"><a href="#8-3-改用vercel部署" class="headerlink" title="8.3 改用vercel部署"></a>8.3 改用vercel部署</h2><p>这个可行度取决于科学上网的实力。</p>
-<p><img src="Snipaste_2024-07-14_18-27-26.png"></p>
-<p>不过我用这个的时候版本问题搞得我头大，有时候我都推送上来了但是都不更新这个版本。</p>
-<p><img src="Cache_7fd171c3712b5284.jpg" alt="版本问题"></p>
-<p>无所谓了，我现在也没用这个了，我把域名映射关掉了</p>
-<p><img src="Snipaste_2024-07-14_18-30-43.png" alt="取消vercel对域名的映射"></p>
-<h2 id="8-4-cdn加速"><a href="#8-4-cdn加速" class="headerlink" title="8.4 cdn加速"></a>8.4 cdn加速</h2><p>cdn，context distributed network，内容分发网络，说白了就是就近访问cdn节点，不需要跨一系列的计算机网络到达提供服务的服务器，理论上可行的</p>
-<p>但是阿里云这个需要icp备案，要求云产品下面需要有实例（比如买了一个云服务器），劝退我了</p>
-<p><img src="Snipaste_2024-07-14_18-35-09.png" alt="ICP备案"></p>
-<p>第二个就是用cloudflare给的dns服务器，亲测只能说拉了依托大的。免费版的链接换进阿里云了以后花了两天都没给他换完，进行测速的时候基本上占比进展特别慢，而且多次搞这个还让我一个域名报废了，重定向次数过多。</p>
-<p><img src="Snipaste_2024-07-14_18-38-06.png"></p>
-<h2 id="8-5-4everland"><a href="#8-5-4everland" class="headerlink" title="8.5 4everland"></a>8.5 4everland</h2><p>在掘金看到的一篇博客：<a href="https://juejin.cn/post/7009209925024874526?enable_transcoding_confirm=true">忘了缓慢的GithubPage，免费加速你的Hexo静态博客吧 - 掘金 (juejin.cn)</a></p>
-<p>真神降临。动手尝试真的可以，现在进来都不那么慢了。甚至不需要再推仓库，正常的推送静态资源到github以后这里也会更新，所以只需要把4everland的映射绑定到域名上就可以了。现在进来的速度那么快都是因为用了4everland部署的哈哈，强烈推荐</p>
-<p><img src="Snipaste_2024-07-14_18-42-54.png"></p>
-<p>至此，基本没什么问题了</p>
-<h1 id="9-来访者api"><a href="#9-来访者api" class="headerlink" title="9.来访者api"></a>9.来访者api</h1><p>这个定位的功能用一个博主的api，可以直接定位所在地或者ip，不知道准不准确。不过不需要害怕暴露ip，真正定位的是MAC地址而非是你的ip，下次切个网啥的就换掉了~</p>
-<p><img src="Snipaste_2024-07-14_18-43-49.png"></p>
-<h1 id="至最后"><a href="#至最后" class="headerlink" title="至最后"></a>至最后</h1><p>搭建出来确实累，不过可以有一个记录的地方啦，就当做个人的qq空间或者朋友圈吧~博客的最后至看到这里的每位朋友，正如本站的介绍：</p>
-<p><strong>这里与大多数垂直类的技术博客不同，这里的种类会非常的繁杂，有技能的教程干货、有生活上的吐槽和妙招、有话题上的思考和想法。一般我研究什么、发现了什么都会分享在这里。</strong><br><strong>这些就是创造这个小站的本意，也是我分享生活的方式。有幸能和你相遇在这里，相信我们能共同留下一段美好记忆~</strong></p>
-]]></content>
-      <categories>
-        <category>生活记录</category>
-      </categories>
-      <tags>
-        <tag>软件技术</tag>
-        <tag>hexo</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>算法：（一）排序算法</title>
     <url>/2024/07/03/%E7%AE%97%E6%B3%95%EF%BC%9A%EF%BC%88%E4%B8%80%EF%BC%89%E6%8E%92%E5%BA%8F%E7%AE%97%E6%B3%95/</url>
     <content><![CDATA[<h1 id="排序必备图示网站"><a href="#排序必备图示网站" class="headerlink" title="排序必备图示网站"></a>排序必备图示网站</h1><p>一个链接看完所有排序算法的图示：<a href="https://www.cs.usfca.edu/~galles/visualization/ComparisonSort.html">排序算法图示</a></p>
@@ -3306,6 +3565,44 @@
       </categories>
       <tags>
         <tag>算法</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>操作系统：（二）原码，反码，补码，计算丢失精度</title>
+    <url>/2024/07/30/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F%EF%BC%9A%EF%BC%88%E4%BA%8C%EF%BC%89%E4%B8%BA%E4%BB%80%E4%B9%880-1-0-2%E4%B8%8D%E7%AD%89%E4%BA%8E0-3/</url>
+    <content><![CDATA[<h1 id="1-原码"><a href="#1-原码" class="headerlink" title="1.原码"></a>1.原码</h1><p>对于一个数， 计算机要使用一定的编码方式进行存储。<strong>原码， 反码， 补码</strong>是机器存储一个具体数字的编码方式。<strong>在计算机中数据存储都是以二进制的形式表示数据，那么将一个十进制数转换为其二进制形式称为其原码。</strong>二进制最左边的是符号位，0为正，1为负。</p>
+<p>计算机中存储的最小单元是<code>字节</code>，字节以二进制存储数据，一个字节对应<code>8个比特位</code>。也就是说一个字节的最大值的二进制表示形式为<code>0111 1111</code>，其中第一个0为符号位，最大值对应十进制就是127。最小值为<code>1111 1111</code>，十进制为-127。</p>
+<h1 id="2-反码"><a href="#2-反码" class="headerlink" title="2.反码"></a>2.反码</h1><p><strong>当前讨论的反码和补码都是讨论负数，正数的反码和补码等于其原码</strong></p>
+<p>在原码为负数的情况进行相加，会出现运算结果不一致的情况，例如<code>1000 0001</code>，加1，那么理论得到的结果应该是<code>1000 0000</code>（十进制0），实际得到的是100000010（十进制-2）。</p>
+<p>为了解决原码不能计算负数，遵循以下反码的计算规则：正数反码不变，负数的反码在原码的基础上，符号位不变，0变1,1变0。计算完后再取反码就可以得到负数的运算结果。</p>
+<p><strong>但是在跨0计算的时候会存在误差：例如-5+6得0（当前讨论一个字节，多出去的1直接忽略）</strong></p>
+<p><img src="%E5%8F%8D%E7%A0%81%E9%97%AE%E9%A2%981.png" alt="反码原理以及反码存在的问题"></p>
+<h1 id="3-补码"><a href="#3-补码" class="headerlink" title="3.补码"></a>3.补码</h1><p><strong>当前讨论的反码和补码都是讨论负数，正数的反码和补码等于其原码</strong></p>
+<p>为了针对0在二进制中有两个表示形式，引出使用补码进行计算，<strong>即负数的补码等于负数的反码+1</strong></p>
+<p><img src="%E8%A1%A5%E7%A0%81.png" alt="负数补码等于其反码+1"></p>
+<p>由于原码的0占了两个反码，在修改成补码后会多出一个数字，二进制数字为<code>1000 0000</code>，即-128，所以规定-128的补码为<code>1000 0000</code>。</p>
+<p><img src="-128%E7%9A%84%E8%A1%A5%E7%A0%81.png" alt="-128补码"></p>
+<p><strong>在计算机中存储和计算都采用补码</strong>，所以即使-128没有原码和反码也不碍事（在1个字节的情况下）。</p>
+<h1 id="4-Java中的隐式转换和强制转换（拓展）"><a href="#4-Java中的隐式转换和强制转换（拓展）" class="headerlink" title="4.Java中的隐式转换和强制转换（拓展）"></a>4.Java中的隐式转换和强制转换（拓展）</h1><p>隐式转换直接加0</p>
+<p><img src="Snipaste_2024-07-30_16-19-43.png" alt="隐式转换"></p>
+<p>强制转换直接删掉字节前面的全部内容，得到补码进行计算（<strong>在计算机中存储和计算都采用补码</strong>）</p>
+<p><img src="Snipaste_2024-07-30_16-20-57.png" alt="强制转换"></p>
+<p>b的值就是二进制-1后取反，得到原码，最后是-56。因为b是补码形式的二进制数据。</p>
+<h1 id="5-其他运算符（拓展）"><a href="#5-其他运算符（拓展）" class="headerlink" title="5.其他运算符（拓展）"></a>5.其他运算符（拓展）</h1><p><img src="%E9%80%BB%E8%BE%91%E4%B8%8E.png" alt="逻辑与"></p>
+<p>左移一次乘2，右移一次除2。</p>
+<p><img src="%E5%B7%A6%E7%A7%BB%E8%BF%90%E7%AE%97%E7%AC%A6.png" alt="左移"></p>
+<h1 id="6-十进制转二进制"><a href="#6-十进制转二进制" class="headerlink" title="6.十进制转二进制"></a>6.十进制转二进制</h1><p>小数部分的转换不同于整数部分，它采用的是乘2取整法，将十进制中的小数部分乘以2作为二进制的一位，然后继续取小数部分乘以2作为下一位，直到不存在小数为止。</p>
+<p><img src="%E5%8D%81%E8%BF%9B%E5%88%B6%E5%B0%8F%E6%95%B0%E8%BD%AC%E4%BA%8C%E8%BF%9B%E5%88%B6.webp" alt="十进制转二进制"></p>
+<p>但是，并不是所有小数都可以用二进制表示，前面提到的0.625小数是一个特例，刚好通过乘2取整法的方式完整的转换成二进制。<br>如果我们用相同的方式，来把0.1 转换成二进制，过程如下:</p>
+<p><img src="%E6%97%A0%E9%99%90%E5%B0%8F%E6%95%B0.webp"></p>
+<p>所以只能无限接近0.1而取不到0.1的值，所以算出来就不是0.3</p>
+]]></content>
+      <categories>
+        <category>OS</category>
+      </categories>
+      <tags>
+        <tag>面试</tag>
+        <tag>操作系统</tag>
       </tags>
   </entry>
   <entry>
