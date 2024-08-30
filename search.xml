@@ -1,238 +1,463 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
-    <title>JDBC：Java语言连接数据库</title>
-    <url>/2024/07/06/JDBC%20%E7%AC%94%E8%AE%B0/</url>
-    <content><![CDATA[<h1 id="一、-什么是JDBC"><a href="#一、-什么是JDBC" class="headerlink" title="一、 什么是JDBC"></a>一、 什么是JDBC</h1><p><em>JDBC（Java DataBase Connectivity）</em>是Java数据库连接技术的简称，提供连接和操作各种常用数据库的能力，JDBC只定义了Java应用程序访问数据库的标准接口层，而对于不同的数据库而言则由数据库厂商去实现JDBC接口层的功能 （叫做数据库驱动程序包）。</p>
-<h1 id="二、-JDBC工作原理"><a href="#二、-JDBC工作原理" class="headerlink" title="二、  JDBC工作原理"></a>二、  JDBC工作原理</h1><p><img src="image-20230509201759580-3634684.png"></p>
-<p>JDBC驱动程序包实际上是对JDK jdbc api的具体实现。可以理解成JDBC只定义了与数据库通信的规范和协议，而这些规范的具体实现由各数据库厂商自己实现也只有数据库厂商才知道怎样操作自己的数据库。</p>
-<p><img src="image-20230509201842721-3634725.png"></p>
-<h1 id="三、-JDBC访问数据库的步骤"><a href="#三、-JDBC访问数据库的步骤" class="headerlink" title="三、  JDBC访问数据库的步骤"></a>三、  JDBC访问数据库的步骤</h1><p>准备工作：把驱动程序包<em>mysql-connector-j-8.2.0.jar</em>引入<strong>项目依赖</strong>，</p>
-<p><em>Project Structure</em> —&gt;选中<em>module</em> —&gt; <em>Dependency</em> —&gt;点击右侧<em>”+”</em>号添加依赖库。</p>
-<ol>
-<li><p>注册数据库动程序</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"> <span class="keyword">final</span> <span class="type">String</span> <span class="variable">DRIVER</span> <span class="operator">=</span> <span class="string">&quot;com.mysql.cj.jdbc.Driver&quot;</span>;</span><br><span class="line"><span class="keyword">final</span> <span class="type">String</span> <span class="variable">URL</span> <span class="operator">=</span> <span class="string">&quot;jdbc:mysql://localhost:3306/scott&quot;</span>;</span><br><span class="line"><span class="keyword">final</span> <span class="type">String</span> <span class="variable">USERNAME</span> <span class="operator">=</span> <span class="string">&quot;root&quot;</span>;</span><br><span class="line"><span class="keyword">final</span> <span class="type">String</span> <span class="variable">PASSWORD</span> <span class="operator">=</span> <span class="string">&quot;123456&quot;</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">try</span> &#123;</span><br><span class="line">  <span class="comment">//1. 注册数据库动程序</span></span><br><span class="line">  Class.forName(DRIVER);</span><br><span class="line"></span><br><span class="line">&#125; <span class="keyword">catch</span> (ClassNotFoundException e) &#123;</span><br><span class="line">  System.err.println(<span class="string">&quot;注册数据库驱动失败&quot;</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-</li>
-<li><p>通过<code>java.sql.DriverManager</code> 获得数据库连接 <code>java.sql.Connection</code> </p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">Connection</span> <span class="variable">conn</span> <span class="operator">=</span> <span class="literal">null</span>; </span><br><span class="line"><span class="comment">//2. 通过`java.sql.DriverManager` 获得数据库连接 `java.sql.Connection`</span></span><br><span class="line">conn = DriverManager.getConnection(URL, USERNAME, PASSWORD);</span><br></pre></td></tr></table></figure>
-</li>
-<li><p>通过 <code>java.sql.Connection</code> 创建语句对象 <code>java.sql.Statement</code> </p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">Statement</span> <span class="variable">stmt</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line"><span class="comment">//3. 通过 `java.sql.Connection` 创建语句对象 `java.sql.Statement`</span></span><br><span class="line">stmt = conn.createStatement();</span><br></pre></td></tr></table></figure>
-</li>
-<li><p>执行 SQL 语句</p>
-<ul>
-<li><p><strong>select 查询</strong>：<em>java.sql.ResultSet  statement.exceuteQuery( sql : String )</em> 返回结果集对象</p>
-</li>
-<li><p><strong>insert, update, delete 语句</strong>：<em>int  statement.executeUpate( sql : String )</em> 返回整数，此操作数据库影响的行数。</p>
-</li>
-</ul>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">ResultSet</span> <span class="variable">rs</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line"> <span class="comment">//4.执行 SQL 语句获得结果集对象</span></span><br><span class="line">rs = stmt.executeQuery(<span class="string">&quot;select * from emp&quot;</span>);</span><br></pre></td></tr></table></figure>
-</li>
-<li><p>遍历查询结果集 <code>java.sql.ResultSet</code>（select 操作）</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">List&lt;Employee&gt; employees = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;();</span><br><span class="line"></span><br><span class="line"><span class="comment">//5. 遍历查询结果集 `java.sql.ResultSet`（select 操作）</span></span><br><span class="line"><span class="keyword">while</span> (rs.next()) &#123; <span class="comment">//遍历每一行</span></span><br><span class="line">  <span class="comment">//取每一列</span></span><br><span class="line">  <span class="type">int</span> <span class="variable">empno</span> <span class="operator">=</span> rs.getInt(<span class="string">&quot;empno&quot;</span>);</span><br><span class="line">  <span class="type">String</span> <span class="variable">ename</span> <span class="operator">=</span> rs.getString(<span class="string">&quot;ename&quot;</span>);</span><br><span class="line">  <span class="type">String</span> <span class="variable">job</span> <span class="operator">=</span> rs.getString(<span class="string">&quot;job&quot;</span>);</span><br><span class="line">  <span class="type">int</span> <span class="variable">mgr</span> <span class="operator">=</span> rs.getInt(<span class="string">&quot;mgr&quot;</span>);</span><br><span class="line">  <span class="type">Date</span> <span class="variable">hiredate</span> <span class="operator">=</span> rs.getDate(<span class="string">&quot;hiredate&quot;</span>);</span><br><span class="line">  <span class="type">double</span> <span class="variable">sal</span> <span class="operator">=</span> rs.getDouble(<span class="string">&quot;sal&quot;</span>);</span><br><span class="line">  <span class="type">double</span> <span class="variable">comm</span> <span class="operator">=</span> rs.getDouble(<span class="string">&quot;comm&quot;</span>);</span><br><span class="line">  <span class="type">int</span> <span class="variable">deptno</span> <span class="operator">=</span> rs.getInt(<span class="string">&quot;deptno&quot;</span>);</span><br><span class="line"></span><br><span class="line">  <span class="type">Employee</span> <span class="variable">e</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Employee</span>(empno, ename, job, mgr, hiredate, sal, comm, deptno);</span><br><span class="line">  employees.add(e);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-</li>
-<li><p>关闭 <code>java.sql.ResultSet</code>、<code>java.sql.Statement</code>、<code>java.sql.Connection</code> 对象</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">try</span> &#123;</span><br><span class="line">  ......</span><br><span class="line">&#125; <span class="keyword">catch</span>(SQLException e) &#123;</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">finally</span> &#123;</span><br><span class="line">  <span class="keyword">try</span> &#123;</span><br><span class="line">    <span class="comment">//6. 关闭 `java.sql.ResultSet`、`java.sql.Statement`、`java.sql.Connection` 对象</span></span><br><span class="line">    <span class="keyword">if</span> (rs != <span class="literal">null</span>) &#123;</span><br><span class="line">      rs.close();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (stmt != <span class="literal">null</span>) &#123;</span><br><span class="line">      stmt.close();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (conn != <span class="literal">null</span>) &#123;</span><br><span class="line">      conn.close();</span><br><span class="line">    &#125;</span><br><span class="line">  &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">    System.err.println(<span class="string">&quot;关闭数据资源失败！&quot;</span> + e.getMessage());</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
-</ol>
-<p><img src="image-20230509201950686-3634794.png"></p>
+    <title>MySQL：（六）sql优化</title>
+    <url>/2024/08/23/01Mysql-sql%E4%BC%98%E5%8C%96/</url>
+    <content><![CDATA[<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>对于sql优化，必须掌握的知识：<a href="https://rengoku.top/2024/08/15/MySQL-%E7%B4%A2%E5%BC%95/">MySQL：（一）索引底层原理与实现 </a> 、<a href="https://rengoku.top/2024/08/15/MySQL-%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E/">MySQL：（二）存储引擎 </a> </p>
+<h1 id="一、插入数据"><a href="#一、插入数据" class="headerlink" title="一、插入数据"></a>一、插入数据</h1><h2 id="批量插入-手动事务"><a href="#批量插入-手动事务" class="headerlink" title="批量插入&amp;手动事务"></a>批量插入&amp;手动事务</h2><p>如果插入的数据是500-1000这个范围，可以使用<strong>数据批量插入</strong>的方式。那如果是几万条数据呢？那就使用<strong>多条数据</strong>批量插入语句。如果使用单条插入操作会多次建立与数据库的连接，性能肯定是比一次性连接的批量插入低的。</p>
+<p>另外，InnoDB使用的是自动提交事务，每插入一次就自动进行事务的开启和关闭，因此可以手动控制事务，避免事务多次的开启和提交。</p>
+<p>最后是主键顺序的问题。InnoDB使用的是B+树和双向链表，而B+树众所周知就是查的快，插入难，会导致页分裂等等问题。B+树如果按照主键顺序进行插入效率会高很多。</p>
 <blockquote>
-<p><strong>注意：</strong></p>
-<p>注册数据驱动只需在整个项目运行时注册一次即可。不需要每次获取<code>Connection</code> 时都去注册驱动。注册数据库驱动程序后其它的类再去访问数据库时 JVM 就能找得到数据库驱动了，所以通常把注册驱动的代码写在某个类的*static{ ….. }*静态初始化块中。</p>
-</blockquote>
-<h3 id="3-1-各数据库-URL"><a href="#3-1-各数据库-URL" class="headerlink" title="3.1 各数据库 URL"></a>3.1 各数据库 URL</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//url格式：协议:子协议:主机:port:数据库</span></span><br><span class="line"><span class="comment">//SQL Server</span></span><br><span class="line"><span class="type">String</span> <span class="variable">URL</span> <span class="operator">=</span> <span class="string">&quot;jdbc:sqlserver://localhost:1433;DatabaseName=数据库名&quot;</span>;</span><br><span class="line"><span class="comment">//Oracle</span></span><br><span class="line"><span class="type">String</span> <span class="variable">URL</span> <span class="operator">=</span> <span class="string">&quot;jdbc:oracle:thin:@localhost:1521:ORCL(实例名,SID)&quot;</span>;</span><br><span class="line"><span class="comment">//MySQL</span></span><br><span class="line"><span class="type">String</span> <span class="variable">URL</span> <span class="operator">=</span> <span class="string">&quot;jdbc:mysql://localhost:3306/数据库名?autoReconnect=true&amp;useUnicode=true&amp;characterEncoding=utf-8&amp;serverTimezone=Asia/Shanghai&quot;</span>;</span><br></pre></td></tr></table></figure>
-
-<h1 id="四、-JDBC-API-类"><a href="#四、-JDBC-API-类" class="headerlink" title="四、 JDBC API 类"></a>四、 JDBC API 类</h1><h2 id="4-1-Connection常用方法"><a href="#4-1-Connection常用方法" class="headerlink" title="4.1 Connection常用方法"></a>4.1 Connection常用方法</h2><ol>
-<li><p><code>close()</code>：立即释放此 Connection 对象的数据库和 JDBC 资源，而不是等待它们被自动释放。</p>
-</li>
-<li><p><code>commit()</code> ：提交SQL操作，默认是自动提交SQL操作，很少情况需要手动提交。</p>
-</li>
-<li><p>createStatement() ：创建一个 Statement (普通语句)对象并将 SQL 语句发送到数据库去执行。</p>
-</li>
-<li><p><code>prepareStatement(String sql)</code>：创建一个 <code>PreparedStatement</code>(预编译语句) 对象来将参数化的 SQL 语句发送到数据库，其后对<strong>占位符</strong>设置参数，这种语句类型可获得更好的性能。</p>
-</li>
-<li><p><code>prepareCall(String sql)</code> ：创建一个 <code>CallableStatement</code> 对象来调用数据库存储过程。</p>
-</li>
-<li><p>必须在 <em>finally</em> 块中关闭<code>Connection</code>。</p>
-</li>
-<li><p><code>void rollback()</code>：取消在当前事务中进行的所有更改，并释放此 <code>Connection</code> 对象当前持有的所有数据库锁。</p>
-</li>
-<li><p><code>void setAutoCommit(boolean autoCommit):</code> 将此连接的自动提交模式设置为给定状态。</p>
-</li>
-</ol>
-<h2 id="4-2-Statement常用方法"><a href="#4-2-Statement常用方法" class="headerlink" title="4.2 Statement常用方法"></a>4.2 Statement常用方法</h2><ol>
-<li><p><strong>（不推荐用）</strong><code>Boolean execute(String sql)</code> ：执行给定的 SQL 语句（增删改查语句都可以），该语句可能返回多个结果。</p>
-</li>
-<li><p><code>ResultSet executeQuery(String sql)</code> : 执行给定的 SQL 查询语句，该语句返回单个 <code>ResultSet</code> 对象。</p>
-</li>
-<li><p><code>int intexecuteUpdate(Stringsql)</code>: 执行给定 SQL 语句，该语句可能为 <em>INSERT、UPDATE 或 DELETE</em> 语句，或者不返回任何内容的 SQL 语句（如 DDL 语句）。</p>
-</li>
-<li><p><code>setQueryTimeout(int seconds)</code> ：将驱动程序等待 <code>Statement</code> 对象执行的秒数设置为给定秒数。</p>
-</li>
-<li><p>必须在finally块中关闭<code>Statement</code>。</p>
-</li>
-</ol>
-<h2 id="4-3-ResultSet常用方法"><a href="#4-3-ResultSet常用方法" class="headerlink" title="4.3  ResultSet常用方法"></a>4.3  ResultSet常用方法</h2><ol>
-<li><p><code>next()</code>: 将光标从当前位置向前移一行。ResultSet 光标最初位于第一行之前；第一次调用 next 方法使第一行成为当前行；第二次调用使第二行成为当前行，依此类推。</p>
-</li>
-<li><p><code>close()</code> ：立即释放此 ResultSet 对象的数据库和 JDBC 资源，而不是等待该对象自动关闭时发生此操作。</p>
-</li>
-<li><p><code>getXxx(int columnIndex)</code> ：使用列索引来获取数据，Xxx表示相应的数据类型。</p>
-</li>
-</ol>
-<p>​		例如：</p>
-<ul>
-<li>获字符串用<em>getString(int columnIndex)，getString(String columnNanme)</em></li>
-<li>获取整数用<em>getInt(int columnIndex),  getInt(String columnName)</em></li>
-</ul>
-<p>d)   必须在<code>finally</code>块中关闭<code>ResultSet</code>。</p>
-<h1 id="五、PreparedStatement"><a href="#五、PreparedStatement" class="headerlink" title="五、PreparedStatement"></a>五、PreparedStatement</h1><ol>
-<li><p>预编译语句<code>PreparedStatement</code>是<code>Statement</code>的子类</p>
-</li>
-<li><p>为什么要使用预编译语句？</p>
-<ul>
-<li><p>执行效率高</p>
-</li>
-<li><p>安全</p>
-</li>
-<li><p>支持参数值占位符：？</p>
-</li>
-</ul>
-</li>
-</ol>
-<p><img src="image-20230509215556993-3640563.png"></p>
-<p>SQL中的 “**- -**” 把后面的语句给注掉了，这样就出现了SQL漏洞。预编译语句可以避免此类问题的发生。</p>
-<p>如果要多次执行相似的SQL语句，如：一次插入（更新、删除）几百条记录; 又如不同用户登录执行 SQL语句只有用户名和密码不同。可以使用<code>PreparedStatement</code>（预编译语句对象）对象来执行。由于预编译语句使用占位符 ”?”，在执行SQL之前语句会被先发送到数据库服务器进行语法检查和编译等工作，并将SQL语句加入到数据库的语句缓冲池里，随后再对SQL语句中的占位符 <strong>”?”</strong> 设置定值。那么也就说如果你要执行1000行插入的时候第一次先SQL语句发送给数据库服务器处理，接着后面只需传递占位符的值就可以了。因此它不需每次传递大量的SQL语句也无需对每条SQL语句做语法检查和编译所以比较高效。</p>
-<ol start="3">
-<li>通过Connection的prepareStatement( sql )方法来创建预编译语句对象。</li>
-</ol>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="type">int</span> <span class="title function_">save</span><span class="params">(Employee e)</span>&#123;</span><br><span class="line">  <span class="keyword">try</span> (</span><br><span class="line">    <span class="type">Connection</span> <span class="variable">conn</span> <span class="operator">=</span> JdbcUtils.getConnection();</span><br><span class="line">  ) &#123;</span><br><span class="line">      <span class="comment">//? 占位符只能对赋值的地方占位，</span></span><br><span class="line">      <span class="comment">//如：where empno=?;    update emp set ename=? ....</span></span><br><span class="line">      <span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;insert into emp(ename,job,mgr,hiredate,sal,comm,deptno) values (?,?,?,?,?,?,?)&quot;</span>; </span><br><span class="line">      <span class="comment">//1.先创建预编译语句，占位符只能给值进行占位</span></span><br><span class="line">      <span class="type">PreparedStatement</span> <span class="variable">ps</span> <span class="operator">=</span> conn.prepareStatement(sql);</span><br><span class="line">      <span class="type">int</span> <span class="variable">index</span> <span class="operator">=</span> <span class="number">1</span>;</span><br><span class="line">      <span class="comment">//2.再给？(点位符)设置值, 占位符索引位置从1开始</span></span><br><span class="line">      ps.setString(index++, e.getEname());</span><br><span class="line">      ps.setString(index++, e.getJob());</span><br><span class="line">      ps.setInt(index++, e.getMgr());</span><br><span class="line">      ps.setDate(index++, <span class="keyword">new</span> <span class="title class_">java</span>.sql.Date(e.getHiredate().getTime()));</span><br><span class="line">      ps.setDouble(index++, e.getSal());</span><br><span class="line">      <span class="comment">//如果列允许为空时，需要作一下JDBC 的空值处理, setNull(i, sqlType);</span></span><br><span class="line">      <span class="keyword">if</span>(e.getComm()==<span class="literal">null</span>)&#123;</span><br><span class="line">          ps.setNull(index++, java.sql.Types.DOUBLE);</span><br><span class="line">      &#125; <span class="keyword">else</span>&#123;</span><br><span class="line">          ps.setDouble(index++,e.getComm());</span><br><span class="line">      &#125;</span><br><span class="line">      ps.setInt(index++, e.getDeptno());</span><br><span class="line">      <span class="comment">//3.执行，不能再指定SQL 语句</span></span><br><span class="line">      <span class="type">int</span> <span class="variable">row</span> <span class="operator">=</span> ps.executeUpdate();</span><br><span class="line">  &#125; <span class="keyword">catch</span> (SQLException ex) &#123;</span><br><span class="line">          System.err.println(<span class="string">&quot;&gt;&gt;2.新增员工实体失败：&quot;</span> + ex.getMessage());</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h2 id="5-1-常用方法"><a href="#5-1-常用方法" class="headerlink" title="5.1 常用方法"></a>5.1 常用方法</h2><ul>
-<li><p><code>boolean   execute()</code>：在此 <code>PreparedStatement</code> 对象中执行 SQL 语句，该语句可以是任何种类的 SQL 语句。</p>
-</li>
-<li><p><code>ResultSet executeQuery()</code> 在此 <code>PreparedStatement</code> 对象中执行 SQL 查询，并返回该查询生成的 ResultSet 对象。</p>
-</li>
-<li><p><code>int executeUpdate()</code>：在此 <code>PreparedStatement</code> 对象中执行 SQL 语句，该语句必须是一个 SQL 数据操作语言<em>（Data Manipulation Language，DML）</em>语句，比如 <em>INSERT、UPDATE 或 DELETE</em> 语句；或者是无返回内容的 SQL 语句，比如 DDL 语句。</p>
-</li>
-<li><p><code>void setXxx(int parameterIndex, Xxx value)</code>: Xxx表示相应的数据类型，如：setString(…), setInt(…)等。设置点位符位置的值，第一个参数是 1，第二个参数是 2，…..</p>
-</li>
-<li><p><code>setNull(int parameterIndex, java.sql.Types value)</code>: 插入或更新时处理空值的字段，通常对非<code>char, varchar</code>类型字段空值时使用。</p>
-</li>
-<li><p>必须在 <em>finally</em> 块中关闭<code>PreparedStatement</code>。</p>
-</li>
-</ul>
-<h2 id="5-2-PreparedStatement与Statement的对比"><a href="#5-2-PreparedStatement与Statement的对比" class="headerlink" title="5.2 PreparedStatement与Statement的对比"></a>5.2 PreparedStatement与Statement的对比</h2><table>
-<thead>
-<tr>
-<th></th>
-<th>Statement</th>
-<th>PreparedStatement</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>创建语句对象的方法</td>
-<td><em>Connection.createStatement( )</em>  创建语句对象时 不提供SQL</td>
-<td><em>Connection.preparedStatement( sql )</em>  创建语句对象时 提供SQL</td>
-</tr>
-<tr>
-<td>查询</td>
-<td><em>executeQuery( sql )</em>  要提供SQL语句</td>
-<td><em>executeQuery( )</em>  不提供提供SQL语句，但随后要设置占位符的值</td>
-</tr>
-<tr>
-<td>插入、更新、删除</td>
-<td><em>executeUpdate( sql )</em>  要提供SQL语句</td>
-<td><em>executeUpdate( )</em>  不提供提供SQL语句</td>
-</tr>
-</tbody></table>
-<h1 id="六-存储过程调用"><a href="#六-存储过程调用" class="headerlink" title="六. 存储过程调用"></a>六. 存储过程调用</h1><p>调用存储过程可以使用<code>CallableStatement</code>语句类型来调用。</p>
+<p>主键顺序可参考：</p>
 <ol>
-<li><p>通过conn.prepareCall(<strong>“</strong>{call find_employee(?,?)}”); 获得一个使用CallableStatement语句对象。</p>
-</li>
-<li><p>设置<em>输入（IN模式）参数</em>的值和注册<em>输出（OUT模式）参数</em>。</p>
-<ul>
-<li><p>设置输入（IN模式）参数的值使用：</p>
-<p><code>CallableStatement.setString(parameterIndex, value);</code></p>
-<p>根据参数类型选择调用相应的方法。</p>
-</li>
-<li><p>注册输出（OUT模式）参数:</p>
-</li>
-</ul>
-</li>
+<li>文章：<a href="https://rengoku.top/2024/08/15/MySQL-%E7%B4%A2%E5%BC%95/">MySQL：（一）索引底层原理与实现 </a> 中第四节：InnoDB B+树存储数据结构。</li>
+<li>本篇文章第二节</li>
 </ol>
-<p>​			<code>CallableStatement.registerOutParameter(OUT_ ParameterIndex, java.sql.Types.类型常量);</code></p>
-<ol start="3">
-<li>获得输出参数的值使用方法：getString (输出参数的索引位置); 根据输出参数类型调用相应的方法。</li>
-</ol>
-<ul>
-<li><strong>示例</strong></li>
-</ul>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//调用存储过程</span></span><br><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">testProcedure</span><span class="params">()</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">    <span class="comment">//调用存储过程必须用CallableStatement语句对象，它是PreparedStatement的子类</span></span><br><span class="line">    <span class="type">CallableStatement</span> <span class="variable">cs</span> <span class="operator">=</span></span><br><span class="line">            <span class="built_in">this</span>.conn.prepareCall(<span class="string">&quot;&#123;call get_job_sum_sal(?,?)&#125;&quot;</span>); <span class="comment">//第二个？号的参数模式是out</span></span><br><span class="line">    <span class="comment">//设置点位符的值</span></span><br><span class="line">    cs.setString(<span class="number">1</span>, <span class="string">&quot;SALESMAN&quot;</span>);</span><br><span class="line">    cs.setDouble(<span class="number">2</span>, <span class="number">0.0</span>);</span><br><span class="line">    <span class="comment">//若过程有输出参数模式的，必须在过程执行前注册输出参数，也是说要告诉oracle驱动要得到哪个占位符的值 </span></span><br><span class="line">    cs.registerOutParameter(<span class="number">2</span>, java.sql.Types.DOUBLE, <span class="number">2</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">//执行过程</span></span><br><span class="line">    <span class="type">boolean</span> <span class="variable">b</span> <span class="operator">=</span> cs.execute();</span><br><span class="line">    <span class="comment">//得到结果，即过程的输出参数的值</span></span><br><span class="line">    <span class="type">double</span> <span class="variable">result</span> <span class="operator">=</span> cs.getDouble(<span class="number">2</span>);</span><br><span class="line">    System.out.println(<span class="string">&quot;SALESMAN的总工资：&quot;</span> + result);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h1 id="七-批量更新"><a href="#七-批量更新" class="headerlink" title="七. 批量更新"></a>七. 批量更新</h1><h2 id="7-1-Statement-批量更新"><a href="#7-1-Statement-批量更新" class="headerlink" title="7.1 Statement 批量更新"></a>7.1 Statement 批量更新</h2><p>用Statement对象执行批量更新时，用到addBatch()和executeBatch()方法。</p>
-<p><em>insert</em> 和 <em>delete</em> 操作与<em>update</em> 操作相似。</p>
-<ul>
-<li><strong>示例</strong></li>
-</ul>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">Connection</span> <span class="variable">connection</span> <span class="operator">=</span> JdbcUtil.getConnection();</span><br><span class="line"><span class="type">Statement</span> <span class="variable">statement</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line"><span class="keyword">try</span>&#123;</span><br><span class="line">    <span class="comment">//1.设置自动提交事务为 false</span></span><br><span class="line">    connection.setAutoCommit(<span class="literal">false</span>);</span><br><span class="line">    statement = connection.createStatement();</span><br><span class="line">    <span class="comment">//2.使用addBatch（）方法添加要在批处理中执行的SQL语句。然后使用executeBatch（）执行SQL语句。</span></span><br><span class="line">    statement.addBatch(<span class="string">&quot;update people set firstname=&#x27;aaa&#x27; where id=123&quot;</span>);</span><br><span class="line">    statement.addBatch(<span class="string">&quot;update people set firstname=&#x27;bbb&#x27; where id=456&quot;</span>);</span><br><span class="line">    statement.addBatch(<span class="string">&quot;update people set firstname=&#x27;ccc&#x27;  where id=789&quot;</span>);</span><br><span class="line">		<span class="comment">//返回每条件语句数据受影响的行数</span></span><br><span class="line">    <span class="type">int</span>[] recordsAffected = statement.executeBatch();</span><br><span class="line">    <span class="comment">//3.1 提交事务</span></span><br><span class="line">    connection.commit();</span><br><span class="line">&#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">  	<span class="comment">//3.2 回滚事务</span></span><br><span class="line">  	connection.rollback();</span><br><span class="line">    e.printStackTrace();</span><br><span class="line">&#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (statement != <span class="literal">null</span>) &#123;</span><br><span class="line">            statement.close();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">        e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h2 id="7-2-PreparedStatement-批量更新"><a href="#7-2-PreparedStatement-批量更新" class="headerlink" title="7.2 PreparedStatement 批量更新"></a>7.2 PreparedStatement 批量更新</h2><p>使用<code>PreparedStatement</code>对象执行批量更新。<code>PreparedStatement</code><em>可以重用相同的SQL语句</em>，并只需插入新参数即可执行每个更新。</p>
-<p><em>insert</em> 和 <em>delete</em> 操作与<em>update</em> 操作相似。</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">Connection</span> <span class="variable">connection</span> <span class="operator">=</span> JdbcUtil.getConnection();</span><br><span class="line"><span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;update PEOPLE set firstname=? where id=?&quot;</span>;</span><br><span class="line"></span><br><span class="line"><span class="type">PreparedStatement</span> <span class="variable">preparedStatement</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line"><span class="keyword">try</span>&#123;</span><br><span class="line">    <span class="comment">//1.设置自动提交事务为 false</span></span><br><span class="line">    connection.setAutoCommit(<span class="literal">false</span>);</span><br><span class="line">    preparedStatement = connection.prepareStatement(sql);</span><br><span class="line">  	<span class="comment">//2.添加语句组，并为每条语句设置参数值</span></span><br><span class="line">    <span class="comment">//第1条记录</span></span><br><span class="line">    preparedStatement.setString(<span class="number">1</span>, <span class="string">&quot;james&quot;</span>);</span><br><span class="line">    preparedStatement.setLong  (<span class="number">2</span>, <span class="number">123</span>);</span><br><span class="line">    <span class="comment">//加入到批量处理</span></span><br><span class="line">    preparedStatement.addBatch();</span><br><span class="line">    <span class="comment">//第2条记录</span></span><br><span class="line">    preparedStatement.setString(<span class="number">1</span>, <span class="string">&quot;zhang&quot;</span>);</span><br><span class="line">    preparedStatement.setLong  (<span class="number">2</span>, <span class="number">456</span>);</span><br><span class="line">    preparedStatement.addBatch();</span><br><span class="line"></span><br><span class="line">    <span class="type">int</span>[] affectedRecords = preparedStatement.executeBatch();</span><br><span class="line">    <span class="comment">//3.1 提交事务</span></span><br><span class="line">    connection.commit();</span><br><span class="line">&#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">  	<span class="comment">//3.2 回滚事务</span></span><br><span class="line">  	connection.rollback();</span><br><span class="line">    e.printStackTrace();</span><br><span class="line">&#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="keyword">if</span>(preparedStatement != <span class="literal">null</span>) &#123;</span><br><span class="line">            preparedStatement.close();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">        e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>​		将每组参数值插入到preparedStatement中，并调用*addBatch( )<em>方法。 这会将参数值添加到批处理内部。 现在可以添加另一组值，以便插入到SQL语句中。 将全部批次发送到数据库后，将每组参数插入到SQL中并分别执行。然后执行</em>executeBatch( )*方法，它执行所有的批量更新。 SQL语句和参数集一起发送到数据库。</p>
-<p><strong>注意: 批量操作应该放到事务里进行，因为它会存在某条语句执行失败的情况。</strong></p>
-<h1 id="八-Java数据类型与SQL类型的映射"><a href="#八-Java数据类型与SQL类型的映射" class="headerlink" title="八. Java数据类型与SQL类型的映射"></a>八. Java数据类型与SQL类型的映射</h1><h2 id="8-1-Conversions-by-setObject-index-value"><a href="#8-1-Conversions-by-setObject-index-value" class="headerlink" title="8.1 Conversions by setObject(index, value)"></a>8.1 Conversions by setObject(index, value)</h2><p>下表说明了可用*Statement.setObject(index, value)和 PreparedStatement.setObject(index, value)*方法支持将Java类型到JDBC类型赋值。</p>
-<p><img src="clip_image001.png"></p>
-<p>An “x” means that the given Java object type may be converted to the given JDBC type. This table show the possible values for the parameter specifying a target JDBC type that is passed to the method PreparedStatement.setObject or RowSet.setObject. Note that some conversions may fail at run time if the value presented is invalid.</p>
-<h2 id="8-2-Conversions-by-ResultSet-getXXX-Methods"><a href="#8-2-Conversions-by-ResultSet-getXXX-Methods" class="headerlink" title="8.2 Conversions by ResultSet.getXXX Methods"></a>8.2 Conversions by ResultSet.getXXX Methods</h2><p><img src="clip_image001-3697769-3697774.png"></p>
-<p><code>SQLInput.readXXX</code> methods support only the recommended conversions. An “x” means that the method <em>can</em> retrieve the JDBC type. An “<strong>X</strong>“ means that the method is <em>recommended</em> for retrieving the JDBC type.</p>
-<h1 id="九、apache-DButils-组件库"><a href="#九、apache-DButils-组件库" class="headerlink" title="九、apache DButils 组件库"></a>九、apache DButils 组件库</h1><p>dbutils是apache 中的一个简化了jdbc的编程的工具组件库。</p>
-<p>下载地址：<a href="https://commons.apache.org/proper/commons-dbutils/">DbUtils – JDBC Utility Component (apache.org)</a></p>
-<p>官方示例：<a href="https://commons.apache.org/proper/commons-dbutils/examples.html">DbUtils – JDBC Utility Component – Examples (apache.org)</a></p>
-<h2 id="9-1-ResultSetHandler结果集处理器接口"><a href="#9-1-ResultSetHandler结果集处理器接口" class="headerlink" title="9.1 ResultSetHandler结果集处理器接口"></a>9.1 ResultSetHandler结果集处理器接口</h2><p><code>ResultSetHandler</code> 的功能是将查询结果的列名与JavaBean对象的属性名(setter方法)进行反射赋值，有以下几个常用实现类：</p>
-<ul>
-<li><p><code>BeanHandler</code>：JavaBean处理器。将查询结果集 <code>ResultSet</code>的一行仅且一行封装成一个JavaBean对象。</p>
-</li>
-<li><p><code>BeanListHandler</code>：JavaBean列表处理器。 将多行查询集 <code>ResultSet</code>封装成一个JavaBean列表。</p>
-</li>
-<li><p><code>MapHandler</code>：Map处理器。将查询结果集的一行仅且一行封装成一个<em>Map</em>对象，结果集的列名作为 Map 的<em>key</em>，值作为Map 的<em>value</em>;</p>
-</li>
-<li><p><code>MapListHandler</code>： Map列表处理器。返回一个列表其元素为Map，查询结果集的每一行封装成一个Map对象，结果的列名作为key，值作为value;</p>
-</li>
-<li><p><code>ScalarHandler</code>: 标量类型处理器。将只有一行一列的查询结果集封装成一个基本类型的值，如：<em>Select  count(*)  as rows  from  employee</em>;</p>
-</li>
-</ul>
-<p>示例：</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//将查询结果集通过反射机制封装成一个JavaBean实体，查询结果的列名将与JavaBean的属性名进行反射（实际上是调用 JavaBean 的setter方法）</span></span><br><span class="line"><span class="comment">//如果结果集的列有与 JavaBean 属性名不同时，可通过给列名取别名的方式使之与JavaBean 属性名一样</span></span><br><span class="line">ResultSetHandler&lt;Employee&gt;  rsh = <span class="keyword">new</span> <span class="title class_">BeanHandler</span>&lt;Employee&gt;(Employee.class); </span><br><span class="line">runner.query(conn, sql, rsh [,Object... params]);</span><br><span class="line"></span><br><span class="line"><span class="comment">//将查询结果集通过反射机制封装成一个JavaBean实体列表</span></span><br><span class="line">ResultSetHandler&lt;Employee&gt;  rsh = <span class="keyword">new</span> <span class="title class_">BeanListHandler</span> &lt;Employee&gt;(Employee.class);</span><br><span class="line">runner.query(conn, sql, rsh [,Object... params]);</span><br></pre></td></tr></table></figure>
-
-<h2 id="9-2-QueryRunner-SQL执行操作类-多线程安全"><a href="#9-2-QueryRunner-SQL执行操作类-多线程安全" class="headerlink" title="9.2 QueryRunner SQL执行操作类(多线程安全)"></a>9.2 QueryRunner SQL执行操作类(多线程安全)</h2><p>官方是这样解释的：</p>
-<blockquote>
-<p>Executes SQL queries with pluggable strategies for handling <code>ResultSet</code>s. This class is thread safe.</p>
 </blockquote>
-<p>所有对数据库的CRUD操作都通过 <code>QueryRunner</code> 完成。</p>
-<p>如果创建<code>QueryRunner</code>实例时没有提供<code>DataSource</code>数据源参数则在执行CRUD操作方法时需提供数据库连接。</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//方式 1: 不使用数据源</span></span><br><span class="line"><span class="type">QueryRunner</span> <span class="variable">runner</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">QueryRunner</span>(<span class="literal">true</span>);</span><br><span class="line"><span class="comment">//方式 2：使用数据源，数据源通过其它方式获得并传入构造中</span></span><br><span class="line"><span class="type">QueryRunner</span> <span class="variable">runner</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">QueryRunner</span>([DataSource]);</span><br></pre></td></tr></table></figure>
+<p><img src="Snipaste_2024-08-23_01-26-23.png" alt="insert优化"></p>
+<p><strong>总结一下：</strong></p>
+<ol>
+<li>批量插入</li>
+<li>手动提交事务</li>
+<li>主键按顺序进行插入</li>
+</ol>
+<h2 id="load指令"><a href="#load指令" class="headerlink" title="load指令"></a>load指令</h2><p>ok，下一模块。</p>
+<p>如果插入的数据更大，数据来到了几百万的级别，那么使用<code>insert</code>的性能就不高了。</p>
+<p>在MySQL中要涉及大量数据插入时，我们选择使用<code>load</code>指令进行大量数据批量插入操作：</p>
+<p><img src="Snipaste_2024-08-23_01-36-58.png" alt="load指令"></p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># 客户端连接服务端时，加上参数--local-infile</span><br><span class="line">mysql &gt; mysql --local-infile -u root -p</span><br><span class="line"></span><br><span class="line"># 设置全局参数local infile为 1，开启从本地加载文件导入数据的开关，local infile 的默认值是0;</span><br><span class="line">mysql &gt; set global local infile = 1;</span><br><span class="line"></span><br><span class="line"># 执行load指令将准备好的数据，加载到表结构中：</span><br><span class="line"># 1. &#x27;/root/sql1.log&#x27;是linux下的路径，里面存放了一份100w的数据</span><br><span class="line"># 2. fields terminated by &#x27;,&#x27;表示的是数据之间以逗号分开，如上图所示</span><br><span class="line"># 3. 行之间以换行符区分。</span><br><span class="line">mysql &gt; load data local infile &#x27;/root/sql1.log&#x27; into table &#x27;tb_ user&#x27; fields terminated by &#x27;,&#x27; lines terminated by &#x27;\n&#x27; ;</span><br></pre></td></tr></table></figure>
 
-<h3 id="普通查询（无占位符参数）"><a href="#普通查询（无占位符参数）" class="headerlink" title="普通查询（无占位符参数）"></a>普通查询（无占位符参数）</h3><p>以下示例均以junit 单元测试提供。</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">testQuerySingleEmployee</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;select * from emp where ename=&#x27;ZHANG&#x27;&quot;</span>;</span><br><span class="line">    <span class="comment">//默认dbutil会通过结果集的类名与bean的属性名进行反射，</span></span><br><span class="line">    <span class="comment">//如果列名与bean的属性名不一致时可以为列名取别名来解决</span></span><br><span class="line">    ResultSetHandler&lt;Employee&gt; rsh = <span class="keyword">new</span> <span class="title class_">BeanHandler</span>&lt;Employee&gt;(Employee.class);</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">      <span class="type">Employee</span> <span class="variable">e</span> <span class="operator">=</span> runner.query(conn, sql, rsh);</span><br><span class="line">      System.out.println(e);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">      e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>插入的速度如图：</strong></p>
+<p><img src="Snipaste_2024-08-23_01-47-09.png" alt="load指令的插入速度"></p>
+<p>可以看到使用<code>load</code>指令插入数据花费的时间是<code>16.84s</code>。如果使用<code>insert</code>操作大概需要花费10+分钟。</p>
+<p>使用<code>load</code>指令插入当然也是需要满足主键顺序插入的，和使用<code>insert</code>进行批 量插入时一样，原因是InnoDB底层都是使用B+树和双向链表（除了自适应哈希的情况，自适应哈希见文章：<a href="https://rengoku.top/2024/08/15/MySQL-%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E/">MySQL：（二）存储引擎 </a> 的内存架构）</p>
+<p><strong>总结一下：</strong></p>
+<ol>
+<li>批量插入数据</li>
+<li>手动开启事务</li>
+<li>load指令输入大数据文件</li>
+</ol>
+<h1 id="二、主键优化"><a href="#二、主键优化" class="headerlink" title="二、主键优化"></a>二、主键优化</h1><h2 id="InnoDB逻辑存储结构-索引底层实现原理"><a href="#InnoDB逻辑存储结构-索引底层实现原理" class="headerlink" title="InnoDB逻辑存储结构&amp;索引底层实现原理"></a>InnoDB逻辑存储结构&amp;索引底层实现原理</h2><p>在讲索引的底层原理的时候，我们说过InnoDB底层都是使用B+树和双向链表存储数据的。对于聚簇索引，在InnoDB中默认是主键索引，叶子节点存放的都是行数据，而非聚簇索引存放的都是主键索引的地址值，因此会有回表的情况：<a href="https://rengoku.top/2024/08/15/MySQL-%E7%B4%A2%E5%BC%95/">MySQL：（一）索引底层原理与实现 </a></p>
+<p>而在介绍InnoDB存储引擎的时候，也曾经说过InnoDB的逻辑存储结构：<a href="https://rengoku.top/2024/08/15/MySQL-%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E/">MySQL：（二）存储引擎 </a> </p>
+<p><img src="Snipaste_2024-08-16_21-25-44.png"></p>
+<p>里面提到的页（page）是InnoDB磁盘管理的最小单元，一个页的大小为16kb。在B+树的结构中，每个节点都是一个页，页里面就包含多条行数据。换句话说，非叶子节点对应的页负责分发索引，叶子节点对应的页负责存储具体行数据。</p>
+<h2 id="页分裂"><a href="#页分裂" class="headerlink" title="页分裂"></a>页分裂</h2><p>B+树是要求主键顺序的，这里不多说了，我们就直接讨论<strong>主键乱序插入的情况。</strong></p>
+<p><img src="Snipaste_2024-08-23_02-24-56.png"></p>
+<p>现在我要将主键为50的数据插入到页中，由于要求顺序，这条数据不会直接被开辟到新的page空间，而是按顺序从根节点开始，找到叶子节点中应该插入的位置</p>
+<p><img src="Snipaste_2024-08-23_02-25-24.png"></p>
+<p>但是此时page1的空间已经满了，此时怎么办？</p>
+<p>此时需要开辟新的page空间，这里就叫page3，InnoDB会尽量平均分配两个页的空间利用，将数据进行迁移。这里就是将page1的行数据迁移到page3中。</p>
+<p><img src="Snipaste_2024-08-23_02-25-43.png"></p>
+<p>接下来，主键为50的行数据，就应该拼接在page3后面。</p>
+<p><img src="Snipaste_2024-08-23_02-25-55.png"></p>
+<p>最后就是，页之间的链表关系重排序，重新设置链表指针。</p>
+<p><img src="Snipaste_2024-08-23_02-31-52.png"></p>
+<p>OK，以上就是页分类的流程。主键乱序插入的时候就有可能会产生页分裂的现象，并且页分裂也会消耗比较大的性能。</p>
+<h2 id="页分类导致的问题"><a href="#页分类导致的问题" class="headerlink" title="页分类导致的问题"></a>页分类导致的问题</h2><h3 id="1-性能下降"><a href="#1-性能下降" class="headerlink" title="1. 性能下降"></a>1. 性能下降</h3><ul>
+<li><strong>增加I&#x2F;O操作</strong>：页分裂需要创建新的数据页，并将原页中的部分数据移动到新页中，这增加了磁盘的I&#x2F;O操作次数。磁盘I&#x2F;O通常是数据库操作中的瓶颈，因此页分裂会直接影响查询和更新操作的性能。</li>
+<li><strong>降低缓存效率</strong>：数据库系统通常会将数据页缓存在内存中以提高访问速度。页分裂会导致缓存中的数据页失效，因为新生成的数据页需要重新加载到缓存中。这降低了缓存的命中率，进而影响了数据库的整体性能。</li>
+</ul>
+<h3 id="2-空间利用率降低"><a href="#2-空间利用率降低" class="headerlink" title="2. 空间利用率降低"></a>2. 空间利用率降低</h3><ul>
+<li><strong>空间浪费</strong>：页分裂后，原数据页和新数据页可能都无法完全填满，导致空间利用率降低。在某些情况下，空间利用率可能会降低约50%（如参考文章1所述），这取决于数据的具体分布和页分裂的触发条件。</li>
+<li><strong>碎片化</strong>：频繁的页分裂会导致数据库中的数据页变得碎片化，即数据不再连续存储在磁盘上。这会增加读取数据时的寻道时间和I&#x2F;O操作次数，进一步降低性能。</li>
+</ul>
+<h3 id="3-索引重构"><a href="#3-索引重构" class="headerlink" title="3. 索引重构"></a>3. 索引重构</h3><ul>
+<li><strong>索引失效</strong>：在某些情况下，页分裂可能会导致索引失效或变得不连续。这会影响基于索引的查询操作的性能，因为索引无法快速定位到目标数据页。</li>
+<li><strong>重建索引</strong>：为了恢复索引的连续性和性能，可能需要定期重建索引。然而，重建索引本身也是一个资源密集型的操作，它会占用大量的CPU和I&#x2F;O资源，并可能影响数据库的在线性能。</li>
+</ul>
+<p><strong>总结一下：增加磁盘io，降低缓存效率，空间产生碎片，索引重构。</strong></p>
+<h2 id="页合并"><a href="#页合并" class="headerlink" title="页合并"></a>页合并</h2><p>页分裂是插入数据时的问题，而页合并是删除数据的现象。</p>
+<p><img src="Snipaste_2024-08-23_02-42-26.png"></p>
+<p>如果将主键为：<code>13,14,15,16</code>的行数据进行逻辑删除，那么page3的数据将会迁移到page2</p>
+<h2 id="主键设计原则"><a href="#主键设计原则" class="headerlink" title="主键设计原则"></a><img src="Snipaste_2024-08-23_02-42-44.png">主键设计原则</h2><p>根据页分类的现象总结出四点：</p>
+<p><img src="Snipaste_2024-08-23_02-46-52.png"></p>
+<p>原则都是围绕避免出现页分裂的情况进行设计的。</p>
+<h1 id="三、order-by优化"><a href="#三、order-by优化" class="headerlink" title="三、order by优化"></a>三、order by优化</h1><p><img src="Snipaste_2024-08-23_11-36-51.png"></p>
+<p>对于单个主键索引，如果排序走索引，order by升序或者降序都不会有性能差异，都是using index。</p>
+<p>接下来讲联合索引的情况：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># 假设tb_user表中存在字段：id，name，age，phone。现在对gae字段创建索引</span><br><span class="line">create index inx_user_age_phone on tb_user(age,phone);</span><br><span class="line"></span><br><span class="line"># 排序走索引，using index</span><br><span class="line">select id, name, age from tb_user order by age;</span><br><span class="line"></span><br><span class="line"># 如果没有age索引，排序走filesort</span><br><span class="line">select id, name, age from tb_user order by age;</span><br></pre></td></tr></table></figure>
 
-<h3 id="带占位符参数查询"><a href="#带占位符参数查询" class="headerlink" title="带占位符参数查询"></a>带占位符参数查询</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">testQueryEmployeeList</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">//复杂查询时SQL语句需动态构建</span></span><br><span class="line">    <span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;select * from emp where ename like ? and sal between ? and ?&quot;</span>;</span><br><span class="line">    <span class="comment">//默认dbutil会通过结果集的类名与bean的属性名进行反射，</span></span><br><span class="line">    <span class="comment">//如果列名与bean的属性名不一致时可以为列名取别名来解决</span></span><br><span class="line">    ResultSetHandler&lt;List&lt;Employee&gt;&gt; rsh = <span class="keyword">new</span> <span class="title class_">BeanListHandler</span>&lt;Employee&gt;(Employee.class);</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        List&lt;Employee&gt; list = runner.query(conn, sql, rsh,<span class="string">&quot;%A%&quot;</span>,<span class="number">1000.0</span>,<span class="number">5000.0</span>);</span><br><span class="line">        <span class="keyword">for</span> (Employee e : list) &#123;</span><br><span class="line">          System.out.println(e);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">      	e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><img src="Snipaste_2024-08-23_11-56-35.png" alt="没有age索引"></p>
+<p><img src="Snipaste_2024-08-23_11-56-18.png" alt="有age索引"></p>
+<p>如果按照两个字段进行排序：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">select id, name, age from tb_user order by age, phone;</span><br></pre></td></tr></table></figure>
 
-<h3 id="标量查询"><a href="#标量查询" class="headerlink" title="标量查询"></a>标量查询</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">testCount</span><span class="params">()</span>&#123;</span><br><span class="line">    <span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;select count(empno) AS r from emp&quot;</span>;</span><br><span class="line">    ResultSetHandler&lt;BigDecimal&gt; rsh = <span class="keyword">new</span> <span class="title class_">ScalarHandler</span>&lt;BigDecimal&gt;(<span class="string">&quot;r&quot;</span>);</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="type">BigDecimal</span> <span class="variable">rows</span> <span class="operator">=</span> runner.query(conn, sql, rsh);</span><br><span class="line">        <span class="type">int</span> <span class="variable">r</span> <span class="operator">=</span> rows.intValue();</span><br><span class="line">        System.out.println(rows);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">      	e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>此时也会走using index</p>
+<p><img src="Snipaste_2024-08-23_12-01-27.png"></p>
+<p>如果两个字段同时倒序排序：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">select id, name, age from tb_user order by age desc, phone desc;</span><br></pre></td></tr></table></figure>
 
-<h3 id="保存"><a href="#保存" class="headerlink" title="保存"></a>保存</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">testSave</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">//SQL语句可能需动态构建，参考以前JDBC的代码</span></span><br><span class="line">    <span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;insert into emp(EMPNO,ENAME,MGR,HIREDATE,SAL,DEPTNO) values(?,?,?,?,?,?)&quot;</span>;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="comment">// 返回数据库受影响的行数，即插入的行数</span></span><br><span class="line">      	<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> runner.update(conn, sql, <span class="number">8136</span>,<span class="string">&quot;Alex&quot;</span>,<span class="number">7369</span>,<span class="keyword">new</span> <span class="title class_">java</span>.sql.Date(<span class="keyword">new</span> <span class="title class_">Date</span>().getTime()),<span class="number">4440.0</span>,<span class="number">10</span>);</span><br><span class="line">      	System.out.println(i);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">      	e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><img src="Snipaste_2024-08-23_12-02-05.png"></p>
+<p>可以看到backward index scan。这是倒序的索引扫描，效率也是高的。</p>
+<blockquote>
+<p>之前讲过联合索引的B+树会依次按照主键顺序进行比较，例如这里，age相同的话再比较phone，phone更大的值最终将在叶子结点右边。因此联合索引都是有序的。倒序也就是正序反过来，没差的。</p>
+</blockquote>
+<p>如果一个字段正序，一个字段倒序：</p>
+<p><img src="Snipaste_2024-08-23_12-07-19.png"></p>
+<p>可以看到，已经出现using filesort了。</p>
+<p><strong>为什么会这样呢？</strong></p>
+<p>原因是因为索引其实也是有一个字段标记顺序的：</p>
+<p><img src="Snipaste_2024-08-23_12-11-58.png"></p>
+<p>如果索引创建方式是这样：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">create index inx_user_age_phone on tb_user(age asc,phone desc);</span><br></pre></td></tr></table></figure>
 
-<h3 id="更新"><a href="#更新" class="headerlink" title="更新"></a>更新</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">testSave</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">//SQL语句可能需动态构建，参考以前JDBC的代码</span></span><br><span class="line">    <span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;update emp set ENAME=?,JOB=?,SAL=? Where EMPNO=?&quot;</span>;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="comment">// 返回数据库受影响的行数，即更新的行数</span></span><br><span class="line">      	<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> runner.update(conn, sql, <span class="number">8136</span>,<span class="string">&quot;Alex&quot;</span>,<span class="number">7369</span>,<span class="keyword">new</span> <span class="title class_">java</span>.sql.Date(<span class="keyword">new</span> <span class="title class_">Date</span>().getTime()),<span class="number">4440.0</span>,<span class="number">10</span>);</span><br><span class="line">      	System.out.println(i);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">      e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><img src="Snipaste_2024-08-23_12-13-42.png"></p>
+<p>查看索引的时候可以看到，我给phone字段添加倒序的索引。</p>
+<p>此时一正序一降序的问题就可以得到解决：</p>
+<p><img src="Snipaste_2024-08-23_12-14-56.png"></p>
+<p>原因就是创建倒序索引了以后，一正序一倒序的查，就可以直接拿到数据了</p>
+<p><img src="Snipaste_2024-08-23_12-16-14.png"></p>
+<p><strong>总结一下：</strong></p>
+<ol>
+<li>排序的时候走索引效率高。</li>
+<li>排序的时候可以走普通索引提升效率。</li>
+<li>合索引要么排序只用第一个字段（最左前缀），要么多个字段共同升序降序，又或是按照排序方式添加联合索引。</li>
+</ol>
+<p>前提都是查询走了索引，否则不生效。</p>
+<h1 id="四、group-by优化"><a href="#四、group-by优化" class="headerlink" title="四、group by优化"></a>四、group by优化</h1><p>group by优化主要是索引对分组的影响。</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># 创建索引</span><br><span class="line">create index inx_user_name_age on tb_user(name,age);</span><br><span class="line"># 进行查询操作</span><br><span class="line"># using index</span><br><span class="line">select id, name, age from tb_user group by name;</span><br><span class="line"></span><br><span class="line"># using temporary</span><br><span class="line">select id, name, age from tb_user group by age;</span><br><span class="line"></span><br><span class="line"># using index</span><br><span class="line">select id, name, age from tb_user where name = &#x27;张三&#x27; group by age;</span><br></pre></td></tr></table></figure>
 
-<h3 id="删除"><a href="#删除" class="headerlink" title="删除"></a>删除</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">testDelete</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">//SQL语句可能需动态构建，参考以前JDBC的代码</span></span><br><span class="line">    <span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;delete employee Where EMPNO=?&quot;</span>;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="comment">// 返回数据库受影响的行数，即删除的行数</span></span><br><span class="line">        <span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> runner.update(conn, sql, <span class="number">8136</span>);</span><br><span class="line">        System.out.println(i);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">      e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>很简单，联合索引满足最左前缀原则就行了。</p>
+<h1 id="五、limit优化"><a href="#五、limit优化" class="headerlink" title="五、limit优化"></a>五、limit优化</h1><p>使用<code>limit</code>的时候，越往后面的页花费时间越多。由于在finalshell里打印结果的篇幅原因，我就不放上图片了，这里直接给出运行结果：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">select conut(*) from tb_user; # 表中存在1000000条数据。</span><br><span class="line">select id, name, age from tb_user limit 0,10; # 这个数量级查询花费时间的数量级在10^(-2)</span><br><span class="line">select id, name, age from tb_user limit 1000,10;</span><br><span class="line">select id, name, age from tb_user limit 100000,10;</span><br><span class="line">select id, name, age from tb_user limit 900000,10; # 这个数量级的查询花费将近花费20秒</span><br></pre></td></tr></table></figure>
 
+<p>原因是什么呢？很简单，这样查询需要回表。</p>
+<p>对这个的解决方案，官方给出的方式是<strong>覆盖索引 + 子查询。</strong></p>
+<blockquote>
+<p>覆盖索引是指一个索引包含了所有需要查询的列，即查询语句中的SELECT字段全部在索引中，通过索引就可以直接获取查询结果，而无需回表查询数据行。</p>
+</blockquote>
+<p>什么意思呢，我们来看看</p>
+<p>首先我们进行<code>select *  ...</code>操作，肯定是要回表的，而且在上面讲了查询效率很低，随着往后查询的数据越大，时间花费越多；但是如果我先查询 id 作为子结果集，然后再查询id对应的数据是不是就行了呢？</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"># 第一步，查询id,这一步就是使用覆盖索引id（因为我没创建其他索引，默认只有主键索引），作为子查询的结果集</span><br><span class="line"><span class="keyword">select</span> id <span class="keyword">from</span> tb_user limit <span class="number">900000</span>,<span class="number">10</span>;</span><br><span class="line"></span><br><span class="line"># 第二步，查询id对应的结果</span><br><span class="line"><span class="keyword">select</span> <span class="operator">*</span> <span class="keyword">from</span> tb_user <span class="keyword">where</span> id <span class="keyword">in</span> (<span class="keyword">select</span> id <span class="keyword">from</span> tb_user limit <span class="number">900000</span>,<span class="number">10</span>);</span><br></pre></td></tr></table></figure>
+
+<p><img src="Snipaste_2024-08-24_13-56-43.png"></p>
+<p>然而这样的sql报错语法问题，不允许<code>in</code>关键字中有<code>limit</code>。</p>
+<p>但是我们可以将子查询作为一个表做多表联查：</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="operator">*</span> <span class="keyword">from</span> tb_user <span class="keyword">as</span> a , (<span class="keyword">select</span> id <span class="keyword">from</span> tb_user limit <span class="number">900000</span>,<span class="number">10</span>) <span class="keyword">as</span> b <span class="keyword">where</span> a.id <span class="operator">=</span> b.id</span><br></pre></td></tr></table></figure>
+
+<p>可以看到结果还是很快的，用了<code>11.46S</code></p>
+<p><img src="Snipaste_2024-08-24_14-02-29.png"></p>
+<p>总结一下：</p>
+<p>limit采用多表联查的方式，结合覆盖索引（id）+ 子查询做优化，解决数据页靠后时查询速度显著下降的问题。</p>
+<h1 id="六、count优化"><a href="#六、count优化" class="headerlink" title="六、count优化"></a>六、count优化</h1><p><img src="Snipaste_2024-08-24_14-20-31.png"></p>
+<p><img src="Snipaste_2024-08-24_14-24-36.png"></p>
+<h1 id="七、update优化"><a href="#七、update优化" class="headerlink" title="七、update优化"></a>七、update优化</h1><p>首先你得先复习一下mysql的行锁：<a href="https://rengoku.top/2024/08/15/MySQL-%E9%94%81/">MySQL：（三）全局锁、表级锁、行级锁 </a></p>
+<p><strong>在dml语句中，mysql的行锁是自动添加的，并且不走索引的情况下，行锁会升级为表锁。</strong></p>
+<p>还是之前的表 tb_user 和字段 id,name,age，id为主键。现在有两个线程，分别是线程A和线程B。</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">+---------+------------+-------+</span><br><span class="line">|   <span class="built_in">id</span>    |    name    |  age  |</span><br><span class="line">+---------+------------+-------+</span><br><span class="line">|    1    |    张三    |  18   |</span><br><span class="line">|    2    |    李四    |  19   |   </span><br><span class="line">|    3    |    王五    |  20   |</span><br><span class="line">+---------+------------+-------+</span><br></pre></td></tr></table></figure>
+
+<h2 id="场景一"><a href="#场景一" class="headerlink" title="场景一"></a>场景一</h2><p>线程A先执行操作：</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">begin</span>;</span><br><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">update</span> tb_user <span class="keyword">set</span> name <span class="operator">=</span> <span class="string">&#x27;赵六&#x27;</span> <span class="keyword">where</span> id <span class="operator">=</span> <span class="number">1</span>;</span><br></pre></td></tr></table></figure>
+
+<p>线程B此时也开启事务：</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">begin</span>;</span><br><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">update</span> tb_user <span class="keyword">set</span> name <span class="operator">=</span> <span class="string">&#x27;路人甲&#x27;</span> <span class="keyword">where</span> id <span class="operator">=</span> <span class="number">2</span>;</span><br></pre></td></tr></table></figure>
+
+<p><strong>此时线程B可以修改成功吗？</strong></p>
+<p>可以的，现在A修改的是 id &#x3D; 1 的数据，而B改的是 id &#x3D; 2 的数据，行锁不冲突。两个线程之后各自提交事务就行了。</p>
+<h2 id="场景二"><a href="#场景二" class="headerlink" title="场景二"></a>场景二</h2><p>线程A先执行操作：</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">begin</span>;</span><br><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">update</span> tb_user <span class="keyword">set</span> name <span class="operator">=</span> <span class="string">&#x27;赵六&#x27;</span> <span class="keyword">where</span> age <span class="operator">=</span> <span class="number">18</span>;</span><br></pre></td></tr></table></figure>
+
+<p>线程B此时也开启事务：</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">begin</span>;</span><br><span class="line">mysql<span class="operator">&gt;</span> <span class="keyword">update</span> tb_user <span class="keyword">set</span> name <span class="operator">=</span> <span class="string">&#x27;路人甲&#x27;</span> <span class="keyword">where</span> age <span class="operator">=</span> <span class="number">20</span>;</span><br></pre></td></tr></table></figure>
+
+<p><strong>此时线程B可以修改成功吗？</strong></p>
+<p>不可以，因为现在是表锁而不是行锁，事务 B 会被阻塞。</p>
+<p><strong>为什么现在是表锁不是行锁？事务 B 为什么被阻塞？？？？</strong></p>
+<p>因为我们曾经说过，如果不走索引的话，行锁是会失效的，因为行锁是 innodb 基于B+树来实现的。而现在表中只有主键索引 id ，而没有 age 对应的索引。</p>
+<p><strong>总结一下：</strong></p>
+<p>我们在更新数据的时候，需要根据索引进行 update 操作，否则在多个线程甚至是高并发的情况下，行锁有可能会升级成表锁</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><ul>
+<li><p>insert：对于大量数据的插入，应该结合手动开启事务，进行批量插入以减少和数据库连接的多次开启；并且按照主键进行插入。对于更大的数量级，采用 load 指令插入数据，这些数据需要统一格式。</p>
+</li>
+<li><p>主键优化：围绕避免出现页分裂的问题展开，比如按主键顺序插入数据、避免对主键修改。</p>
+</li>
+<li><p>order by：排序问题。单一字段排序时走索引；覆盖索引的情况：如果单一字段，using index；如果多个字段排序，需要满足最左前缀原则。查询的多个字段都有索引时，索引的排序要统一（即都是正序索引或者都是倒序索引），否则可以考虑建立一正序一倒序的覆盖索引。</p>
+<blockquote>
+<p>覆盖索引关注的是索引是否包含了查询所需的所有列，而联合索引关注的是索引是否同时包含了多个列。一个索引可以是覆盖索引但不一定是联合索引（如只包含一个列的索引且该列满足查询需求），也可以是联合索引但不一定是覆盖索引（如包含多个列但查询还需要其他列的数据）。</p>
+</blockquote>
+</li>
+<li><p>group by：分组的字段索引满足最左前缀原则或是主键索引。</p>
+</li>
+<li><p>limit：覆盖索引 + 子查询的方式优化全表往后扫描时速度非常低的问题。为了解决 in 中不能使用 limit 的问题，使用子查询作为表的形式进行多表联查。</p>
+</li>
+<li><p>count：默认使用 conut（*）的形式就是速度最高的。因为innodb只能累加，而MyISAM可以在磁盘中直接取conut的值。</p>
+</li>
+<li><p>update：更新的where条件中，字段需要有对应索引，避免多线程的情况下，表锁降低性能。</p>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>数据库</category>
+      </categories>
+      <tags>
+        <tag>mysql</tag>
+        <tag>面试</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Redis：（一）内存数据结构存储</title>
+    <url>/2024/08/28/02Redis%EF%BC%9A%EF%BC%88%E4%B8%80%EF%BC%89%E5%86%85%E5%AD%98%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E5%AD%98%E5%82%A8/</url>
+    <content><![CDATA[<h1 id="Redis"><a href="#Redis" class="headerlink" title="Redis"></a>Redis</h1><h2 id="Redis简介"><a href="#Redis简介" class="headerlink" title="Redis简介"></a>Redis简介</h2><p><strong>Redis 官方文档：</strong></p>
+<p><strong>Redis</strong> 是一个开源(BSD 许可)的<strong>内存数据结构存储</strong>，用作数据库、缓存、消息代理和流引擎。Redis提供数据结构，例如字符串、散列、列表、集合、带范围查询的排序集合、位图、超日志、地理空间索引和流。Redis 内置了复制、Lua 脚本、LRU驱逐、事务和不同级别的磁盘持久性，并通过以下方式提供高可用性 <strong>Redis Sentinel</strong> 和 <strong>Redis Cluster</strong> 的自动分区。</p>
+<p>使用 <strong>Redis</strong> 可以对这些类型运行原子操作，例如附加到字符串；增加哈希值；将元素推入列表；计算集交、并、差；或获取排序集中排名最高的成员。<br>为了达到最佳性能，<strong>Redis</strong> 使用内存中的数据集。根据您的用例，Redis 可以通过定期将数据集转储到磁盘或将每个命令附加到基于磁盘的日志来持久化您的数据。如果您只需要一个功能丰富的网络内存缓存，您也可以禁用持久性。</p>
+<p>Redis支持<strong>异步复制</strong>，具有快速非阻塞同步和自动重新连接以及网络拆分上的部分重新同步。</p>
+<p>Redis还包括：</p>
+<ul>
+<li>交易</li>
+<li>发布&#x2F;订阅</li>
+<li>Lua脚本</li>
+<li>生命周期有限的密钥</li>
+<li>LRU驱逐密钥</li>
+<li>自动故障转移</li>
+</ul>
+<h2 id="Redis-VS-Memcached"><a href="#Redis-VS-Memcached" class="headerlink" title="Redis VS Memcached"></a>Redis VS Memcached</h2><p>很多人都说用Redis作为缓存，但是Memcached也是基于内存的数据库，为什么不选择它作为缓存呢?<br>要解答这个问题，我们就要弄清楚Redis和Memcached的区别。Redis 与Memcached共同点:</p>
+<ol>
+<li>都是基于内存的数据库，一般都用来当做缓存使用。</li>
+<li>都有过期策略。</li>
+<li>两者的性能都非常高。</li>
+</ol>
+<p>Redis与Memcached区别:</p>
+<ol>
+<li>Redis支持的数据类型更丰富(String、 Hash、 List、 Set、 ZSet) ，而Memcached只支持最简单的key-value数据类型；</li>
+<li>Redis 支持数据的持久化，可以将内存中的数据保持在磁盘中，重启的时候可以再次加载进行使用，而Memcached没有持久化功能，数据全部存在内存之中，Memcached 重启或者挂掉后，数据就没了；</li>
+<li>Redis原生支持集群模式，Memcached没有原生的集群模式，需要依靠客户端来实现往集群中分片写入数据</li>
+<li>Redis 支持发布订阅模型、Lua 脚本、事务等功能，而Memcached不支持；</li>
+</ol>
+<h1 id="数据结构"><a href="#数据结构" class="headerlink" title="数据结构"></a>数据结构</h1><h2 id="基本数据结构-版本迭代新增"><a href="#基本数据结构-版本迭代新增" class="headerlink" title="基本数据结构 &amp; 版本迭代新增"></a>基本数据结构 &amp; 版本迭代新增</h2><p>Redis3.0之前提供了5中基本类型：<strong>string、list、hash、set、zset。</strong></p>
+<p><img src="%E5%9B%BE%E7%89%871.png"></p>
+<p>每个数据结构存储的内容如下：</p>
+<p><img src="Snipaste_2024-08-28_17-58-06.png"></p>
+<p>随着Redis版本的更新，后面又支持了四种数据类型: BitMap (2.2 版新增)、HyperLogLog (2.8 版新增)、GEO (3.2 版新增)、Stream (5.0 版新增)</p>
+<ul>
+<li>BitMap (2.2版新增) ：二值状态统计的场景，比如签到、判断用户登陆状态、连续签到用户总数等；</li>
+<li>HyperLogLog (2.8 版新增) ：海量数据基数统计的场景，比如百万级网页UV计数等；</li>
+<li>GEO (3.2版新增) ：存储地理位置信息的场景，比如滴滴叫车；</li>
+<li>Stream (5.0版新增) ：消息队列，相比于基于List类型实现的消息队列，有这两个特有的特性:自动生成全局唯一消息ID， 支持以消费组形式消费数据。</li>
+</ul>
+<h2 id="底层实现"><a href="#底层实现" class="headerlink" title="底层实现"></a>底层实现</h2><p><img src="Snipaste_2024-08-28_18-10-03.png"></p>
+<p>我挑几个来写：</p>
+<h3 id="String：SDS"><a href="#String：SDS" class="headerlink" title="String：SDS"></a>String：SDS</h3><p><strong>SDS，simple dynamic string，简单动态字符串。</strong>SDS 和我们认识的C字符串不太一样，之所以没有使用C语言的字符串表示，因为SDS相比于C的原生字符串具有如下的特点:</p>
+<ul>
+<li>SDS不仅可以保存文本数据，还可以保存二进制数据。因为SDS使用len属性的值而不是空字符来判断字符串是否结束，并且SDS的所有API都会以处理二进制的方式来处理SDS存放在buf[]数组里的数据。所以SDS不光能存放文本数据，而且能保存图片、音频、视频、压缩文件这样的二进制数据。</li>
+<li>SDS获取字符串长度的时间复杂度是0(1)。 因为C语言的字符串并不记录自身长度，所以获取长度的复杂度为O(n)；而SDS结构里用len属性记录了字符串长度，所以复杂度为0(1)。</li>
+<li>Redis的SDS API是安全的，拼接字符串不会造成缓冲区溢出。因为SDS在拼接字符串之前会检查SDS空间是否满足要求，如果空间不够会自动扩容，所以不会导致缓冲区溢出的问题。</li>
+</ul>
+<h3 id="listpack"><a href="#listpack" class="headerlink" title="listpack"></a>listpack</h3><p>ziplist的改进，旨在更高效地存储小数据集合，如字符串、整数等。</p>
+<h3 id="skiplist"><a href="#skiplist" class="headerlink" title="skiplist"></a>skiplist</h3><p>优化有序链表的查找。一个节点不是像链表一样按顺序，而是连接多个节点。</p>
+<p><img src="Snipaste_2024-08-28_18-18-18.png"></p>
+<h1 id="单线程模型"><a href="#单线程模型" class="headerlink" title="单线程模型"></a>单线程模型</h1><h2 id="新增的三个后台线程"><a href="#新增的三个后台线程" class="headerlink" title="新增的三个后台线程"></a>新增的三个后台线程</h2><p><strong>Redis单线程指的是「接收客户端请求- &gt;解析请求-&gt;进行数据读写等操作-&gt;发送数据给客户端」这个过程是由一个线程(主线程)来完成的，这也是我们常说Redis是单线程的原因。</strong>redis 中的读写操作都是靠的主线程。</p>
+<p>但是，Redis 程序并不是单线程的，Redis 在启动的时候，是会启动后台线程(BIO) 的：</p>
+<ul>
+<li>Redis在2.6版本，会启动2个后台线程，分别处理<strong>关闭文件、AOF刷盘</strong>这两个任务；</li>
+<li>Redis在4.0版本之后，新增了一个新的后台线程，用来<strong>异步释放Redis内存</strong>，也就是lazyfree线程。</li>
+</ul>
+<p>例如执行unlink key &#x2F; flushdb async &#x2F; flushall async等命令，会把这些删除操作交给后台线程来执行，好处是不会导致Redis主线程卡顿。因此，当我们要删除一个大 key的时候，不要使用del命令删除，因为del是在主线程处理的，这样会导致Redis主线程卡顿，因此我们应该使用unlink命令来异步删除大key。</p>
+<p>之所以Redis为「关闭文件、AOF 刷盘、释放内存」这些任务创建单独的线程来处理，是因为这些任务的操作都是很耗时的，如果把这些任务都放在主线程来处理，那么Redis主线程就很容易发生阻塞，这样就无法处理后续的请求了。</p>
+<p>后台线程相当于一个消费者，生产者把耗时任务丢到任务队列中，消费者(BIO) 不停轮询这个队列，拿出任务就去执行对应的方法即可。</p>
+<p><img src="Snipaste_2024-08-29_00-04-59.png"></p>
+<p>关闭文件、AOF 刷盘、释放内存这三个任务都有各自的任务队列:</p>
+<ol>
+<li>BIO_CLOSE_ FILE，关闭文件任务队列：当队列有任务后，后台线程会调用close(fd) ，将文件关闭；</li>
+<li>BIO_ AOF_ FSYNC， AOF刷盘任务队列：当AOF日志配置成everysec选项后，主线程会把AOF写日志操作封装成一个任务，也放到队列中。当发现队列有任务后，后台线程会调用fsync(fd)，将AOF文件刷盘；</li>
+<li>BIO_ LAZY_ FREE， lazy free任务队列：Lazy Free机制允许Redis以异步方式释放键所占用的内存。当使用Lazy Free时，删除操作不会立即释放内存，而是将删除任务交给后台线程BIO来处理。当队列有任务后，后台线程会free(obj) 释放对象&#x2F; free(dict)删除数据库所有对象&#x2F; free(skiplist)释放跳表对象；</li>
+</ol>
+<h2 id="文件任务队列关闭什么文件？"><a href="#文件任务队列关闭什么文件？" class="headerlink" title="文件任务队列关闭什么文件？"></a>文件任务队列关闭什么文件？</h2><p>Redis在运行时需要打开多个文件描述符，这些文件描述符可能代表：</p>
+<ol>
+<li><strong>客户端连接</strong>：Redis服务器监听端口上的每个客户端连接都会占用一个文件描述符。</li>
+<li><strong>AOF文件</strong>：如果启用了AOF持久化，Redis会打开一个（或多个，在AOF重写时）文件描述符来写入AOF文件。</li>
+<li><strong>RDB快照文件</strong>：在创建RDB快照时，Redis会打开一个文件描述符来写入快照数据。</li>
+<li><strong>临时文件</strong>：Redis在执行某些操作时（如AOF重写）可能会使用临时文件，这些文件也需要文件描述符。</li>
+</ol>
+<h2 id="Lazy-Free有什么内存淘汰策略的关联？"><a href="#Lazy-Free有什么内存淘汰策略的关联？" class="headerlink" title="Lazy Free有什么内存淘汰策略的关联？"></a>Lazy Free有什么内存淘汰策略的关联？</h2><ul>
+<li><strong>关联点</strong>：在内存淘汰过程中，如果启用了Lazy Free机制，那么被淘汰的键的删除操作可能会被异步执行。这意味着，当Redis根据内存淘汰策略选择了一些键进行删除时，这些删除操作不会立即在主线程中同步完成，而是会被放入BIO队列中，由后台线程异步处理。</li>
+<li><strong>不同点</strong>：内存淘汰机制是Redis在内存不足时用于释放内存的策略选择，而Lazy Free机制则是一种优化删除操作的手段。Lazy Free可以与内存淘汰机制结合使用，但不是内存淘汰机制的必要组成部分。</li>
+</ul>
+<blockquote>
+<p>内存淘汰策略指的是按照一定的算法，对长期不使用的数据清理掉。下文会介绍详细的内容。</p>
+</blockquote>
+<h1 id="持久化"><a href="#持久化" class="headerlink" title="持久化"></a>持久化</h1><h2 id="RDB快照文件"><a href="#RDB快照文件" class="headerlink" title="RDB快照文件"></a>RDB快照文件</h2><p><img src="Snipaste_2024-08-29_19-07-06.png"></p>
+<p>在Linux的部分：可以看到RDB持久化在Redis中是默认实现的。</p>
+<p><img src="%E5%9B%BE%E7%89%872.png"></p>
+<p><strong>演示一下Redis的持久化：</strong>在先前的终端启动redis后，打开另外一个终端测试redis持久化</p>
+<p><img src="Snipaste_2024-08-29_19-13-11.png"></p>
+<h3 id="save-bgsave"><a href="#save-bgsave" class="headerlink" title="save &amp; bgsave"></a>save &amp; bgsave</h3><p>Redis 提供了两个命令来生成 RDB 文件，分别是 save 和 bgsave，他们的区别就在于是否在「主线程」里执行：</p>
+<ul>
+<li>执行了 save 命令，就会在主线程生成 RDB 文件，由于和执行操作命令在同一个线程，所以如果写入 RDB 文件的时间太长，<strong>会阻塞主线程</strong>；</li>
+<li>执行了 bgsave 命令，会创建一个子进程来生成 RDB 文件，这样可以<strong>避免主线程的阻塞</strong>；</li>
+</ul>
+<p>Redis 还可以通过配置文件的选项来实现每隔一段时间自动执行一次 bgsave 命令，默认会提供以下配置：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">save <span class="number">900</span> <span class="number">1</span></span><br><span class="line">save <span class="number">300</span> <span class="number">10</span></span><br><span class="line">save <span class="number">60</span> <span class="number">10000</span></span><br></pre></td></tr></table></figure>
+
+<p>别看选项名叫 save，实际上执行的是 bgsave 命令，也就是会创建子进程来生成 RDB 快照文件。</p>
+<p>只要满足上面条件的任意一个，就会执行 bgsave，它们的意思分别是：</p>
+<ul>
+<li>900 秒之内，对数据库进行了至少 1 次修改；</li>
+<li>300 秒之内，对数据库进行了至少 10 次修改；</li>
+<li>60 秒之内，对数据库进行了至少 10000 次修改。</li>
+</ul>
+<p>这里提一点，Redis 的快照是<strong>全量快照</strong>，也就是说每次执行快照，都是把内存中的「所有数据」都记录到磁盘中。</p>
+<p>所以可以认为，执行快照是一个比较重的操作，如果频率太频繁，可能会对 Redis 性能产生影响。如果频率太低，服务器故障时，丢失的数据会更多。</p>
+<p>通常可能设置至少 5 分钟才保存一次快照，这时如果 Redis 出现宕机等情况，则意味着最多可能丢失 5 分钟数据。</p>
+<p>这就是 RDB 快照的缺点，在服务器发生故障时，丢失的数据会比 AOF 持久化的方式更多，因为 RDB 快照是全量快照的方式，因此执行的频率不能太频繁，否则会影响 Redis 性能，而 AOF 日志可以以秒级的方式记录操作命令，所以丢失的数据就相对更少。</p>
+<h3 id="执行快照时，数据是否可以被修改"><a href="#执行快照时，数据是否可以被修改" class="headerlink" title="执行快照时，数据是否可以被修改"></a>执行快照时，数据是否可以被修改</h3><p>执行 bgsave 过程中，Redis 依然<strong>可以继续处理操作命令</strong>的，也就是数据是能被修改的。</p>
+<p>那具体如何做到到呢？关键的技术就在于<strong>写时复制技术（Copy-On-Write, COW）。</strong></p>
+<p>执行 bgsave 命令的时候，会通过 <code>fork()</code> 创建子进程，此时子进程和父进程是共享同一片内存数据的，因为创建子进程的时候，会复制父进程的页表，但是页表指向的物理内存还是一个。</p>
+<p><img src="c34a9d1f58d602ff1fe8601f7270baa7.png" alt="图片"></p>
+<p>只有在发生修改内存数据的情况时，物理内存才会被复制一份。</p>
+<p><img src="ebd620db8a1af66fbeb8f4d4ef6adc68.png" alt="图片"></p>
+<p>这样的目的是为了减少创建子进程时的性能损耗，从而加快创建子进程的速度，毕竟创建子进程的过程中，是会阻塞主线程的。</p>
+<p>所以，创建 bgsave 子进程后，由于共享父进程的所有内存数据，于是就可以直接读取主线程（父进程）里的内存数据，并将数据写入到 RDB 文件。</p>
+<p><strong>可能发生的情况：</strong></p>
+<p>bgsave 快照过程中，如果主线程修改了共享数据，<strong>发生了写时复制后，RDB 快照保存的是原本的内存数据</strong>，而主线程刚修改的数据，是没办法在这一时间写入 RDB 文件的，只能交由下一次的 bgsave 快照。</p>
+<p>所以 Redis 在使用 bgsave 快照过程中，如果主线程修改了内存数据，不管是否是共享的内存数据，RDB 快照都无法写入主线程刚修改的数据，因为此时主线程（父进程）的内存数据和子进程的内存数据已经分离了，子进程写入到 RDB 文件的内存数据只能是原本的内存数据。</p>
+<p>如果系统恰好在 RDB 快照文件创建完毕后崩溃了，那么 Redis 将会丢失主线程在快照期间修改的数据。</p>
+<h2 id="AOF追加文件"><a href="#AOF追加文件" class="headerlink" title="AOF追加文件"></a>AOF追加文件</h2><p>缓冲中的<strong>写操作的具体指令</strong>（读操作记录是没有意义的），会写AOF文件中，进行数据恢复时将文件中的指令逐一执行。</p>
+<p><img src="image-20240829205020922.png"></p>
+<h3 id="开启配置和刷新频率"><a href="#开启配置和刷新频率" class="headerlink" title="开启配置和刷新频率"></a>开启配置和刷新频率</h3><p>AOF文件默认关闭，需要手动开启。</p>
+<p><img src="Snipaste_2024-08-29_20-53-39.png"></p>
+<h3 id="重写机制"><a href="#重写机制" class="headerlink" title="重写机制"></a>重写机制</h3><p>AOF 日志是一个文件，随着执行的写操作命令越来越多，文件的大小会越来越大。</p>
+<p>如果当 AOF 日志文件过大就会带来性能问题，比如重启 Redis 后，需要读 AOF 文件的内容以恢复数据，如果文件过大，整个恢复的过程就会很慢。</p>
+<p>所以，Redis 为了避免 AOF 文件越写越大，提供了 <strong>AOF 重写机制</strong>，当 AOF 文件的大小超过所设定的阈值后，Redis 就会启用 AOF 重写机制，来压缩 AOF 文件。</p>
+<p><img src="Snipaste_2024-08-29_21-08-08.png" alt="重写机制"></p>
+<p>自动重写就是使用两个参数，后台重写是使用<code>bgrewriteaof</code>命令和fork()线程，通过<strong>写时复制技术</strong>实现的。</p>
+<h1 id="过期删除策略"><a href="#过期删除策略" class="headerlink" title="过期删除策略"></a>过期删除策略</h1><p>Redis 使用的过期删除策略是「<strong>惰性删除+定期删除</strong>」这两种策略配和使用。由于 Redis 的是 <strong>主线程</strong> 删除，因此需要考虑 CPU 和内存的关系。</p>
+<h2 id="惰性删除策略"><a href="#惰性删除策略" class="headerlink" title="惰性删除策略"></a>惰性删除策略</h2><p>Redis 是可以对 key 设置过期时间的，因此需要有相应的机制将已过期的键值对删除，而做这个工作的就是过期键值删除策略。</p>
+<p>每当我们对一个 key 设置了过期时间时，Redis 会把该 key 带上过期时间存储到一个<strong>过期字典</strong>（expires dict）中，也就是说「过期字典」保存了数据库中所有 key 的过期时间。</p>
+<p>当我们查询一个 key 时，Redis 首先检查该 key 是否存在于过期字典中：</p>
+<ul>
+<li>如果不在，则正常读取键值；</li>
+<li>如果存在，则会获取该 key 的过期时间，然后与当前系统时间进行比对，如果比系统时间大，那就没有过期，否则判定该 key 已过期。</li>
+</ul>
+<p>惰性删除策略的做法是，<strong>不主动删除过期键，每次从数据库访问 key 时，都检测 key 是否过期，如果过期则删除该 key。</strong></p>
+<img src="%E6%83%B0%E6%80%A7%E5%88%A0%E9%99%A4.jpg" alt="img" style="zoom:200%;">
+
+
+
+<p>惰性删除策略的<strong>优点</strong>：</p>
+<ul>
+<li>因为每次访问时，才会检查 key 是否过期，所以此策略只会使用很少的系统资源，因此，惰性删除策略对 CPU 时间最友好。</li>
+</ul>
+<p>惰性删除策略的<strong>缺点</strong>：</p>
+<ul>
+<li>如果一个 key 已经过期，而这个 key 又仍然保留在数据库中，那么只要这个过期 key 一直没有被访问，它所占用的内存就不会释放，造成了一定的内存空间浪费。所以，惰性删除策略对内存不友好。</li>
+</ul>
+<h2 id="定期删除策略"><a href="#定期删除策略" class="headerlink" title="定期删除策略"></a>定期删除策略</h2><p>定期删除策略的做法是，<strong>每隔一段时间「随机」从数据库中取出一定数量的 key 进行检查，并删除其中的过期key。</strong></p>
+<p>Redis 的定期删除的流程：</p>
+<ol>
+<li>从过期字典中随机抽取 20 个 key；</li>
+<li>检查这 20 个 key 是否过期，并删除已过期的 key；</li>
+<li>如果本轮检查的已过期 key 的数量，超过 5 个（20&#x2F;4），也就是「已过期 key 的数量」占比「随机抽取 key 的数量」大于 25%，则继续重复步骤 1；如果已过期的 key 比例小于 25%，则停止继续删除过期 key，然后等待下一轮再检查。</li>
+</ol>
+<p>可以看到，定期删除是一个循环的流程。那 Redis 为了保证定期删除不会出现循环过度，导致线程卡死现象，为此增加了定期删除循环流程的时间上限，默认不会超过 25ms。</p>
+<p>定期删除策略的<strong>优点</strong>：</p>
+<ul>
+<li><p>内存压力适中</p>
+<p>定期删除策略通过周期性轮询Redis库中的时效性数据，并采用随机抽取的策略来检查并删除过期的key，从而有效释放了过期键占用的内存。这种方式避免了内存被长期占用，减少了内存浪费。</p>
+</li>
+<li><p>CPU压力可控</p>
+<p>与定时删除策略相比，定期删除策略不会在每个key过期时都立即执行删除操作，从而避免了CPU资源的过度占用</p>
+</li>
+</ul>
+<p>定期删除策略的<strong>缺点</strong>：</p>
+<ul>
+<li>难以确定删除操作执行的时长和频率。如果执行的太频繁，就会对 CPU 不友好；如果执行的太少，那又和惰性删除一样了，过期 key 占用的内存不会及时得到释放。</li>
+</ul>
+<h2 id="Redis-持久化时，对过期键会如何处理的？"><a href="#Redis-持久化时，对过期键会如何处理的？" class="headerlink" title="Redis 持久化时，对过期键会如何处理的？"></a>Redis 持久化时，对过期键会如何处理的？</h2><p>Redis 持久化文件有两种格式：RDB（Redis Database）和 AOF（Append Only File），下面我们分别来看过期键在这两种格式中的呈现状态。</p>
+<p>RDB 文件分为两个阶段，RDB 文件生成阶段和加载阶段。</p>
+<ol>
+<li><strong>RDB 文件生成阶段</strong>：从内存状态持久化成 RDB（文件）的时候，会对 key 进行过期检查，<strong>过期的键「不会」被保存到新的 RDB 文件中</strong>，因此 Redis 中的过期键不会对生成新 RDB 文件产生任何影响。</li>
+<li><strong>RDB 加载阶段：</strong>RDB 加载阶段时，要看服务器是主服务器还是从服务器，分别对应以下两种情况：<ul>
+<li><strong>如果 Redis 是「主服务器」运行模式的话，在载入 RDB 文件时，程序会对文件中保存的键进行检查，过期键「不会」被载入到数据库中</strong>。所以过期键不会对载入 RDB 文件的主服务器造成影响；</li>
+<li><strong>如果 Redis 是「从服务器」运行模式的话，在载入 RDB 文件时，不论键是否过期都会被载入到数据库中</strong>。但由于主从服务器在进行数据同步时，从服务器的数据会被清空。所以一般来说，过期键对载入 RDB 文件的从服务器也不会造成影响。</li>
+</ul>
+</li>
+</ol>
+<p>AOF 文件分为两个阶段，AOF 文件写入阶段和 AOF 重写阶段。</p>
+<ol>
+<li><strong>AOF 文件写入阶段</strong>：当 Redis 以 AOF 模式持久化时，<strong>如果数据库某个过期键还没被删除，那么 AOF 文件会保留此过期键，当此过期键被删除后，Redis 会向 AOF 文件追加一条 DEL 命令来显式地删除该键值</strong>。</li>
+<li><strong>AOF 重写阶段</strong>：执行 AOF 重写时，会对 Redis 中的键值对进行检查，<strong>已过期的键不会被保存到重写后的 AOF 文件中</strong>，因此不会对 AOF 重写造成任何影响。</li>
+</ol>
+<h1 id="内存淘汰策略"><a href="#内存淘汰策略" class="headerlink" title="内存淘汰策略"></a>内存淘汰策略</h1><p>当 redis 的内存满了以后就会触发内存淘汰策略。</p>
+<p>Redis 内存淘汰策略共有八种，这八种策略大体分为「不进行数据淘汰」和「进行数据淘汰」两类策略。</p>
+<p><em><strong>1、不进行数据淘汰的策略</strong></em></p>
+<p><strong>noeviction</strong>（Redis3.0之后，默认的内存淘汰策略） ：它表示当运行内存超过最大设置内存时，不淘汰任何数据，而是不再提供服务，直接返回错误。</p>
+<p><em><strong>2、进行数据淘汰的策略</strong></em></p>
+<p>针对「进行数据淘汰」这一类策略，又可以细分为「在设置了过期时间的数据中进行淘汰」和「在所有数据范围内进行淘汰」这两类策略。 在设置了过期时间的数据中进行淘汰：</p>
+<ul>
+<li><strong>volatile-random</strong>：随机淘汰设置了过期时间的任意键值；</li>
+<li><strong>volatile-ttl</strong>（time to live）：优先淘汰过期并且<strong>存活时间最短</strong>的键。在 Redis 中可以设置<code>ttl策略</code>的删除时间，如果淘汰的时间大于这个设定的值，则删除这个过期的键。</li>
+<li><strong>volatile-lru</strong>（Least Recently Used）（Redis3.0 之前，默认的内存淘汰策略）：淘汰所有设置了过期时间的键值中，<strong>最久没被使用的</strong>键值；</li>
+<li><strong>volatile-lfu</strong>（Least Frequently Used）（Redis 4.0 后新增的内存淘汰策略）：淘汰所有设置了过期时间的键值中，<strong>最少使用</strong>的键值；</li>
+</ul>
+<p>在所有数据范围内进行淘汰：</p>
+<ul>
+<li><strong>allkeys-random</strong>：随机淘汰任意键值;</li>
+<li><strong>allkeys-lru</strong>：淘汰整个键值中最久未使用的键值；</li>
+<li><strong>allkeys-lfu</strong>（Redis 4.0 后新增的内存淘汰策略）：淘汰整个键值中最少使用的键值。</li>
+</ul>
+<h2 id="volatile-lru-和-volatile-lfu有什么区别？"><a href="#volatile-lru-和-volatile-lfu有什么区别？" class="headerlink" title="volatile-lru 和 volatile-lfu有什么区别？"></a>volatile-lru 和 volatile-lfu有什么区别？</h2><p><strong>volatile-lru：</strong></p>
+<p>Redis 实现的是一种<strong>近似 LRU 算法</strong>，目的是为了更好的节约内存，它的<strong>实现方式是在 Redis 的对象结构体中添加一个额外的字段，用于记录此数据的最后一次访问时间</strong>。</p>
+<p>当 Redis 进行内存淘汰时，volatile-lru会使用<strong>随机采样的方式来淘汰数据</strong>，它是随机取 5 个值（此值可配置），然后<strong>淘汰最久没有使用的那个</strong>。</p>
+<p><strong>volatile-lfu：</strong></p>
+<p>volatile-lfu是基于频率，在键还没有被淘汰时，这个键在一定时间内被访问的次数和这段时间的比值就构成了频率，淘汰后如果是lfu算法，则比较的是这个频率。</p>
+<p>LFU 算法是根据数据访问次数来淘汰数据的，它的核心思想是“如果数据过去被访问多次，那么将来被访问的频率也更高”。</p>
 ]]></content>
       <categories>
         <category>后端开发</category>
       </categories>
       <tags>
-        <tag>JDBC</tag>
+        <tag>面试</tag>
+        <tag>redis</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Redis：（二）集群、缓存问题</title>
+    <url>/2024/08/30/03Redis%EF%BC%9A%EF%BC%88%E4%BA%8C%EF%BC%89%E7%BC%93%E5%AD%98%E9%97%AE%E9%A2%98/</url>
+    <content><![CDATA[<h1 id="Redis集群"><a href="#Redis集群" class="headerlink" title="Redis集群"></a>Redis集群</h1><p>搭建一个高可用集群有以下内容：主从复制，哨兵模式，切片集群。</p>
+<h2 id="主从复制"><a href="#主从复制" class="headerlink" title="主从复制"></a>主从复制</h2><p>主从复制是 Redis 高可用服务的最基础的保证，实现方案就是将从前的一台 Redis 服务器，同步数据到多台从 Redis 服务器上，即一主多从的模式，且主从服务器之间采用的是「读写分离」的方式。</p>
+<p>主服务器可以进行读写操作，当发生写操作时自动将写操作同步给从服务器，而从服务器一般是只读，并接受主服务器同步过来写操作命令，然后执行这条命令。</p>
+<p><img src="2b7231b6aabb9a9a2e2390ab3a280b2d.png" alt="主从复制"></p>
+<p>也就是说，所有的数据修改只在主服务器上进行，然后将最新的数据同步给从服务器，这样就使得主从服务器的数据是一致的。</p>
+<p>注意，主从服务器之间的命令复制是<strong>异步</strong>进行的。所以，无法实现强一致性保证（主从数据时时刻刻保持一致），数据不一致是难以避免的。</p>
+<h2 id="哨兵机制"><a href="#哨兵机制" class="headerlink" title="哨兵机制"></a>哨兵机制</h2><p>在使用 Redis 主从服务的时候，会有一个问题，就是当 Redis 的主从服务器出现故障宕机时，需要手动进行恢复。</p>
+<p>为了解决这个问题，Redis 增加了哨兵模式（<strong>Redis Sentinel</strong>），因为哨兵模式做到了可以监控主从服务器，并且提供<strong>主从节点故障转移的功能。</strong></p>
+<p><img src="26f88373d8454682b9e0c1d4fd1611b4.png" alt="img"></p>
+<h3 id="为什么要有哨兵机制？"><a href="#为什么要有哨兵机制？" class="headerlink" title="为什么要有哨兵机制？"></a>为什么要有哨兵机制？</h3><p>在 Redis 的主从架构中，由于主从模式是读写分离的，如果主节点（master）挂了，那么将没有主节点来服务客户端的写操作请求，也没有主节点给从节点（slave）进行数据同步了。</p>
+<p>哨兵其实是一个运行在特殊模式下的 Redis 进程，<strong>所以它也是一个节点。</strong>从“哨兵”这个名字也可以看得出来，它相当于是“观察者节点”，观察的对象是主从节点。<strong>为了实现监控功能，哨兵节点往往也会做成集群。</strong></p>
+<p>当然，它不仅仅是观察那么简单，在它观察到有异常的状况下，会做出一些“动作”，来修复异常状态。</p>
+<p>哨兵节点主要负责三件事情：<strong>监控、选主、通知</strong>。</p>
+<p>所以，我们重点要学习这三件事情：</p>
+<ul>
+<li>哨兵节点是如何监控节点的？又是如何判断主节点是否真的故障了？</li>
+<li>根据什么规则选择一个从节点切换为主节点？</li>
+<li>怎么把新主节点的相关信息通知给从节点和客户端呢？</li>
+</ul>
+<h3 id="监控"><a href="#监控" class="headerlink" title="监控"></a>监控</h3><p>监控就是哨兵节点对集群的实时监控，哨兵节点对于主节点下线的类型有两种：<strong>主观下线和客观下线。</strong></p>
+<h4 id="主观下线"><a href="#主观下线" class="headerlink" title="主观下线"></a>主观下线</h4><p>如果主节点和从节点在规定的时间内没有响应哨兵节点的 <code>ping 命令</code>，则这个哨兵节点认为主节点主观下线。这个「规定的时间」是配置项 <code>down-after-milliseconds</code> 参数设定的，单位是毫秒。</p>
+<p><img src="26f88373d8454682b9e0c1d4fd1611b4-17250140826045.png" alt="哨兵监控主从节点"></p>
+<h4 id="客观下线"><a href="#客观下线" class="headerlink" title="客观下线"></a>客观下线</h4><p><strong>客观下线只适用于主节点。</strong></p>
+<p>之所以针对「主节点」设计「主观下线」和「客观下线」两个状态，是因为有可能「主节点」其实并没有故障，可能只是因为主节点的系统压力比较大或者网络发送了拥塞，导致主节点没有在规定时间内响应哨兵的 PING 命令。</p>
+<p>所以，为了减少误判的情况，哨兵在部署的时候不会只部署一个节点，而是用多个节点部署成<strong>哨兵集群</strong>（<em>最少需要三台机器来部署哨兵集群</em>），<strong>通过多个哨兵节点一起判断，就可以就可以避免单个哨兵因为自身网络状况不好，而误判主节点下线的情况</strong>。同时，多个哨兵的网络同时不稳定的概率较小，由它们一起做决策，误判率也能降低。</p>
+<p><img src="13e4361407ba46979e802eaa654dcf67.png" alt="客观下线"></p>
+<p>当一个哨兵节点判断主节点客观下线以后，会通过发布&#x2F;订阅模式与其他哨兵节点进行通信，询问它们是否也观察到相同的主节点不可达状态。如果同意发起主节点主观下线的哨兵节点，那么则【同意】这个哨兵节点的判断。<strong>当达到哨兵配置文件中<code>quorum</code>（法定人数）指定的哨兵节点数量都认为主节点为主观下线时，主节点会被标记为客观下线。</strong></p>
+<blockquote>
+<p>quorum 是一个关键参数，它决定了需要多少哨兵节点的同意才能确认主节点的客观下线状态。</p>
+</blockquote>
+<h4 id="由哪个哨兵进行主从故障转移？"><a href="#由哪个哨兵进行主从故障转移？" class="headerlink" title="由哪个哨兵进行主从故障转移？"></a>由哪个哨兵进行主从故障转移？</h4><p>进行主从故障转移的哨兵就是一个「Leader」，成为Leader之前还得是一个「候选者」。</p>
+<p><strong>成为候选者：</strong></p>
+<p>认为主节点主观下线的同时得的赞同票数达到一半以上且大于等于哨兵配置文件中<code>quorum</code>。</p>
+<blockquote>
+<p>判断主节点主观下线的时候，只能是一个哨兵节点发起判断命令，候选者只能是一个节点吗？</p>
+<p>不是的，并不是只能是一个哨兵节点发起判断命令。我们说过判断主观下线的时候有一个规定的时间，这个「规定的时间」是配置项 <code>down-after-milliseconds</code> 参数设定的，单位是毫秒。那么在规定的时间内判断主节点主观下线的哨兵节点都可以成为候选者。</p>
+</blockquote>
+<p><strong>候选者如何选举成为 Leader：</strong></p>
+]]></content>
+      <categories>
+        <category>后端开发</category>
+      </categories>
+      <tags>
+        <tag>面试</tag>
+        <tag>redis</tag>
       </tags>
   </entry>
   <entry>
@@ -647,6 +872,241 @@
       </tags>
   </entry>
   <entry>
+    <title>JDBC：Java语言连接数据库</title>
+    <url>/2024/07/06/JDBC%20%E7%AC%94%E8%AE%B0/</url>
+    <content><![CDATA[<h1 id="一、-什么是JDBC"><a href="#一、-什么是JDBC" class="headerlink" title="一、 什么是JDBC"></a>一、 什么是JDBC</h1><p><em>JDBC（Java DataBase Connectivity）</em>是Java数据库连接技术的简称，提供连接和操作各种常用数据库的能力，JDBC只定义了Java应用程序访问数据库的标准接口层，而对于不同的数据库而言则由数据库厂商去实现JDBC接口层的功能 （叫做数据库驱动程序包）。</p>
+<h1 id="二、-JDBC工作原理"><a href="#二、-JDBC工作原理" class="headerlink" title="二、  JDBC工作原理"></a>二、  JDBC工作原理</h1><p><img src="image-20230509201759580-3634684.png"></p>
+<p>JDBC驱动程序包实际上是对JDK jdbc api的具体实现。可以理解成JDBC只定义了与数据库通信的规范和协议，而这些规范的具体实现由各数据库厂商自己实现也只有数据库厂商才知道怎样操作自己的数据库。</p>
+<p><img src="image-20230509201842721-3634725.png"></p>
+<h1 id="三、-JDBC访问数据库的步骤"><a href="#三、-JDBC访问数据库的步骤" class="headerlink" title="三、  JDBC访问数据库的步骤"></a>三、  JDBC访问数据库的步骤</h1><p>准备工作：把驱动程序包<em>mysql-connector-j-8.2.0.jar</em>引入<strong>项目依赖</strong>，</p>
+<p><em>Project Structure</em> —&gt;选中<em>module</em> —&gt; <em>Dependency</em> —&gt;点击右侧<em>”+”</em>号添加依赖库。</p>
+<ol>
+<li><p>注册数据库动程序</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"> <span class="keyword">final</span> <span class="type">String</span> <span class="variable">DRIVER</span> <span class="operator">=</span> <span class="string">&quot;com.mysql.cj.jdbc.Driver&quot;</span>;</span><br><span class="line"><span class="keyword">final</span> <span class="type">String</span> <span class="variable">URL</span> <span class="operator">=</span> <span class="string">&quot;jdbc:mysql://localhost:3306/scott&quot;</span>;</span><br><span class="line"><span class="keyword">final</span> <span class="type">String</span> <span class="variable">USERNAME</span> <span class="operator">=</span> <span class="string">&quot;root&quot;</span>;</span><br><span class="line"><span class="keyword">final</span> <span class="type">String</span> <span class="variable">PASSWORD</span> <span class="operator">=</span> <span class="string">&quot;123456&quot;</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">try</span> &#123;</span><br><span class="line">  <span class="comment">//1. 注册数据库动程序</span></span><br><span class="line">  Class.forName(DRIVER);</span><br><span class="line"></span><br><span class="line">&#125; <span class="keyword">catch</span> (ClassNotFoundException e) &#123;</span><br><span class="line">  System.err.println(<span class="string">&quot;注册数据库驱动失败&quot;</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>通过<code>java.sql.DriverManager</code> 获得数据库连接 <code>java.sql.Connection</code> </p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">Connection</span> <span class="variable">conn</span> <span class="operator">=</span> <span class="literal">null</span>; </span><br><span class="line"><span class="comment">//2. 通过`java.sql.DriverManager` 获得数据库连接 `java.sql.Connection`</span></span><br><span class="line">conn = DriverManager.getConnection(URL, USERNAME, PASSWORD);</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>通过 <code>java.sql.Connection</code> 创建语句对象 <code>java.sql.Statement</code> </p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">Statement</span> <span class="variable">stmt</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line"><span class="comment">//3. 通过 `java.sql.Connection` 创建语句对象 `java.sql.Statement`</span></span><br><span class="line">stmt = conn.createStatement();</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>执行 SQL 语句</p>
+<ul>
+<li><p><strong>select 查询</strong>：<em>java.sql.ResultSet  statement.exceuteQuery( sql : String )</em> 返回结果集对象</p>
+</li>
+<li><p><strong>insert, update, delete 语句</strong>：<em>int  statement.executeUpate( sql : String )</em> 返回整数，此操作数据库影响的行数。</p>
+</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">ResultSet</span> <span class="variable">rs</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line"> <span class="comment">//4.执行 SQL 语句获得结果集对象</span></span><br><span class="line">rs = stmt.executeQuery(<span class="string">&quot;select * from emp&quot;</span>);</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>遍历查询结果集 <code>java.sql.ResultSet</code>（select 操作）</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">List&lt;Employee&gt; employees = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;();</span><br><span class="line"></span><br><span class="line"><span class="comment">//5. 遍历查询结果集 `java.sql.ResultSet`（select 操作）</span></span><br><span class="line"><span class="keyword">while</span> (rs.next()) &#123; <span class="comment">//遍历每一行</span></span><br><span class="line">  <span class="comment">//取每一列</span></span><br><span class="line">  <span class="type">int</span> <span class="variable">empno</span> <span class="operator">=</span> rs.getInt(<span class="string">&quot;empno&quot;</span>);</span><br><span class="line">  <span class="type">String</span> <span class="variable">ename</span> <span class="operator">=</span> rs.getString(<span class="string">&quot;ename&quot;</span>);</span><br><span class="line">  <span class="type">String</span> <span class="variable">job</span> <span class="operator">=</span> rs.getString(<span class="string">&quot;job&quot;</span>);</span><br><span class="line">  <span class="type">int</span> <span class="variable">mgr</span> <span class="operator">=</span> rs.getInt(<span class="string">&quot;mgr&quot;</span>);</span><br><span class="line">  <span class="type">Date</span> <span class="variable">hiredate</span> <span class="operator">=</span> rs.getDate(<span class="string">&quot;hiredate&quot;</span>);</span><br><span class="line">  <span class="type">double</span> <span class="variable">sal</span> <span class="operator">=</span> rs.getDouble(<span class="string">&quot;sal&quot;</span>);</span><br><span class="line">  <span class="type">double</span> <span class="variable">comm</span> <span class="operator">=</span> rs.getDouble(<span class="string">&quot;comm&quot;</span>);</span><br><span class="line">  <span class="type">int</span> <span class="variable">deptno</span> <span class="operator">=</span> rs.getInt(<span class="string">&quot;deptno&quot;</span>);</span><br><span class="line"></span><br><span class="line">  <span class="type">Employee</span> <span class="variable">e</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Employee</span>(empno, ename, job, mgr, hiredate, sal, comm, deptno);</span><br><span class="line">  employees.add(e);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>关闭 <code>java.sql.ResultSet</code>、<code>java.sql.Statement</code>、<code>java.sql.Connection</code> 对象</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">try</span> &#123;</span><br><span class="line">  ......</span><br><span class="line">&#125; <span class="keyword">catch</span>(SQLException e) &#123;</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">finally</span> &#123;</span><br><span class="line">  <span class="keyword">try</span> &#123;</span><br><span class="line">    <span class="comment">//6. 关闭 `java.sql.ResultSet`、`java.sql.Statement`、`java.sql.Connection` 对象</span></span><br><span class="line">    <span class="keyword">if</span> (rs != <span class="literal">null</span>) &#123;</span><br><span class="line">      rs.close();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (stmt != <span class="literal">null</span>) &#123;</span><br><span class="line">      stmt.close();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (conn != <span class="literal">null</span>) &#123;</span><br><span class="line">      conn.close();</span><br><span class="line">    &#125;</span><br><span class="line">  &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">    System.err.println(<span class="string">&quot;关闭数据资源失败！&quot;</span> + e.getMessage());</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ol>
+<p><img src="image-20230509201950686-3634794.png"></p>
+<blockquote>
+<p><strong>注意：</strong></p>
+<p>注册数据驱动只需在整个项目运行时注册一次即可。不需要每次获取<code>Connection</code> 时都去注册驱动。注册数据库驱动程序后其它的类再去访问数据库时 JVM 就能找得到数据库驱动了，所以通常把注册驱动的代码写在某个类的*static{ ….. }*静态初始化块中。</p>
+</blockquote>
+<h3 id="3-1-各数据库-URL"><a href="#3-1-各数据库-URL" class="headerlink" title="3.1 各数据库 URL"></a>3.1 各数据库 URL</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//url格式：协议:子协议:主机:port:数据库</span></span><br><span class="line"><span class="comment">//SQL Server</span></span><br><span class="line"><span class="type">String</span> <span class="variable">URL</span> <span class="operator">=</span> <span class="string">&quot;jdbc:sqlserver://localhost:1433;DatabaseName=数据库名&quot;</span>;</span><br><span class="line"><span class="comment">//Oracle</span></span><br><span class="line"><span class="type">String</span> <span class="variable">URL</span> <span class="operator">=</span> <span class="string">&quot;jdbc:oracle:thin:@localhost:1521:ORCL(实例名,SID)&quot;</span>;</span><br><span class="line"><span class="comment">//MySQL</span></span><br><span class="line"><span class="type">String</span> <span class="variable">URL</span> <span class="operator">=</span> <span class="string">&quot;jdbc:mysql://localhost:3306/数据库名?autoReconnect=true&amp;useUnicode=true&amp;characterEncoding=utf-8&amp;serverTimezone=Asia/Shanghai&quot;</span>;</span><br></pre></td></tr></table></figure>
+
+<h1 id="四、-JDBC-API-类"><a href="#四、-JDBC-API-类" class="headerlink" title="四、 JDBC API 类"></a>四、 JDBC API 类</h1><h2 id="4-1-Connection常用方法"><a href="#4-1-Connection常用方法" class="headerlink" title="4.1 Connection常用方法"></a>4.1 Connection常用方法</h2><ol>
+<li><p><code>close()</code>：立即释放此 Connection 对象的数据库和 JDBC 资源，而不是等待它们被自动释放。</p>
+</li>
+<li><p><code>commit()</code> ：提交SQL操作，默认是自动提交SQL操作，很少情况需要手动提交。</p>
+</li>
+<li><p>createStatement() ：创建一个 Statement (普通语句)对象并将 SQL 语句发送到数据库去执行。</p>
+</li>
+<li><p><code>prepareStatement(String sql)</code>：创建一个 <code>PreparedStatement</code>(预编译语句) 对象来将参数化的 SQL 语句发送到数据库，其后对<strong>占位符</strong>设置参数，这种语句类型可获得更好的性能。</p>
+</li>
+<li><p><code>prepareCall(String sql)</code> ：创建一个 <code>CallableStatement</code> 对象来调用数据库存储过程。</p>
+</li>
+<li><p>必须在 <em>finally</em> 块中关闭<code>Connection</code>。</p>
+</li>
+<li><p><code>void rollback()</code>：取消在当前事务中进行的所有更改，并释放此 <code>Connection</code> 对象当前持有的所有数据库锁。</p>
+</li>
+<li><p><code>void setAutoCommit(boolean autoCommit):</code> 将此连接的自动提交模式设置为给定状态。</p>
+</li>
+</ol>
+<h2 id="4-2-Statement常用方法"><a href="#4-2-Statement常用方法" class="headerlink" title="4.2 Statement常用方法"></a>4.2 Statement常用方法</h2><ol>
+<li><p><strong>（不推荐用）</strong><code>Boolean execute(String sql)</code> ：执行给定的 SQL 语句（增删改查语句都可以），该语句可能返回多个结果。</p>
+</li>
+<li><p><code>ResultSet executeQuery(String sql)</code> : 执行给定的 SQL 查询语句，该语句返回单个 <code>ResultSet</code> 对象。</p>
+</li>
+<li><p><code>int intexecuteUpdate(Stringsql)</code>: 执行给定 SQL 语句，该语句可能为 <em>INSERT、UPDATE 或 DELETE</em> 语句，或者不返回任何内容的 SQL 语句（如 DDL 语句）。</p>
+</li>
+<li><p><code>setQueryTimeout(int seconds)</code> ：将驱动程序等待 <code>Statement</code> 对象执行的秒数设置为给定秒数。</p>
+</li>
+<li><p>必须在finally块中关闭<code>Statement</code>。</p>
+</li>
+</ol>
+<h2 id="4-3-ResultSet常用方法"><a href="#4-3-ResultSet常用方法" class="headerlink" title="4.3  ResultSet常用方法"></a>4.3  ResultSet常用方法</h2><ol>
+<li><p><code>next()</code>: 将光标从当前位置向前移一行。ResultSet 光标最初位于第一行之前；第一次调用 next 方法使第一行成为当前行；第二次调用使第二行成为当前行，依此类推。</p>
+</li>
+<li><p><code>close()</code> ：立即释放此 ResultSet 对象的数据库和 JDBC 资源，而不是等待该对象自动关闭时发生此操作。</p>
+</li>
+<li><p><code>getXxx(int columnIndex)</code> ：使用列索引来获取数据，Xxx表示相应的数据类型。</p>
+</li>
+</ol>
+<p>​		例如：</p>
+<ul>
+<li>获字符串用<em>getString(int columnIndex)，getString(String columnNanme)</em></li>
+<li>获取整数用<em>getInt(int columnIndex),  getInt(String columnName)</em></li>
+</ul>
+<p>d)   必须在<code>finally</code>块中关闭<code>ResultSet</code>。</p>
+<h1 id="五、PreparedStatement"><a href="#五、PreparedStatement" class="headerlink" title="五、PreparedStatement"></a>五、PreparedStatement</h1><ol>
+<li><p>预编译语句<code>PreparedStatement</code>是<code>Statement</code>的子类</p>
+</li>
+<li><p>为什么要使用预编译语句？</p>
+<ul>
+<li><p>执行效率高</p>
+</li>
+<li><p>安全</p>
+</li>
+<li><p>支持参数值占位符：？</p>
+</li>
+</ul>
+</li>
+</ol>
+<p><img src="image-20230509215556993-3640563.png"></p>
+<p>SQL中的 “**- -**” 把后面的语句给注掉了，这样就出现了SQL漏洞。预编译语句可以避免此类问题的发生。</p>
+<p>如果要多次执行相似的SQL语句，如：一次插入（更新、删除）几百条记录; 又如不同用户登录执行 SQL语句只有用户名和密码不同。可以使用<code>PreparedStatement</code>（预编译语句对象）对象来执行。由于预编译语句使用占位符 ”?”，在执行SQL之前语句会被先发送到数据库服务器进行语法检查和编译等工作，并将SQL语句加入到数据库的语句缓冲池里，随后再对SQL语句中的占位符 <strong>”?”</strong> 设置定值。那么也就说如果你要执行1000行插入的时候第一次先SQL语句发送给数据库服务器处理，接着后面只需传递占位符的值就可以了。因此它不需每次传递大量的SQL语句也无需对每条SQL语句做语法检查和编译所以比较高效。</p>
+<ol start="3">
+<li>通过Connection的prepareStatement( sql )方法来创建预编译语句对象。</li>
+</ol>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="type">int</span> <span class="title function_">save</span><span class="params">(Employee e)</span>&#123;</span><br><span class="line">  <span class="keyword">try</span> (</span><br><span class="line">    <span class="type">Connection</span> <span class="variable">conn</span> <span class="operator">=</span> JdbcUtils.getConnection();</span><br><span class="line">  ) &#123;</span><br><span class="line">      <span class="comment">//? 占位符只能对赋值的地方占位，</span></span><br><span class="line">      <span class="comment">//如：where empno=?;    update emp set ename=? ....</span></span><br><span class="line">      <span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;insert into emp(ename,job,mgr,hiredate,sal,comm,deptno) values (?,?,?,?,?,?,?)&quot;</span>; </span><br><span class="line">      <span class="comment">//1.先创建预编译语句，占位符只能给值进行占位</span></span><br><span class="line">      <span class="type">PreparedStatement</span> <span class="variable">ps</span> <span class="operator">=</span> conn.prepareStatement(sql);</span><br><span class="line">      <span class="type">int</span> <span class="variable">index</span> <span class="operator">=</span> <span class="number">1</span>;</span><br><span class="line">      <span class="comment">//2.再给？(点位符)设置值, 占位符索引位置从1开始</span></span><br><span class="line">      ps.setString(index++, e.getEname());</span><br><span class="line">      ps.setString(index++, e.getJob());</span><br><span class="line">      ps.setInt(index++, e.getMgr());</span><br><span class="line">      ps.setDate(index++, <span class="keyword">new</span> <span class="title class_">java</span>.sql.Date(e.getHiredate().getTime()));</span><br><span class="line">      ps.setDouble(index++, e.getSal());</span><br><span class="line">      <span class="comment">//如果列允许为空时，需要作一下JDBC 的空值处理, setNull(i, sqlType);</span></span><br><span class="line">      <span class="keyword">if</span>(e.getComm()==<span class="literal">null</span>)&#123;</span><br><span class="line">          ps.setNull(index++, java.sql.Types.DOUBLE);</span><br><span class="line">      &#125; <span class="keyword">else</span>&#123;</span><br><span class="line">          ps.setDouble(index++,e.getComm());</span><br><span class="line">      &#125;</span><br><span class="line">      ps.setInt(index++, e.getDeptno());</span><br><span class="line">      <span class="comment">//3.执行，不能再指定SQL 语句</span></span><br><span class="line">      <span class="type">int</span> <span class="variable">row</span> <span class="operator">=</span> ps.executeUpdate();</span><br><span class="line">  &#125; <span class="keyword">catch</span> (SQLException ex) &#123;</span><br><span class="line">          System.err.println(<span class="string">&quot;&gt;&gt;2.新增员工实体失败：&quot;</span> + ex.getMessage());</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="5-1-常用方法"><a href="#5-1-常用方法" class="headerlink" title="5.1 常用方法"></a>5.1 常用方法</h2><ul>
+<li><p><code>boolean   execute()</code>：在此 <code>PreparedStatement</code> 对象中执行 SQL 语句，该语句可以是任何种类的 SQL 语句。</p>
+</li>
+<li><p><code>ResultSet executeQuery()</code> 在此 <code>PreparedStatement</code> 对象中执行 SQL 查询，并返回该查询生成的 ResultSet 对象。</p>
+</li>
+<li><p><code>int executeUpdate()</code>：在此 <code>PreparedStatement</code> 对象中执行 SQL 语句，该语句必须是一个 SQL 数据操作语言<em>（Data Manipulation Language，DML）</em>语句，比如 <em>INSERT、UPDATE 或 DELETE</em> 语句；或者是无返回内容的 SQL 语句，比如 DDL 语句。</p>
+</li>
+<li><p><code>void setXxx(int parameterIndex, Xxx value)</code>: Xxx表示相应的数据类型，如：setString(…), setInt(…)等。设置点位符位置的值，第一个参数是 1，第二个参数是 2，…..</p>
+</li>
+<li><p><code>setNull(int parameterIndex, java.sql.Types value)</code>: 插入或更新时处理空值的字段，通常对非<code>char, varchar</code>类型字段空值时使用。</p>
+</li>
+<li><p>必须在 <em>finally</em> 块中关闭<code>PreparedStatement</code>。</p>
+</li>
+</ul>
+<h2 id="5-2-PreparedStatement与Statement的对比"><a href="#5-2-PreparedStatement与Statement的对比" class="headerlink" title="5.2 PreparedStatement与Statement的对比"></a>5.2 PreparedStatement与Statement的对比</h2><table>
+<thead>
+<tr>
+<th></th>
+<th>Statement</th>
+<th>PreparedStatement</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>创建语句对象的方法</td>
+<td><em>Connection.createStatement( )</em>  创建语句对象时 不提供SQL</td>
+<td><em>Connection.preparedStatement( sql )</em>  创建语句对象时 提供SQL</td>
+</tr>
+<tr>
+<td>查询</td>
+<td><em>executeQuery( sql )</em>  要提供SQL语句</td>
+<td><em>executeQuery( )</em>  不提供提供SQL语句，但随后要设置占位符的值</td>
+</tr>
+<tr>
+<td>插入、更新、删除</td>
+<td><em>executeUpdate( sql )</em>  要提供SQL语句</td>
+<td><em>executeUpdate( )</em>  不提供提供SQL语句</td>
+</tr>
+</tbody></table>
+<h1 id="六-存储过程调用"><a href="#六-存储过程调用" class="headerlink" title="六. 存储过程调用"></a>六. 存储过程调用</h1><p>调用存储过程可以使用<code>CallableStatement</code>语句类型来调用。</p>
+<ol>
+<li><p>通过conn.prepareCall(<strong>“</strong>{call find_employee(?,?)}”); 获得一个使用CallableStatement语句对象。</p>
+</li>
+<li><p>设置<em>输入（IN模式）参数</em>的值和注册<em>输出（OUT模式）参数</em>。</p>
+<ul>
+<li><p>设置输入（IN模式）参数的值使用：</p>
+<p><code>CallableStatement.setString(parameterIndex, value);</code></p>
+<p>根据参数类型选择调用相应的方法。</p>
+</li>
+<li><p>注册输出（OUT模式）参数:</p>
+</li>
+</ul>
+</li>
+</ol>
+<p>​			<code>CallableStatement.registerOutParameter(OUT_ ParameterIndex, java.sql.Types.类型常量);</code></p>
+<ol start="3">
+<li>获得输出参数的值使用方法：getString (输出参数的索引位置); 根据输出参数类型调用相应的方法。</li>
+</ol>
+<ul>
+<li><strong>示例</strong></li>
+</ul>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//调用存储过程</span></span><br><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">testProcedure</span><span class="params">()</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">    <span class="comment">//调用存储过程必须用CallableStatement语句对象，它是PreparedStatement的子类</span></span><br><span class="line">    <span class="type">CallableStatement</span> <span class="variable">cs</span> <span class="operator">=</span></span><br><span class="line">            <span class="built_in">this</span>.conn.prepareCall(<span class="string">&quot;&#123;call get_job_sum_sal(?,?)&#125;&quot;</span>); <span class="comment">//第二个？号的参数模式是out</span></span><br><span class="line">    <span class="comment">//设置点位符的值</span></span><br><span class="line">    cs.setString(<span class="number">1</span>, <span class="string">&quot;SALESMAN&quot;</span>);</span><br><span class="line">    cs.setDouble(<span class="number">2</span>, <span class="number">0.0</span>);</span><br><span class="line">    <span class="comment">//若过程有输出参数模式的，必须在过程执行前注册输出参数，也是说要告诉oracle驱动要得到哪个占位符的值 </span></span><br><span class="line">    cs.registerOutParameter(<span class="number">2</span>, java.sql.Types.DOUBLE, <span class="number">2</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">//执行过程</span></span><br><span class="line">    <span class="type">boolean</span> <span class="variable">b</span> <span class="operator">=</span> cs.execute();</span><br><span class="line">    <span class="comment">//得到结果，即过程的输出参数的值</span></span><br><span class="line">    <span class="type">double</span> <span class="variable">result</span> <span class="operator">=</span> cs.getDouble(<span class="number">2</span>);</span><br><span class="line">    System.out.println(<span class="string">&quot;SALESMAN的总工资：&quot;</span> + result);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="七-批量更新"><a href="#七-批量更新" class="headerlink" title="七. 批量更新"></a>七. 批量更新</h1><h2 id="7-1-Statement-批量更新"><a href="#7-1-Statement-批量更新" class="headerlink" title="7.1 Statement 批量更新"></a>7.1 Statement 批量更新</h2><p>用Statement对象执行批量更新时，用到addBatch()和executeBatch()方法。</p>
+<p><em>insert</em> 和 <em>delete</em> 操作与<em>update</em> 操作相似。</p>
+<ul>
+<li><strong>示例</strong></li>
+</ul>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">Connection</span> <span class="variable">connection</span> <span class="operator">=</span> JdbcUtil.getConnection();</span><br><span class="line"><span class="type">Statement</span> <span class="variable">statement</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line"><span class="keyword">try</span>&#123;</span><br><span class="line">    <span class="comment">//1.设置自动提交事务为 false</span></span><br><span class="line">    connection.setAutoCommit(<span class="literal">false</span>);</span><br><span class="line">    statement = connection.createStatement();</span><br><span class="line">    <span class="comment">//2.使用addBatch（）方法添加要在批处理中执行的SQL语句。然后使用executeBatch（）执行SQL语句。</span></span><br><span class="line">    statement.addBatch(<span class="string">&quot;update people set firstname=&#x27;aaa&#x27; where id=123&quot;</span>);</span><br><span class="line">    statement.addBatch(<span class="string">&quot;update people set firstname=&#x27;bbb&#x27; where id=456&quot;</span>);</span><br><span class="line">    statement.addBatch(<span class="string">&quot;update people set firstname=&#x27;ccc&#x27;  where id=789&quot;</span>);</span><br><span class="line">		<span class="comment">//返回每条件语句数据受影响的行数</span></span><br><span class="line">    <span class="type">int</span>[] recordsAffected = statement.executeBatch();</span><br><span class="line">    <span class="comment">//3.1 提交事务</span></span><br><span class="line">    connection.commit();</span><br><span class="line">&#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">  	<span class="comment">//3.2 回滚事务</span></span><br><span class="line">  	connection.rollback();</span><br><span class="line">    e.printStackTrace();</span><br><span class="line">&#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (statement != <span class="literal">null</span>) &#123;</span><br><span class="line">            statement.close();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">        e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="7-2-PreparedStatement-批量更新"><a href="#7-2-PreparedStatement-批量更新" class="headerlink" title="7.2 PreparedStatement 批量更新"></a>7.2 PreparedStatement 批量更新</h2><p>使用<code>PreparedStatement</code>对象执行批量更新。<code>PreparedStatement</code><em>可以重用相同的SQL语句</em>，并只需插入新参数即可执行每个更新。</p>
+<p><em>insert</em> 和 <em>delete</em> 操作与<em>update</em> 操作相似。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">Connection</span> <span class="variable">connection</span> <span class="operator">=</span> JdbcUtil.getConnection();</span><br><span class="line"><span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;update PEOPLE set firstname=? where id=?&quot;</span>;</span><br><span class="line"></span><br><span class="line"><span class="type">PreparedStatement</span> <span class="variable">preparedStatement</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line"><span class="keyword">try</span>&#123;</span><br><span class="line">    <span class="comment">//1.设置自动提交事务为 false</span></span><br><span class="line">    connection.setAutoCommit(<span class="literal">false</span>);</span><br><span class="line">    preparedStatement = connection.prepareStatement(sql);</span><br><span class="line">  	<span class="comment">//2.添加语句组，并为每条语句设置参数值</span></span><br><span class="line">    <span class="comment">//第1条记录</span></span><br><span class="line">    preparedStatement.setString(<span class="number">1</span>, <span class="string">&quot;james&quot;</span>);</span><br><span class="line">    preparedStatement.setLong  (<span class="number">2</span>, <span class="number">123</span>);</span><br><span class="line">    <span class="comment">//加入到批量处理</span></span><br><span class="line">    preparedStatement.addBatch();</span><br><span class="line">    <span class="comment">//第2条记录</span></span><br><span class="line">    preparedStatement.setString(<span class="number">1</span>, <span class="string">&quot;zhang&quot;</span>);</span><br><span class="line">    preparedStatement.setLong  (<span class="number">2</span>, <span class="number">456</span>);</span><br><span class="line">    preparedStatement.addBatch();</span><br><span class="line"></span><br><span class="line">    <span class="type">int</span>[] affectedRecords = preparedStatement.executeBatch();</span><br><span class="line">    <span class="comment">//3.1 提交事务</span></span><br><span class="line">    connection.commit();</span><br><span class="line">&#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">  	<span class="comment">//3.2 回滚事务</span></span><br><span class="line">  	connection.rollback();</span><br><span class="line">    e.printStackTrace();</span><br><span class="line">&#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="keyword">if</span>(preparedStatement != <span class="literal">null</span>) &#123;</span><br><span class="line">            preparedStatement.close();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">        e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>​		将每组参数值插入到preparedStatement中，并调用*addBatch( )<em>方法。 这会将参数值添加到批处理内部。 现在可以添加另一组值，以便插入到SQL语句中。 将全部批次发送到数据库后，将每组参数插入到SQL中并分别执行。然后执行</em>executeBatch( )*方法，它执行所有的批量更新。 SQL语句和参数集一起发送到数据库。</p>
+<p><strong>注意: 批量操作应该放到事务里进行，因为它会存在某条语句执行失败的情况。</strong></p>
+<h1 id="八-Java数据类型与SQL类型的映射"><a href="#八-Java数据类型与SQL类型的映射" class="headerlink" title="八. Java数据类型与SQL类型的映射"></a>八. Java数据类型与SQL类型的映射</h1><h2 id="8-1-Conversions-by-setObject-index-value"><a href="#8-1-Conversions-by-setObject-index-value" class="headerlink" title="8.1 Conversions by setObject(index, value)"></a>8.1 Conversions by setObject(index, value)</h2><p>下表说明了可用*Statement.setObject(index, value)和 PreparedStatement.setObject(index, value)*方法支持将Java类型到JDBC类型赋值。</p>
+<p><img src="clip_image001.png"></p>
+<p>An “x” means that the given Java object type may be converted to the given JDBC type. This table show the possible values for the parameter specifying a target JDBC type that is passed to the method PreparedStatement.setObject or RowSet.setObject. Note that some conversions may fail at run time if the value presented is invalid.</p>
+<h2 id="8-2-Conversions-by-ResultSet-getXXX-Methods"><a href="#8-2-Conversions-by-ResultSet-getXXX-Methods" class="headerlink" title="8.2 Conversions by ResultSet.getXXX Methods"></a>8.2 Conversions by ResultSet.getXXX Methods</h2><p><img src="clip_image001-3697769-3697774.png"></p>
+<p><code>SQLInput.readXXX</code> methods support only the recommended conversions. An “x” means that the method <em>can</em> retrieve the JDBC type. An “<strong>X</strong>“ means that the method is <em>recommended</em> for retrieving the JDBC type.</p>
+<h1 id="九、apache-DButils-组件库"><a href="#九、apache-DButils-组件库" class="headerlink" title="九、apache DButils 组件库"></a>九、apache DButils 组件库</h1><p>dbutils是apache 中的一个简化了jdbc的编程的工具组件库。</p>
+<p>下载地址：<a href="https://commons.apache.org/proper/commons-dbutils/">DbUtils – JDBC Utility Component (apache.org)</a></p>
+<p>官方示例：<a href="https://commons.apache.org/proper/commons-dbutils/examples.html">DbUtils – JDBC Utility Component – Examples (apache.org)</a></p>
+<h2 id="9-1-ResultSetHandler结果集处理器接口"><a href="#9-1-ResultSetHandler结果集处理器接口" class="headerlink" title="9.1 ResultSetHandler结果集处理器接口"></a>9.1 ResultSetHandler结果集处理器接口</h2><p><code>ResultSetHandler</code> 的功能是将查询结果的列名与JavaBean对象的属性名(setter方法)进行反射赋值，有以下几个常用实现类：</p>
+<ul>
+<li><p><code>BeanHandler</code>：JavaBean处理器。将查询结果集 <code>ResultSet</code>的一行仅且一行封装成一个JavaBean对象。</p>
+</li>
+<li><p><code>BeanListHandler</code>：JavaBean列表处理器。 将多行查询集 <code>ResultSet</code>封装成一个JavaBean列表。</p>
+</li>
+<li><p><code>MapHandler</code>：Map处理器。将查询结果集的一行仅且一行封装成一个<em>Map</em>对象，结果集的列名作为 Map 的<em>key</em>，值作为Map 的<em>value</em>;</p>
+</li>
+<li><p><code>MapListHandler</code>： Map列表处理器。返回一个列表其元素为Map，查询结果集的每一行封装成一个Map对象，结果的列名作为key，值作为value;</p>
+</li>
+<li><p><code>ScalarHandler</code>: 标量类型处理器。将只有一行一列的查询结果集封装成一个基本类型的值，如：<em>Select  count(*)  as rows  from  employee</em>;</p>
+</li>
+</ul>
+<p>示例：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//将查询结果集通过反射机制封装成一个JavaBean实体，查询结果的列名将与JavaBean的属性名进行反射（实际上是调用 JavaBean 的setter方法）</span></span><br><span class="line"><span class="comment">//如果结果集的列有与 JavaBean 属性名不同时，可通过给列名取别名的方式使之与JavaBean 属性名一样</span></span><br><span class="line">ResultSetHandler&lt;Employee&gt;  rsh = <span class="keyword">new</span> <span class="title class_">BeanHandler</span>&lt;Employee&gt;(Employee.class); </span><br><span class="line">runner.query(conn, sql, rsh [,Object... params]);</span><br><span class="line"></span><br><span class="line"><span class="comment">//将查询结果集通过反射机制封装成一个JavaBean实体列表</span></span><br><span class="line">ResultSetHandler&lt;Employee&gt;  rsh = <span class="keyword">new</span> <span class="title class_">BeanListHandler</span> &lt;Employee&gt;(Employee.class);</span><br><span class="line">runner.query(conn, sql, rsh [,Object... params]);</span><br></pre></td></tr></table></figure>
+
+<h2 id="9-2-QueryRunner-SQL执行操作类-多线程安全"><a href="#9-2-QueryRunner-SQL执行操作类-多线程安全" class="headerlink" title="9.2 QueryRunner SQL执行操作类(多线程安全)"></a>9.2 QueryRunner SQL执行操作类(多线程安全)</h2><p>官方是这样解释的：</p>
+<blockquote>
+<p>Executes SQL queries with pluggable strategies for handling <code>ResultSet</code>s. This class is thread safe.</p>
+</blockquote>
+<p>所有对数据库的CRUD操作都通过 <code>QueryRunner</code> 完成。</p>
+<p>如果创建<code>QueryRunner</code>实例时没有提供<code>DataSource</code>数据源参数则在执行CRUD操作方法时需提供数据库连接。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//方式 1: 不使用数据源</span></span><br><span class="line"><span class="type">QueryRunner</span> <span class="variable">runner</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">QueryRunner</span>(<span class="literal">true</span>);</span><br><span class="line"><span class="comment">//方式 2：使用数据源，数据源通过其它方式获得并传入构造中</span></span><br><span class="line"><span class="type">QueryRunner</span> <span class="variable">runner</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">QueryRunner</span>([DataSource]);</span><br></pre></td></tr></table></figure>
+
+<h3 id="普通查询（无占位符参数）"><a href="#普通查询（无占位符参数）" class="headerlink" title="普通查询（无占位符参数）"></a>普通查询（无占位符参数）</h3><p>以下示例均以junit 单元测试提供。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">testQuerySingleEmployee</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;select * from emp where ename=&#x27;ZHANG&#x27;&quot;</span>;</span><br><span class="line">    <span class="comment">//默认dbutil会通过结果集的类名与bean的属性名进行反射，</span></span><br><span class="line">    <span class="comment">//如果列名与bean的属性名不一致时可以为列名取别名来解决</span></span><br><span class="line">    ResultSetHandler&lt;Employee&gt; rsh = <span class="keyword">new</span> <span class="title class_">BeanHandler</span>&lt;Employee&gt;(Employee.class);</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">      <span class="type">Employee</span> <span class="variable">e</span> <span class="operator">=</span> runner.query(conn, sql, rsh);</span><br><span class="line">      System.out.println(e);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">      e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="带占位符参数查询"><a href="#带占位符参数查询" class="headerlink" title="带占位符参数查询"></a>带占位符参数查询</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">testQueryEmployeeList</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">//复杂查询时SQL语句需动态构建</span></span><br><span class="line">    <span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;select * from emp where ename like ? and sal between ? and ?&quot;</span>;</span><br><span class="line">    <span class="comment">//默认dbutil会通过结果集的类名与bean的属性名进行反射，</span></span><br><span class="line">    <span class="comment">//如果列名与bean的属性名不一致时可以为列名取别名来解决</span></span><br><span class="line">    ResultSetHandler&lt;List&lt;Employee&gt;&gt; rsh = <span class="keyword">new</span> <span class="title class_">BeanListHandler</span>&lt;Employee&gt;(Employee.class);</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        List&lt;Employee&gt; list = runner.query(conn, sql, rsh,<span class="string">&quot;%A%&quot;</span>,<span class="number">1000.0</span>,<span class="number">5000.0</span>);</span><br><span class="line">        <span class="keyword">for</span> (Employee e : list) &#123;</span><br><span class="line">          System.out.println(e);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">      	e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="标量查询"><a href="#标量查询" class="headerlink" title="标量查询"></a>标量查询</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">testCount</span><span class="params">()</span>&#123;</span><br><span class="line">    <span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;select count(empno) AS r from emp&quot;</span>;</span><br><span class="line">    ResultSetHandler&lt;BigDecimal&gt; rsh = <span class="keyword">new</span> <span class="title class_">ScalarHandler</span>&lt;BigDecimal&gt;(<span class="string">&quot;r&quot;</span>);</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="type">BigDecimal</span> <span class="variable">rows</span> <span class="operator">=</span> runner.query(conn, sql, rsh);</span><br><span class="line">        <span class="type">int</span> <span class="variable">r</span> <span class="operator">=</span> rows.intValue();</span><br><span class="line">        System.out.println(rows);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">      	e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="保存"><a href="#保存" class="headerlink" title="保存"></a>保存</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">testSave</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">//SQL语句可能需动态构建，参考以前JDBC的代码</span></span><br><span class="line">    <span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;insert into emp(EMPNO,ENAME,MGR,HIREDATE,SAL,DEPTNO) values(?,?,?,?,?,?)&quot;</span>;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="comment">// 返回数据库受影响的行数，即插入的行数</span></span><br><span class="line">      	<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> runner.update(conn, sql, <span class="number">8136</span>,<span class="string">&quot;Alex&quot;</span>,<span class="number">7369</span>,<span class="keyword">new</span> <span class="title class_">java</span>.sql.Date(<span class="keyword">new</span> <span class="title class_">Date</span>().getTime()),<span class="number">4440.0</span>,<span class="number">10</span>);</span><br><span class="line">      	System.out.println(i);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">      	e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="更新"><a href="#更新" class="headerlink" title="更新"></a>更新</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">testSave</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">//SQL语句可能需动态构建，参考以前JDBC的代码</span></span><br><span class="line">    <span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;update emp set ENAME=?,JOB=?,SAL=? Where EMPNO=?&quot;</span>;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="comment">// 返回数据库受影响的行数，即更新的行数</span></span><br><span class="line">      	<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> runner.update(conn, sql, <span class="number">8136</span>,<span class="string">&quot;Alex&quot;</span>,<span class="number">7369</span>,<span class="keyword">new</span> <span class="title class_">java</span>.sql.Date(<span class="keyword">new</span> <span class="title class_">Date</span>().getTime()),<span class="number">4440.0</span>,<span class="number">10</span>);</span><br><span class="line">      	System.out.println(i);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">      e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="删除"><a href="#删除" class="headerlink" title="删除"></a>删除</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">testDelete</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">//SQL语句可能需动态构建，参考以前JDBC的代码</span></span><br><span class="line">    <span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;delete employee Where EMPNO=?&quot;</span>;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="comment">// 返回数据库受影响的行数，即删除的行数</span></span><br><span class="line">        <span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> runner.update(conn, sql, <span class="number">8136</span>);</span><br><span class="line">        System.out.println(i);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">      e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+]]></content>
+      <categories>
+        <category>后端开发</category>
+      </categories>
+      <tags>
+        <tag>JDBC</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>JVM：详解GC</title>
     <url>/2024/08/13/JVM-gc/</url>
     <content><![CDATA[<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>据我看到的面试题有：判断垃圾回收的算法有什么，以及是什么原理，垃圾收集算法有什么，常见的垃圾回收器有什么，什么是STW等，所以这篇博客基于GC给大家介绍，如果有其他面试题可以在评论区发言，博客可修改内容，可添加。</p>
@@ -846,8 +1306,8 @@
         <category>Java开发</category>
       </categories>
       <tags>
-        <tag>JVM</tag>
         <tag>面试</tag>
+        <tag>JVM</tag>
       </tags>
   </entry>
   <entry>
@@ -975,6 +1435,31 @@
       </categories>
       <tags>
         <tag>Java</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>MySQL：（五）分库分表</title>
+    <url>/2024/08/20/MySQL-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8/</url>
+    <content><![CDATA[<h1 id="为什么要进行分库分表"><a href="#为什么要进行分库分表" class="headerlink" title="为什么要进行分库分表"></a>为什么要进行分库分表</h1><p><img src="Snipaste_2024-08-20_16-32-57.png"></p>
+<p>来解释一下IO瓶颈：</p>
+<p>在介绍innodb存储引擎<a href="https://rengoku.top/2024/08/15/MySQL-%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E/">MySQL：（二）存储引擎 | 颓废市民黄先生 (rengoku.top)</a>的时候，曾经说过，内存架构中大部分的组件都分配给了缓存。如果内存不足，缓存就不够，那么就要使用后台线程和磁盘进行io，这样效率就会低</p>
+<h1 id="拆分策略"><a href="#拆分策略" class="headerlink" title="拆分策略"></a>拆分策略</h1><p><img src="Snipaste_2024-08-20_16-40-42.png" alt="拆分策略"></p>
+<h2 id="垂直拆分"><a href="#垂直拆分" class="headerlink" title="垂直拆分"></a>垂直拆分</h2><ul>
+<li>垂直分表：局限于单个数据库内部，不涉及跨数据库操作。</li>
+<li>垂直分库：跨越多个数据库，甚至可能跨越不同的服务器，涉及跨数据库的数据访问和管理。</li>
+</ul>
+<p><img src="Snipaste_2024-08-20_16-43-58.png" alt="垂直拆分"></p>
+<h2 id="水平拆分"><a href="#水平拆分" class="headerlink" title="水平拆分"></a>水平拆分</h2><p>和垂直拆分一样，水平分库会涉及跨数据库，而水平分表不跨数据库。</p>
+<p><img src="Snipaste_2024-08-20_16-51-01.png" alt="水平拆分"></p>
+<h1 id="MyCat"><a href="#MyCat" class="headerlink" title="MyCat"></a>MyCat</h1><p><a href="https://blog.csdn.net/liuerchong/article/details/107887804">mycat详细介绍及实战-CSDN博客</a></p>
+<p>mycat实现分库分表，读写分离。</p>
+]]></content>
+      <categories>
+        <category>数据库</category>
+      </categories>
+      <tags>
+        <tag>mysql</tag>
+        <tag>面试</tag>
       </tags>
   </entry>
   <entry>
@@ -1125,33 +1610,8 @@
         <category>数据库</category>
       </categories>
       <tags>
-        <tag>面试</tag>
         <tag>mysql</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>MySQL：（五）分库分表</title>
-    <url>/2024/08/20/MySQL-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8/</url>
-    <content><![CDATA[<h1 id="为什么要进行分库分表"><a href="#为什么要进行分库分表" class="headerlink" title="为什么要进行分库分表"></a>为什么要进行分库分表</h1><p><img src="Snipaste_2024-08-20_16-32-57.png"></p>
-<p>来解释一下IO瓶颈：</p>
-<p>在介绍innodb存储引擎<a href="https://rengoku.top/2024/08/15/MySQL-%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E/">MySQL：（二）存储引擎 | 颓废市民黄先生 (rengoku.top)</a>的时候，曾经说过，内存架构中大部分的组件都分配给了缓存。如果内存不足，缓存就不够，那么就要使用后台线程和磁盘进行io，这样效率就会低</p>
-<h1 id="拆分策略"><a href="#拆分策略" class="headerlink" title="拆分策略"></a>拆分策略</h1><p><img src="Snipaste_2024-08-20_16-40-42.png" alt="拆分策略"></p>
-<h2 id="垂直拆分"><a href="#垂直拆分" class="headerlink" title="垂直拆分"></a>垂直拆分</h2><ul>
-<li>垂直分表：局限于单个数据库内部，不涉及跨数据库操作。</li>
-<li>垂直分库：跨越多个数据库，甚至可能跨越不同的服务器，涉及跨数据库的数据访问和管理。</li>
-</ul>
-<p><img src="Snipaste_2024-08-20_16-43-58.png" alt="垂直拆分"></p>
-<h2 id="水平拆分"><a href="#水平拆分" class="headerlink" title="水平拆分"></a>水平拆分</h2><p>和垂直拆分一样，水平分库会涉及跨数据库，而水平分表不跨数据库。</p>
-<p><img src="Snipaste_2024-08-20_16-51-01.png" alt="水平拆分"></p>
-<h1 id="MyCat"><a href="#MyCat" class="headerlink" title="MyCat"></a>MyCat</h1><p><a href="https://blog.csdn.net/liuerchong/article/details/107887804">mycat详细介绍及实战-CSDN博客</a></p>
-<p>mycat实现分库分表，读写分离。</p>
-]]></content>
-      <categories>
-        <category>数据库</category>
-      </categories>
-      <tags>
         <tag>面试</tag>
-        <tag>mysql</tag>
       </tags>
   </entry>
   <entry>
@@ -1218,8 +1678,8 @@
         <category>数据库</category>
       </categories>
       <tags>
-        <tag>面试</tag>
         <tag>mysql</tag>
+        <tag>面试</tag>
       </tags>
   </entry>
   <entry>
@@ -1354,7 +1814,7 @@
 
 
 <h2 id="四、-索引的底层原理"><a href="#四、-索引的底层原理" class="headerlink" title="四、 索引的底层原理"></a>四、 索引的底层原理</h2><h3 id="4-1-八股：数据结构"><a href="#4-1-八股：数据结构" class="headerlink" title="4.1 八股：数据结构"></a>4.1 八股：数据结构</h3><p>Mysql数据库中的常见索引结构有多种，常用Hash，B+树（最常用，多路搜索树）等数据结构来进行数据存储。树的深度加深一层，意味着多一次查询，对于数据库磁盘而言，就是多一次IO操作，导致查询效率低下。</p>
-<p><strong>创建一次索引就代表了创建了一个数据结构，例如B+树。</strong></p>
+<p><strong>创建一次索引就代表了创建了一个数据结构，例如B+树。</strong>那么创建的是联合索引的时候，首先根据第一个字段排序，然后在根据第二个排序。联合索引也是只有一棵b+树。</p>
 <p><strong>B+树的特征：</strong></p>
 <ol>
 <li>所有关键字都出现在叶子结点的链表中（稠密索引），且链表中的关键字恰好是有序的；</li>
@@ -1368,11 +1828,9 @@
 <p>此处使用InnoDB来讨论索引的存储结构，见4.3。</p>
 <h3 id="4-3-八股：InnoDB-B-树存储数据结构"><a href="#4-3-八股：InnoDB-B-树存储数据结构" class="headerlink" title="4.3 八股：InnoDB B+树存储数据结构"></a>4.3 八股：InnoDB B+树存储数据结构</h3><p>存储数据结构，也是索引分类的一种：物理分类（第二章讲了逻辑分类）。物理分类分为<strong>聚簇索引</strong>和非聚簇索引。存储数据结构虽然说是索引分类的一种，但是准确的来说，<strong>聚簇索引和非聚簇索引是一种数据的存储方式。</strong></p>
 <p><strong>聚簇索引（clustered index）</strong>不是单独的一种索引类型，而是一种数据存储方式。这种存储方式是依靠B+树来实现的，根据表的主键构造一棵B+树且B+树叶子节点存放的都是表的行记录数据时，方可称该主键索引为聚簇索引。聚簇索引也可理解为将数据存储与索引放到了一块，找到索引也就找到了数据。</p>
-<img src="%E8%81%9A%E7%B0%87%E7%B4%A2%E5%BC%95.jpg">
-
+<p><img src="%E8%81%9A%E7%B0%87%E7%B4%A2%E5%BC%95.jpg"></p>
 <p><strong>非聚簇索引（辅助索引或者二级索引）</strong>：数据和索引是分开的，非聚簇索引的叶子节点并不存储数据表中的完整数据记录。相反，它们存储的是指向数据表中相应行的指针，这个指针通常是数据表中主键的值。</p>
-<img src="%E9%9D%9E%E8%81%9A%E7%B0%87%E7%B4%A2%E5%BC%95.jpg">
-
+<p><img src="%E9%9D%9E%E8%81%9A%E7%B0%87%E7%B4%A2%E5%BC%95.jpg"></p>
 <p>虽然InnoDB和MyISAM存储引擎都默认使用B+树结构存储索引，但是只有InnoDB的<strong>主键索引</strong>（主键索引见2.3）才是聚簇索引，InnoDB中的辅助索引以及MyISAM使用的都是非聚簇索引。</p>
 <p><strong>使用聚簇索引的优缺点（面试）：</strong></p>
 <p>优点：</p>
@@ -1382,19 +1840,14 @@
 </ol>
 <p>缺点：</p>
 <ol>
-<li><p>插入速度严重依赖于插入顺序，按照主键的顺序插入是最快的方式，否则将会出现页分裂（页分裂见4.2链接、下图，属于操作系统的知识），严重影响性能。因此，对于InnoDB表，我们一般都会定义一个自增的ID列为主键（主键列不要选没有意义的自增列，选经常查询的条件列才好，不然无法体现其主键索引性能）</p>
+<li><p>插入速度严重依赖于插入顺序，按照主键的顺序插入是最快的方式，否则将会出现页分裂（页分裂见4.2链接和下图），严重影响性能。因此，对于InnoDB表，我们一般都会定义一个自增的ID列为主键（主键列不要选没有意义的自增列，选经常查询的条件列才好，不然无法体现其主键索引性能）</p>
 </li>
 <li><p>更新主键的代价很高，因为将会导致被更新的行移动。因此，对于InnoDB表，我们一般定义主键为不可更新。</p>
 </li>
 <li><p>二级索引（非聚簇索引）访问需要两次索引查找，第一次找到主键值，第二次根据主键值找到行数据。</p>
 </li>
 </ol>
-<img src="f6cd40465df212dd91614785713be6cb.gif" style="zoom:150%;">
-
-
-
-
-
+<p><img src="f6cd40465df212dd91614785713be6cb.gif"></p>
 <h3 id="4-4-八股：回表是什么？为什么会有回表？"><a href="#4-4-八股：回表是什么？为什么会有回表？" class="headerlink" title="4.4 八股：回表是什么？为什么会有回表？"></a>4.4 八股：回表是什么？为什么会有回表？</h3><p>在4.3的聚簇索引中，我们提到缺点的第三条，非聚簇索引需要两次索引查找，这个过程我们就称为回表。</p>
 <p>为什么会有回表？我们刚说到，聚簇索引是将索引和数据存储放在一起的，所以找到索引了就是找到了数据。但是根据实际查询的要求，不一定只会根据主键去查询数据。我们看以下场景：</p>
 <p>假如有个表T， 里面三个字段：id k name， id为主键，并且其中对k建立了单独索引。此时有两棵B+树，一个是聚簇索引（主键索引）的B+树，一个是非聚簇索引的B+树。</p>
@@ -1444,8 +1897,8 @@
         <category>数据库</category>
       </categories>
       <tags>
-        <tag>面试</tag>
         <tag>mysql</tag>
+        <tag>面试</tag>
       </tags>
   </entry>
   <entry>
@@ -1539,7 +1992,7 @@
 </li>
 </ul>
 <p><img src="Snipaste_2024-08-16_18-09-19.png" alt="增删改查的加锁情况"></p>
-<p><strong>刚刚在意向锁中也有介绍，后面两个方式会同时添加意向锁。</strong></p>
+<p><strong>可以看到，DML语句默认是会加上行锁的。刚刚在意向锁中也有介绍，后面两个方式会同时添加意向锁。</strong></p>
 <p><img src="Snipaste_2024-08-16_18-12-15.png"></p>
 <p><strong>刚刚说了，不走索引的话行锁就失效，此时会自动升级为表锁</strong></p>
 <h2 id="2-间隙锁-临键锁"><a href="#2-间隙锁-临键锁" class="headerlink" title="2. 间隙锁&amp;临键锁"></a>2. 间隙锁&amp;临键锁</h2><p><img src="Snipaste_2024-08-16_18-47-46.png" alt="间隙锁概述"></p>
@@ -1583,8 +2036,113 @@
         <category>数据库</category>
       </categories>
       <tags>
-        <tag>面试</tag>
         <tag>mysql</tag>
+        <tag>面试</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>CentOS7部署docker</title>
+    <url>/2024/07/06/centOS%E9%83%A8%E7%BD%B2docker/</url>
+    <content><![CDATA[<h1 id="0-安装Docker"><a href="#0-安装Docker" class="headerlink" title="0.安装Docker"></a>0.安装Docker</h1><p>Docker 分为 CE 和 EE 两大版本。CE 即社区版（免费，支持周期 7 个月），EE 即企业版，强调安全，付费使用，支持周期 24 个月。</p>
+<p>Docker CE 分为 <code>stable</code> <code>test</code> 和 <code>nightly</code> 三个更新频道。</p>
+<p>官方网站上有各种环境下的 <a href="https://docs.docker.com/install/">安装指南</a>，这里主要介绍 Docker CE 在 CentOS上的安装。</p>
+<h1 id="1-CentOS安装Docker"><a href="#1-CentOS安装Docker" class="headerlink" title="1.CentOS安装Docker"></a>1.CentOS安装Docker</h1><p>Docker CE 支持 64 位版本 CentOS 7，并且要求内核版本不低于 3.10， CentOS 7 满足最低内核的要求，所以我们在CentOS 7安装Docker。</p>
+<h2 id="1-1-卸载（可选）"><a href="#1-1-卸载（可选）" class="headerlink" title="1.1.卸载（可选）"></a>1.1.卸载（可选）</h2><p>如果之前安装过旧版本的Docker，可以使用下面命令卸载：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">yum remove docker \</span><br><span class="line">                  docker-client \</span><br><span class="line">                  docker-client-latest \</span><br><span class="line">                  docker-common \</span><br><span class="line">                  docker-latest \</span><br><span class="line">                  docker-latest-logrotate \</span><br><span class="line">                  docker-logrotate \</span><br><span class="line">                  docker-selinux \</span><br><span class="line">                  docker-engine-selinux \</span><br><span class="line">                  docker-engine \</span><br><span class="line">                  docker-ce</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="1-2-安装docker"><a href="#1-2-安装docker" class="headerlink" title="1.2.安装docker"></a>1.2.安装docker</h2><p>首先需要大家虚拟机联网，安装yum工具</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">yum install -y yum-utils \</span><br><span class="line">           device-mapper-persistent-data \</span><br><span class="line">           lvm2 --skip-broken</span><br></pre></td></tr></table></figure>
+
+
+
+<p>然后更新本地镜像源：</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">设置docker镜像源</span></span><br><span class="line">yum-config-manager \</span><br><span class="line">    --add-repo \</span><br><span class="line">    https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo</span><br><span class="line">    </span><br><span class="line">sed -i &#x27;s/download.docker.com/mirrors.aliyun.com\/docker-ce/g&#x27; /etc/yum.repos.d/docker-ce.repo</span><br><span class="line"></span><br><span class="line">yum makecache fast</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<p>然后输入命令：</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">yum install -y docker-ce</span><br></pre></td></tr></table></figure>
+
+<p>docker-ce为社区免费版本。稍等片刻，docker即可安装成功。</p>
+<h2 id="1-3-启动docker"><a href="#1-3-启动docker" class="headerlink" title="1.3.启动docker"></a>1.3.启动docker</h2><p>Docker应用需要用到各种端口，逐一去修改防火墙设置。非常麻烦，因此建议大家直接关闭防火墙！</p>
+<p>启动docker前，一定要关闭防火墙后！！</p>
+<p>启动docker前，一定要关闭防火墙后！！</p>
+<p>启动docker前，一定要关闭防火墙后！！</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 关闭</span></span><br><span class="line">systemctl stop firewalld</span><br><span class="line"><span class="comment"># 禁止开机启动防火墙</span></span><br><span class="line">systemctl <span class="built_in">disable</span> firewalld</span><br></pre></td></tr></table></figure>
+
+
+
+<p>通过命令启动docker：</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">systemctl start docker  <span class="comment"># 启动docker服务</span></span><br><span class="line"></span><br><span class="line">systemctl stop docker  <span class="comment"># 停止docker服务</span></span><br><span class="line"></span><br><span class="line">systemctl restart docker  <span class="comment"># 重启docker服务</span></span><br></pre></td></tr></table></figure>
+
+
+
+<p>然后输入命令，可以查看docker版本：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">docker -v</span><br></pre></td></tr></table></figure>
+
+<p>如图：</p>
+<p><img src="image-20210418154704436.png"></p>
+<h2 id="1-4-配置镜像加速"><a href="#1-4-配置镜像加速" class="headerlink" title="1.4.配置镜像加速"></a>1.4.配置镜像加速</h2><p>docker官方镜像仓库网速较差，我们需要设置国内镜像服务：</p>
+<p>参考阿里云的镜像加速文档：<a href="https://cr.console.aliyun.com/cn-hangzhou/instances/mirrors">https://cr.console.aliyun.com/cn-hangzhou/instances/mirrors</a></p>
+<h1 id="2-CentOS7安装DockerCompose"><a href="#2-CentOS7安装DockerCompose" class="headerlink" title="2.CentOS7安装DockerCompose"></a>2.CentOS7安装DockerCompose</h1><h2 id="2-1-下载"><a href="#2-1-下载" class="headerlink" title="2.1.下载"></a>2.1.下载</h2><p>Linux下需要通过命令下载：</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 安装</span></span><br><span class="line">curl -L https://github.com/docker/compose/releases/download/1.23.1/docker-compose-`<span class="built_in">uname</span> -s`-`<span class="built_in">uname</span> -m` &gt; /usr/local/bin/docker-compose</span><br></pre></td></tr></table></figure>
+
+<p>如果下载速度较慢，或者下载失败，联系博主给你一份</p>
+<p><img src="image-20210417133020614.png"></p>
+<p>上传到<code>/usr/local/bin/</code>目录也可以。</p>
+<h2 id="2-2-修改文件权限"><a href="#2-2-修改文件权限" class="headerlink" title="2.2.修改文件权限"></a>2.2.修改文件权限</h2><p>修改文件权限：</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 修改权限</span></span><br><span class="line"><span class="built_in">chmod</span> +x /usr/local/bin/docker-compose</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="2-3-Base自动补全命令："><a href="#2-3-Base自动补全命令：" class="headerlink" title="2.3.Base自动补全命令："></a>2.3.Base自动补全命令：</h2><figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 补全命令</span></span><br><span class="line">curl -L https://raw.githubusercontent.com/docker/compose/1.29.1/contrib/completion/bash/docker-compose &gt; /etc/bash_completion.d/docker-compose</span><br></pre></td></tr></table></figure>
+
+<p>如果这里出现错误，需要修改自己的hosts文件：</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="built_in">echo</span> <span class="string">&quot;199.232.68.133 raw.githubusercontent.com&quot;</span> &gt;&gt; /etc/hosts</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<h1 id="3-Docker镜像仓库"><a href="#3-Docker镜像仓库" class="headerlink" title="3.Docker镜像仓库"></a>3.Docker镜像仓库</h1><p>搭建镜像仓库可以基于Docker官方提供的DockerRegistry来实现。</p>
+<p>官网地址：<a href="https://hub.docker.com/_/registry">https://hub.docker.com/_/registry</a></p>
+<h2 id="3-1-简化版镜像仓库"><a href="#3-1-简化版镜像仓库" class="headerlink" title="3.1.简化版镜像仓库"></a>3.1.简化版镜像仓库</h2><p>Docker官方的Docker Registry是一个基础版本的Docker镜像仓库，具备仓库管理的完整功能，但是没有图形化界面。</p>
+<p>搭建方式比较简单，命令如下：</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">docker run -d \</span><br><span class="line">    --restart=always \</span><br><span class="line">    --name registry	\</span><br><span class="line">    -p 5000:5000 \</span><br><span class="line">    -v registry-data:/var/lib/registry \</span><br><span class="line">    registry</span><br></pre></td></tr></table></figure>
+
+
+
+<p>命令中挂载了一个数据卷registry-data到容器内的&#x2F;var&#x2F;lib&#x2F;registry 目录，这是私有镜像库存放数据的目录。</p>
+<p>访问<a href="http://yourip:5000/v2/_catalog">http://YourIp:5000/v2/_catalog</a> 可以查看当前私有镜像服务中包含的镜像</p>
+<h2 id="3-2-带有图形化界面版本"><a href="#3-2-带有图形化界面版本" class="headerlink" title="3.2.带有图形化界面版本"></a>3.2.带有图形化界面版本</h2><p>使用DockerCompose部署带有图象界面的DockerRegistry，命令如下：</p>
+<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">version:</span> <span class="string">&#x27;3.0&#x27;</span></span><br><span class="line"><span class="attr">services:</span></span><br><span class="line">  <span class="attr">registry:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">registry</span></span><br><span class="line">    <span class="attr">volumes:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">./registry-data:/var/lib/registry</span></span><br><span class="line">  <span class="attr">ui:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">joxit/docker-registry-ui:static</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="number">8080</span><span class="string">:80</span></span><br><span class="line">    <span class="attr">environment:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">REGISTRY_TITLE=传智教育私有仓库</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">REGISTRY_URL=http://registry:5000</span></span><br><span class="line">    <span class="attr">depends_on:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">registry</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="3-3-配置Docker信任地址"><a href="#3-3-配置Docker信任地址" class="headerlink" title="3.3.配置Docker信任地址"></a>3.3.配置Docker信任地址</h2><p>我们的私服采用的是http协议，默认不被Docker信任，所以需要做一个配置：</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 打开要修改的文件</span></span><br><span class="line">vi /etc/docker/daemon.json</span><br><span class="line"><span class="comment"># 添加内容：</span></span><br><span class="line"><span class="string">&quot;insecure-registries&quot;</span>:[<span class="string">&quot;http://192.168.150.101:8080&quot;</span>]</span><br><span class="line"><span class="comment"># 重加载</span></span><br><span class="line">systemctl daemon-reload</span><br><span class="line"><span class="comment"># 重启docker</span></span><br><span class="line">systemctl restart docker</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+
+
+
+
+
+
+]]></content>
+      <categories>
+        <category>软件技术</category>
+      </categories>
+      <tags>
+        <tag>docker</tag>
+        <tag>软件技术</tag>
       </tags>
   </entry>
   <entry>
@@ -1703,111 +2261,6 @@
       <tags>
         <tag>spring</tag>
         <tag>后端</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>CentOS7部署docker</title>
-    <url>/2024/07/06/centOS%E9%83%A8%E7%BD%B2docker/</url>
-    <content><![CDATA[<h1 id="0-安装Docker"><a href="#0-安装Docker" class="headerlink" title="0.安装Docker"></a>0.安装Docker</h1><p>Docker 分为 CE 和 EE 两大版本。CE 即社区版（免费，支持周期 7 个月），EE 即企业版，强调安全，付费使用，支持周期 24 个月。</p>
-<p>Docker CE 分为 <code>stable</code> <code>test</code> 和 <code>nightly</code> 三个更新频道。</p>
-<p>官方网站上有各种环境下的 <a href="https://docs.docker.com/install/">安装指南</a>，这里主要介绍 Docker CE 在 CentOS上的安装。</p>
-<h1 id="1-CentOS安装Docker"><a href="#1-CentOS安装Docker" class="headerlink" title="1.CentOS安装Docker"></a>1.CentOS安装Docker</h1><p>Docker CE 支持 64 位版本 CentOS 7，并且要求内核版本不低于 3.10， CentOS 7 满足最低内核的要求，所以我们在CentOS 7安装Docker。</p>
-<h2 id="1-1-卸载（可选）"><a href="#1-1-卸载（可选）" class="headerlink" title="1.1.卸载（可选）"></a>1.1.卸载（可选）</h2><p>如果之前安装过旧版本的Docker，可以使用下面命令卸载：</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">yum remove docker \</span><br><span class="line">                  docker-client \</span><br><span class="line">                  docker-client-latest \</span><br><span class="line">                  docker-common \</span><br><span class="line">                  docker-latest \</span><br><span class="line">                  docker-latest-logrotate \</span><br><span class="line">                  docker-logrotate \</span><br><span class="line">                  docker-selinux \</span><br><span class="line">                  docker-engine-selinux \</span><br><span class="line">                  docker-engine \</span><br><span class="line">                  docker-ce</span><br></pre></td></tr></table></figure>
-
-
-
-<h2 id="1-2-安装docker"><a href="#1-2-安装docker" class="headerlink" title="1.2.安装docker"></a>1.2.安装docker</h2><p>首先需要大家虚拟机联网，安装yum工具</p>
-<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">yum install -y yum-utils \</span><br><span class="line">           device-mapper-persistent-data \</span><br><span class="line">           lvm2 --skip-broken</span><br></pre></td></tr></table></figure>
-
-
-
-<p>然后更新本地镜像源：</p>
-<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">设置docker镜像源</span></span><br><span class="line">yum-config-manager \</span><br><span class="line">    --add-repo \</span><br><span class="line">    https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo</span><br><span class="line">    </span><br><span class="line">sed -i &#x27;s/download.docker.com/mirrors.aliyun.com\/docker-ce/g&#x27; /etc/yum.repos.d/docker-ce.repo</span><br><span class="line"></span><br><span class="line">yum makecache fast</span><br></pre></td></tr></table></figure>
-
-
-
-
-
-<p>然后输入命令：</p>
-<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">yum install -y docker-ce</span><br></pre></td></tr></table></figure>
-
-<p>docker-ce为社区免费版本。稍等片刻，docker即可安装成功。</p>
-<h2 id="1-3-启动docker"><a href="#1-3-启动docker" class="headerlink" title="1.3.启动docker"></a>1.3.启动docker</h2><p>Docker应用需要用到各种端口，逐一去修改防火墙设置。非常麻烦，因此建议大家直接关闭防火墙！</p>
-<p>启动docker前，一定要关闭防火墙后！！</p>
-<p>启动docker前，一定要关闭防火墙后！！</p>
-<p>启动docker前，一定要关闭防火墙后！！</p>
-<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 关闭</span></span><br><span class="line">systemctl stop firewalld</span><br><span class="line"><span class="comment"># 禁止开机启动防火墙</span></span><br><span class="line">systemctl <span class="built_in">disable</span> firewalld</span><br></pre></td></tr></table></figure>
-
-
-
-<p>通过命令启动docker：</p>
-<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">systemctl start docker  <span class="comment"># 启动docker服务</span></span><br><span class="line"></span><br><span class="line">systemctl stop docker  <span class="comment"># 停止docker服务</span></span><br><span class="line"></span><br><span class="line">systemctl restart docker  <span class="comment"># 重启docker服务</span></span><br></pre></td></tr></table></figure>
-
-
-
-<p>然后输入命令，可以查看docker版本：</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">docker -v</span><br></pre></td></tr></table></figure>
-
-<p>如图：</p>
-<p><img src="image-20210418154704436.png"></p>
-<h2 id="1-4-配置镜像加速"><a href="#1-4-配置镜像加速" class="headerlink" title="1.4.配置镜像加速"></a>1.4.配置镜像加速</h2><p>docker官方镜像仓库网速较差，我们需要设置国内镜像服务：</p>
-<p>参考阿里云的镜像加速文档：<a href="https://cr.console.aliyun.com/cn-hangzhou/instances/mirrors">https://cr.console.aliyun.com/cn-hangzhou/instances/mirrors</a></p>
-<h1 id="2-CentOS7安装DockerCompose"><a href="#2-CentOS7安装DockerCompose" class="headerlink" title="2.CentOS7安装DockerCompose"></a>2.CentOS7安装DockerCompose</h1><h2 id="2-1-下载"><a href="#2-1-下载" class="headerlink" title="2.1.下载"></a>2.1.下载</h2><p>Linux下需要通过命令下载：</p>
-<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 安装</span></span><br><span class="line">curl -L https://github.com/docker/compose/releases/download/1.23.1/docker-compose-`<span class="built_in">uname</span> -s`-`<span class="built_in">uname</span> -m` &gt; /usr/local/bin/docker-compose</span><br></pre></td></tr></table></figure>
-
-<p>如果下载速度较慢，或者下载失败，联系博主给你一份</p>
-<p><img src="image-20210417133020614.png"></p>
-<p>上传到<code>/usr/local/bin/</code>目录也可以。</p>
-<h2 id="2-2-修改文件权限"><a href="#2-2-修改文件权限" class="headerlink" title="2.2.修改文件权限"></a>2.2.修改文件权限</h2><p>修改文件权限：</p>
-<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 修改权限</span></span><br><span class="line"><span class="built_in">chmod</span> +x /usr/local/bin/docker-compose</span><br></pre></td></tr></table></figure>
-
-
-
-<h2 id="2-3-Base自动补全命令："><a href="#2-3-Base自动补全命令：" class="headerlink" title="2.3.Base自动补全命令："></a>2.3.Base自动补全命令：</h2><figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 补全命令</span></span><br><span class="line">curl -L https://raw.githubusercontent.com/docker/compose/1.29.1/contrib/completion/bash/docker-compose &gt; /etc/bash_completion.d/docker-compose</span><br></pre></td></tr></table></figure>
-
-<p>如果这里出现错误，需要修改自己的hosts文件：</p>
-<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="built_in">echo</span> <span class="string">&quot;199.232.68.133 raw.githubusercontent.com&quot;</span> &gt;&gt; /etc/hosts</span><br></pre></td></tr></table></figure>
-
-
-
-
-
-<h1 id="3-Docker镜像仓库"><a href="#3-Docker镜像仓库" class="headerlink" title="3.Docker镜像仓库"></a>3.Docker镜像仓库</h1><p>搭建镜像仓库可以基于Docker官方提供的DockerRegistry来实现。</p>
-<p>官网地址：<a href="https://hub.docker.com/_/registry">https://hub.docker.com/_/registry</a></p>
-<h2 id="3-1-简化版镜像仓库"><a href="#3-1-简化版镜像仓库" class="headerlink" title="3.1.简化版镜像仓库"></a>3.1.简化版镜像仓库</h2><p>Docker官方的Docker Registry是一个基础版本的Docker镜像仓库，具备仓库管理的完整功能，但是没有图形化界面。</p>
-<p>搭建方式比较简单，命令如下：</p>
-<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">docker run -d \</span><br><span class="line">    --restart=always \</span><br><span class="line">    --name registry	\</span><br><span class="line">    -p 5000:5000 \</span><br><span class="line">    -v registry-data:/var/lib/registry \</span><br><span class="line">    registry</span><br></pre></td></tr></table></figure>
-
-
-
-<p>命令中挂载了一个数据卷registry-data到容器内的&#x2F;var&#x2F;lib&#x2F;registry 目录，这是私有镜像库存放数据的目录。</p>
-<p>访问<a href="http://yourip:5000/v2/_catalog">http://YourIp:5000/v2/_catalog</a> 可以查看当前私有镜像服务中包含的镜像</p>
-<h2 id="3-2-带有图形化界面版本"><a href="#3-2-带有图形化界面版本" class="headerlink" title="3.2.带有图形化界面版本"></a>3.2.带有图形化界面版本</h2><p>使用DockerCompose部署带有图象界面的DockerRegistry，命令如下：</p>
-<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">version:</span> <span class="string">&#x27;3.0&#x27;</span></span><br><span class="line"><span class="attr">services:</span></span><br><span class="line">  <span class="attr">registry:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">registry</span></span><br><span class="line">    <span class="attr">volumes:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">./registry-data:/var/lib/registry</span></span><br><span class="line">  <span class="attr">ui:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">joxit/docker-registry-ui:static</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="number">8080</span><span class="string">:80</span></span><br><span class="line">    <span class="attr">environment:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">REGISTRY_TITLE=传智教育私有仓库</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">REGISTRY_URL=http://registry:5000</span></span><br><span class="line">    <span class="attr">depends_on:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">registry</span></span><br></pre></td></tr></table></figure>
-
-
-
-<h2 id="3-3-配置Docker信任地址"><a href="#3-3-配置Docker信任地址" class="headerlink" title="3.3.配置Docker信任地址"></a>3.3.配置Docker信任地址</h2><p>我们的私服采用的是http协议，默认不被Docker信任，所以需要做一个配置：</p>
-<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 打开要修改的文件</span></span><br><span class="line">vi /etc/docker/daemon.json</span><br><span class="line"><span class="comment"># 添加内容：</span></span><br><span class="line"><span class="string">&quot;insecure-registries&quot;</span>:[<span class="string">&quot;http://192.168.150.101:8080&quot;</span>]</span><br><span class="line"><span class="comment"># 重加载</span></span><br><span class="line">systemctl daemon-reload</span><br><span class="line"><span class="comment"># 重启docker</span></span><br><span class="line">systemctl restart docker</span><br></pre></td></tr></table></figure>
-
-
-
-
-
-
-
-
-
-
-
-]]></content>
-      <categories>
-        <category>软件技术</category>
-      </categories>
-      <tags>
-        <tag>docker</tag>
-        <tag>软件技术</tag>
       </tags>
   </entry>
   <entry>
@@ -2125,7 +2578,51 @@
       </tags>
   </entry>
   <entry>
-    <title>Java多线程：三、多线程锁、java锁的实现</title>
+    <title>Java多线程：四、详解ConcurrentHashMap构成</title>
+    <url>/2024/08/06/java%EF%BC%9A%E8%AF%A6%E8%A7%A3ConcurrentHashMap/</url>
+    <content><![CDATA[<h1 id="一、JDK-1-7"><a href="#一、JDK-1-7" class="headerlink" title="一、JDK 1.7"></a>一、JDK 1.7</h1><h2 id="1-1-加锁机制"><a href="#1-1-加锁机制" class="headerlink" title="1.1 加锁机制"></a>1.1 加锁机制</h2><p>ConcurrentHashMap 在 JDK 1.7 中，提供了一种粒度更细的加锁机制，这种机制叫分段锁「Lock Striping」。整个哈希表被分为多个段，每个段都独立锁定。读取操作不需要锁，写入操作仅锁定相关的段。这减小了锁冲突的几率，从而提高了并发性能。</p>
+<p>这种机制的优点：在并发环境下将实现更高的吞吐量，而在单线程环境下只损失非常小的性能。</p>
+<p>可以这样理解分段锁，就是<strong>将数据分段，对每一段数据分配一把锁</strong>。当一个线程占用锁访问其中一个段数据的时候，其他段的数据也能被其他线程访问。</p>
+<p>有些方法需要跨段，比如 <code>size()</code>、<code>isEmpty()</code>、<code>containsValue()</code>，它们可能需要锁定整个表而不仅仅是某个段，这需要按顺序锁定所有段，操作完后，再按顺序释放所有段的锁。如下图：</p>
+<p><img src="map-20230816155810.png" alt="jdk1.7之前的构成图"></p>
+<h2 id="1-2-八股：jdk1-7之前的构成"><a href="#1-2-八股：jdk1-7之前的构成" class="headerlink" title="1.2 八股：jdk1.7之前的构成"></a>1.2 八股：jdk1.7之前的构成</h2><p>敲重点！字体加粗了务必记好。</p>
+<p>ConcurrentHashMap 是由 <strong>Segment 数组结构和 HashEntry 数组</strong>构成的。Segment 是一种可重入的锁 <code>ReentrantLock</code>，HashEntry 则用于存储键值对数据。</p>
+<p>一个 ConcurrentHashMap 里包含<strong>一个 Segment 数组，数组中都是segment对象</strong>，Segment 的结构和 HashMap 类似，是一种数组和链表结构，一个 Segment 里包含一个 <strong>HashEntry 数组</strong>，每个 HashEntry 是一个链表结构的元素，每个 Segment 守护着一个 HashEntry 数组里的元素，当对 HashEntry 数组的数据进行修改时，必须首先获得它对应的 Segment 锁（可重入锁）。</p>
+<p><strong>HashEntry到底是什么？</strong></p>
+<p>我自己搜的时候都在介绍hashentry是数组，但是搜到的都是类似链表的结构，包括在1.1节中的图片看上去都是链表，这是怎么回事？</p>
+<p>其实，<code>HashEntry</code>本身是一个<strong>结构体（或内部类，同样segment也是内部类）</strong>，实际上是每个<code>Segment</code>内部的一个数组，用于封装键值对数据，并可能包含指向下一个<code>HashEntry</code>的引用以形成链表结构，用于处理哈希冲突。但由于哈希冲突的存在，这个数组的每个位置可能不仅仅是一个<code>HashEntry</code>对象，而是一个由<code>HashEntry</code>对象组成的链表（或更复杂的结构，如红黑树，但这在JDK 1.7中不是默认的）。</p>
+<p><code>ConcurrentHashMap</code>使用链表来存储这些具有相同索引值的键值对。具体来说，每个数组位置（在JDK 1.7中实际上是<code>Segment</code>内部的数组，而在JDK 1.8及以后是<code>Node</code>数组）存储的是链表的头节点。如果发生哈希冲突，新的键值对会被添加到这个链表的末尾。</p>
+<p>接下来看看Segment的结构组成：</p>
+<p>单一的 Segment 结构如下：</p>
+<p><img src="map-20230816160155.png"></p>
+<p>像这样的 Segment 对象，在 ConcurrentHashMap 集合中有多少个呢？有 2 的 N 次方个，共同保存在一个名为 segments 的数组当中。 因此整个 ConcurrentHashMap 的结构如下：</p>
+<p><img src="map-20230816160223.png"></p>
+<p>可以说，ConcurrentHashMap 是一个二级哈希表。在一个总的哈希表下面，有若干个子哈希表。</p>
+<p>Case1：不同 Segment 的并发写入（可以并发执行）</p>
+<p><img src="map-20230816160301.png"></p>
+<p>Case2：同一 Segment 的一写一读（可以并发执行）</p>
+<p><img src="map-20230816160316.png"></p>
+<p>Case3：同一 Segment 的并发写入</p>
+<p><img src="map-20230816160331.png"></p>
+<h1 id="二、JDK1-8往后"><a href="#二、JDK1-8往后" class="headerlink" title="二、JDK1.8往后"></a>二、JDK1.8往后</h1><p>而在 JDK 1.8 中，ConcurrentHashMap 主要做了两个优化：</p>
+<ul>
+<li>同<code>HashMap</code> 一样，链表也会在长度达到 8 的时候转化为红黑树，这样可以提升大量冲突时候的查询效率；</li>
+<li>以某个位置的头结点（链表的头结点或红黑树的 root 结点）为锁，**配合自旋+CAS(乐观锁)**避免不必要的锁开销，进一步提升并发性能。</li>
+</ul>
+<p><img src="map-20230816155924.png"></p>
+<p>相比 JDK1.7 中的 ConcurrentHashMap，JDK1.8 中的 ConcurrentHashMap 取消了 Segment 分段锁，采用 CAS + synchronized 来保证并发安全性，整个容器只分为一个 Segment，即 table 数组。</p>
+<p>JDK1.8 中的 ConcurrentHashMap 对节点 Node 类中的共享变量，和 JDK1.7 一样，使用 volatile 关键字，保证多线程操作时，变量的可见性。</p>
+]]></content>
+      <categories>
+        <category>Java开发</category>
+      </categories>
+      <tags>
+        <tag>面试</tag>
+        <tag>多线程</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Java多线程：三、多线程锁、JUC锁的实现</title>
     <url>/2024/08/05/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E9%94%81/</url>
     <content><![CDATA[<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>大部分内容由网上搜索，有直接复制粘贴的内容，本篇博客整理我查找的内容，且加入我个人的理解和个人需要了解的知识进行搜索得到的内容，有错误请在评论区留言</p>
 <h1 id="一、首先介绍一下锁"><a href="#一、首先介绍一下锁" class="headerlink" title="一、首先介绍一下锁"></a>一、首先介绍一下锁</h1><p>操作系统层面的锁： 操作系统通过锁机制来管理进程（或线程）对共享资源的访问，以防止数据竞争和保证数据一致性。 常见的操作系统锁包括互斥锁（Mutex）、读写锁（Read-Write Lock）、自旋锁（Spinlock）等，它们用于控制对临界区（Critical Section）的访问。 </p>
@@ -2272,15 +2769,14 @@
 <p>当线程在持有可重入锁的情况下进入嵌套调用（即一个被锁保护的方法或代码块内部调用了另一个被相同锁保护的方法或代码块）时，由于当前线程已经是锁的持有者，因此它可以自动增加锁的计数器，而无需等待锁的释放。这样，线程就可以无缝地进入内层被锁保护的区域，而不会导致死锁或阻塞。</p>
 <p>非可重入锁则是在确定当前线程是持有锁的线程之后，直接将 status 置为 0，将锁释放。</p>
 <p><img src="other-bukfsdjavassmtjstd-d6e12a34-c889-45e1-83bf-a4d7e36eedde.png"></p>
-<h2 id="5、公平锁和非公平锁"><a href="#5、公平锁和非公平锁" class="headerlink" title="5、公平锁和非公平锁"></a>5、公平锁和非公平锁</h2><p>这里的“公平”，其实通俗意义来说就是“先来后到”，也就是 FIFO。如果对一个锁来说，先对锁获取请求的线程一定会先被满足，后对锁获取请求的线程后被满足，那这个锁就是公平的。反之，那就是不公平的。</p>
+<h2 id="5、公平锁和非公平锁"><a href="#5、公平锁和非公平锁" class="headerlink" title="5、公平锁和非公平锁"></a>5、公平锁和非公平锁</h2><p>这里的“公平”，其实通俗意义来说就是“先来先服务”，也就是 FIFO。如果对一个锁来说，先对锁获取请求的线程一定会先被满足，后对锁获取请求的线程后被满足，那这个锁就是公平的，即<strong>当一个线程释放锁后，等待时间最长的线程会获得锁的访问权</strong>。反之，那就是不公平的。</p>
 <p>一般情况下，<strong>非公平锁能提升一定的效率。但是非公平锁可能会发生线程饥饿（有一些线程长时间得不到锁）的情况</strong>。所以要根据实际的需求来选择非公平锁和公平锁。</p>
 <p><code>ReentrantLock</code> 支持非公平锁和公平锁两种。</p>
 <h2 id="6、读写锁和排它锁"><a href="#6、读写锁和排它锁" class="headerlink" title="6、读写锁和排它锁"></a>6、读写锁和排它锁</h2><p> <code>synchronized</code>和<code>ReentrantLock</code>，其实都是“排它锁”。也就是说，这些锁在同一时刻只允许一个线程进行访问。</p>
 <p>而读写锁可以在同一时刻允许多个读线程访问。Java 提供了 <code>ReentrantReadWriteLock</code>类作为读写锁的默认实现，内部维护了两个锁：一个读锁，一个写锁。通过分离读锁和写锁，使得在“读多写少”的环境下，大大地提高了性能。</p>
 <h3 id="（1）介绍一下ReentrantReadWriteLock："><a href="#（1）介绍一下ReentrantReadWriteLock：" class="headerlink" title="（1）介绍一下ReentrantReadWriteLock："></a>（1）介绍一下ReentrantReadWriteLock：</h3><p><strong>ReentrantReadWriteLock</strong>：是Java中的一个读写锁实现，它允许多个线程同时读取共享资源（读读可以并发），但在写入时只允许一个线程独占（读写、写读、写写互斥）。这个锁支持重入，即同一个线程可以多次获取相同类型的锁。它提高了读操作的并发性，同时保证了写操作的独占性。</p>
-<p><strong>我相信没学过ReentrantReadWriteLock的人肯定认为和ReentrantLock有什么关系。</strong></p>
-<p>实际上什么关系都没有，ReentrantReadWriteLock和ReentrantLock之间并没有继承关系。它们各自独立实现，服务于不同的锁需求。ReentrantReadWriteLock实现了<code>ReadWriteLock</code>接口。这个接口提供了两个锁对象：读锁（ReadLock）和写锁（WriteLock），分别通过<code>readLock()</code>和<code>writeLock()</code>方法获取。</p>
-<p>好了到这里，又有人想，<code>ReentrantReadWriteLock</code>实现了<code>ReadWriteLock</code>接口，而<code>ReentrantLock</code>实现了<code>Lock</code>接口，那么<code>ReadWriteLock</code>接口和<code>Lock</code>接口是不是继承关系？<strong>实际上也不是，都是JUC包下独立的接口。</strong></p>
+<p><code>ReentrantReadWriteLock</code>和<code>ReentrantLock</code>之间并没有继承关系。它们各自独立实现，服务于不同的锁需求。<code>ReentrantReadWriteLock</code>实现了<code>ReadWriteLock</code>接口。这个接口提供了两个锁对象：读锁（ReadLock）和写锁（WriteLock），分别通过<code>readLock()</code>和<code>writeLock()</code>方法获取。</p>
+<p>同理，<code>ReadWriteLock</code>接口和<code>Lock</code>接口也不是继承关系，<strong>都是JUC包下独立的接口。</strong></p>
 <h3 id="（2）回归正题："><a href="#（2）回归正题：" class="headerlink" title="（2）回归正题："></a><strong>（2）回归正题：</strong></h3><p><strong>排它锁也叫独享锁</strong>，如果线程 T 对数据 A 加上排它锁后，则其他线程不能再对 A 加任何类型的锁。获得排它锁的线程既能读数据又能修改数据。</p>
 <p>与之对应的，就是共享锁，指该锁可被多个线程所持有。如果线程 T 对数据 A 加上共享锁后，则其他线程只能对 A 再加共享锁，不能加排它锁。获得共享锁的线程只能读数据，不能修改数据。</p>
 <p>独享锁与共享锁也是通过<code>AQS</code>（第三大节介绍）来实现的，通过实现不同的方法，来实现独享或者共享。</p>
@@ -2486,50 +2982,6 @@
 <p><code>StampedLock</code> 类是 Java 8 才发布的，也是 Doug Lea 大神所写，有人称它为锁的性能之王。</p>
 <p>StampedLock 没有实现 Lock 接口和 ReadWriteLock 接口，但它实现了“读写锁”的功能，并且性能比 ReentrantReadWriteLock 更高。StampedLock 还把读锁分为了“乐观读锁”和“悲观读锁”两种。</p>
 <p>感兴趣可以自行搜索，在这里的博客就只介绍面向八股的比较常见的锁啦</p>
-]]></content>
-      <categories>
-        <category>Java开发</category>
-      </categories>
-      <tags>
-        <tag>面试</tag>
-        <tag>多线程</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>Java多线程：四、详解ConcurrentHashMap构成</title>
-    <url>/2024/08/06/java%EF%BC%9A%E8%AF%A6%E8%A7%A3ConcurrentHashMap/</url>
-    <content><![CDATA[<h1 id="一、JDK-1-7"><a href="#一、JDK-1-7" class="headerlink" title="一、JDK 1.7"></a>一、JDK 1.7</h1><h2 id="1-1-加锁机制"><a href="#1-1-加锁机制" class="headerlink" title="1.1 加锁机制"></a>1.1 加锁机制</h2><p>ConcurrentHashMap 在 JDK 1.7 中，提供了一种粒度更细的加锁机制，这种机制叫分段锁「Lock Striping」。整个哈希表被分为多个段，每个段都独立锁定。读取操作不需要锁，写入操作仅锁定相关的段。这减小了锁冲突的几率，从而提高了并发性能。</p>
-<p>这种机制的优点：在并发环境下将实现更高的吞吐量，而在单线程环境下只损失非常小的性能。</p>
-<p>可以这样理解分段锁，就是<strong>将数据分段，对每一段数据分配一把锁</strong>。当一个线程占用锁访问其中一个段数据的时候，其他段的数据也能被其他线程访问。</p>
-<p>有些方法需要跨段，比如 <code>size()</code>、<code>isEmpty()</code>、<code>containsValue()</code>，它们可能需要锁定整个表而不仅仅是某个段，这需要按顺序锁定所有段，操作完后，再按顺序释放所有段的锁。如下图：</p>
-<p><img src="map-20230816155810.png" alt="jdk1.7之前的构成图"></p>
-<h2 id="1-2-八股：jdk1-7之前的构成"><a href="#1-2-八股：jdk1-7之前的构成" class="headerlink" title="1.2 八股：jdk1.7之前的构成"></a>1.2 八股：jdk1.7之前的构成</h2><p>敲重点！字体加粗了务必记好。</p>
-<p>ConcurrentHashMap 是由 <strong>Segment 数组结构和 HashEntry 数组</strong>构成的。Segment 是一种可重入的锁 <code>ReentrantLock</code>，HashEntry 则用于存储键值对数据。</p>
-<p>一个 ConcurrentHashMap 里包含<strong>一个 Segment 数组，数组中都是segment对象</strong>，Segment 的结构和 HashMap 类似，是一种数组和链表结构，一个 Segment 里包含一个 <strong>HashEntry 数组</strong>，每个 HashEntry 是一个链表结构的元素，每个 Segment 守护着一个 HashEntry 数组里的元素，当对 HashEntry 数组的数据进行修改时，必须首先获得它对应的 Segment 锁（可重入锁）。</p>
-<p><strong>HashEntry到底是什么？</strong></p>
-<p>我自己搜的时候都在介绍hashentry是数组，但是搜到的都是类似链表的结构，包括在1.1节中的图片看上去都是链表，这是怎么回事？</p>
-<p>其实，<code>HashEntry</code>本身是一个<strong>结构体（或内部类，同样segment也是内部类）</strong>，实际上是每个<code>Segment</code>内部的一个数组，用于封装键值对数据，并可能包含指向下一个<code>HashEntry</code>的引用以形成链表结构，用于处理哈希冲突。但由于哈希冲突的存在，这个数组的每个位置可能不仅仅是一个<code>HashEntry</code>对象，而是一个由<code>HashEntry</code>对象组成的链表（或更复杂的结构，如红黑树，但这在JDK 1.7中不是默认的）。</p>
-<p><code>ConcurrentHashMap</code>使用链表来存储这些具有相同索引值的键值对。具体来说，每个数组位置（在JDK 1.7中实际上是<code>Segment</code>内部的数组，而在JDK 1.8及以后是<code>Node</code>数组）存储的是链表的头节点。如果发生哈希冲突，新的键值对会被添加到这个链表的末尾。</p>
-<p>接下来看看Segment的结构组成：</p>
-<p>单一的 Segment 结构如下：</p>
-<p><img src="map-20230816160155.png"></p>
-<p>像这样的 Segment 对象，在 ConcurrentHashMap 集合中有多少个呢？有 2 的 N 次方个，共同保存在一个名为 segments 的数组当中。 因此整个 ConcurrentHashMap 的结构如下：</p>
-<p><img src="map-20230816160223.png"></p>
-<p>可以说，ConcurrentHashMap 是一个二级哈希表。在一个总的哈希表下面，有若干个子哈希表。</p>
-<p>Case1：不同 Segment 的并发写入（可以并发执行）</p>
-<p><img src="map-20230816160301.png"></p>
-<p>Case2：同一 Segment 的一写一读（可以并发执行）</p>
-<p><img src="map-20230816160316.png"></p>
-<p>Case3：同一 Segment 的并发写入</p>
-<p><img src="map-20230816160331.png"></p>
-<h1 id="二、JDK1-8往后"><a href="#二、JDK1-8往后" class="headerlink" title="二、JDK1.8往后"></a>二、JDK1.8往后</h1><p>而在 JDK 1.8 中，ConcurrentHashMap 主要做了两个优化：</p>
-<ul>
-<li>同<code>HashMap</code> 一样，链表也会在长度达到 8 的时候转化为红黑树，这样可以提升大量冲突时候的查询效率；</li>
-<li>以某个位置的头结点（链表的头结点或红黑树的 root 结点）为锁，**配合自旋+CAS(乐观锁)**避免不必要的锁开销，进一步提升并发性能。</li>
-</ul>
-<p><img src="map-20230816155924.png"></p>
-<p>相比 JDK1.7 中的 ConcurrentHashMap，JDK1.8 中的 ConcurrentHashMap 取消了 Segment 分段锁，采用 CAS + synchronized 来保证并发安全性，整个容器只分为一个 Segment，即 table 数组。</p>
-<p>JDK1.8 中的 ConcurrentHashMap 对节点 Node 类中的共享变量，和 JDK1.7 一样，使用 volatile 关键字，保证多线程操作时，变量的可见性。</p>
 ]]></content>
       <categories>
         <category>Java开发</category>
@@ -3232,8 +3684,10 @@
 </li>
 </ol>
 <blockquote>
-<p>什么是portlet？</p>
-<p>还记得我们学web应用和servlet容器吧？最常用的就是tomcat，类似的github上开源的基础框架可能还有undertow、portlet容器，portlet就是portlet容器的web组件。</p>
+<p><strong>什么是portlet？</strong></p>
+<p>还记得我们学web应用和servlet容器吧？最常用的就是tomcat，类似的github上开源的基础框架可能还有undertow、jetty</p>
+<p>Portlet容器不是一个类似于Servlet容器的独立容器，而是作为Servlet容器之上的一个薄层进行实现，并重复使用Servlet容器所提供的功能。</p>
+<p>Portlet是可再用的Web模块，被设计成在门户网站的环境中运行。它们通过portlet容器进行管理，并由容器处理请求，生成动态内容。</p>
 </blockquote>
 <h2 id="4-八股：Spring框架中的单例Beans是线程安全的么？"><a href="#4-八股：Spring框架中的单例Beans是线程安全的么？" class="headerlink" title="4. 八股：Spring框架中的单例Beans是线程安全的么？"></a>4. 八股：Spring框架中的单例Beans是线程安全的么？</h2><p>Spring框架并没有对单例bean进行任何多线程的封装处理。关于单例bean的线程安全和并发问题需要开发者自行去搞定。但实际上，大部分的Spring bean并没有可变的状态(比如Serview类和DAO类)，所以在某种程度上说Spring的单例bean是线程安全的。如果你的bean有多种状态的话（比如 View Model 对象），就需要自行保证线程安全。最浅显的解决办法就是将多态bean的作用域由“singleton”变更为“prototype”。</p>
 <h2 id="5-八股：bean自动装配的规则"><a href="#5-八股：bean自动装配的规则" class="headerlink" title="5. 八股：bean自动装配的规则"></a>5. 八股：bean自动装配的规则</h2><p>Spring框架中的自动装配提供了四种主要类型，它们分别是：</p>
@@ -3311,7 +3765,7 @@
 <p><strong>我们再来讨论一个细节，还记得循环依赖中，三级缓存为什么存在吗？</strong></p>
 <p>也是这篇博客的内容：<a href="https://springdoc.cn/revisiting-spring-s-circular-dependencies/">再谈谈 Spring 中的循环依赖 - spring 中文网 (springdoc.cn)</a>。</p>
 <p>在进行AOP代理的时候，为了防止注入的是非代理的对象，所以才有的三级缓存。</p>
-<p><img src="Snipaste_2024-08-21_17-16-20.png" alt="spring的第三级缓存">这里不仅介绍了为什么需要三级缓存，还介绍了AOP与创建bean的流程。</p>
+<p><img src="Snipaste_2024-08-21_17-16-20.png" alt="spring的第三级缓存" style="zoom:150%;">这里不仅介绍了为什么需要三级缓存，还介绍了AOP与创建bean的流程。</p>
 <p><strong>那么AOP和三级缓存涉及到bean的什么生命周期？</strong></p>
 <p>AOP主要涉及Bean生命周期的<strong>初始化</strong>阶段。</p>
 <p>还记得<code>BeanPostProcessor</code>吗？我们在第二节的生命周期提到过，<code>BeanPostProcessor</code>是Spring IOC容器给我们提供的一个扩展接口，它可以在Spring容器实例化bean之后，在执行bean的初始化方法前后，允许我们自定义修改新的bean实例，如修改bean的属性，可以给bean生成一个动态代理实例等等，Spring AOP的底层处理也是通过实现<code>BeanPostProcessor</code>来执行代理包装逻辑的。</p>
