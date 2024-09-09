@@ -1,0 +1,307 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="utf-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><title>MQ进阶 | 颓废市民黄先生</title><noscript>开启JavaScript才能访问本站哦~</noscript><link rel="icon" href="/img/avatar.ico"><!-- index.css--><link rel="stylesheet" href="/css/index.css?v=1.13.3"><!-- inject head--><link rel="canonical" href="https://samurai-127.github.io/2024/09/09/06MQ%E8%BF%9B%E9%98%B6/"><link rel="stylesheet" href="https://cdn2.codesign.qq.com/icons/7pOrz0WXB5ZWJPX/latest/iconfont.css"><!-- aplayer--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aplayer/1.10.1/APlayer.min.css"><!-- swiper--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Swiper/11.0.5/swiper-bundle.min.css"><!-- fancybox ui--><!-- katex--><!-- Open Graph--><meta name="description" content="1. 消息可靠性1.1 生产者确认机制 1.2 消息持久化（默认就是持久化，了解代码） 1.3 消费者消息确认 1.3.1 none模式 1.3.2 auto模式 1.4 消费者重试机制1.4.1 本地重试（默认的RejectAndDontRequeueRecoverer策略）基于1.3.2的a"><!-- pwa--><meta name="apple-mobile-web-app-capable" content="颓废市民黄先生"><meta name="theme-color" content="var(--efu-main)"><meta name="apple-mobile-web-app-status-bar-style" content="var(--efu-main)"><link rel="bookmark" href="/img/avatar.ico"><link rel="apple-touch-icon" href="/img/avatar.ico" sizes="180x180"><script>console.log(' %c Solitude %c ' + '1.13.3' + ' %c https://github.com/everfu/hexo-theme-solitude',
+    'background:#35495e ; padding: 1px; border-radius: 3px 0 0 3px;  color: #fff',
+    'background:#ff9a9a ; padding: 1px; border-radius: 0 3px 3px 0;  color: #fff',
+    'background:unset ; padding: 1px; border-radius: 0 3px 3px 0;  color: #fff')
+</script><script>(()=>{
+        const saveToLocal = {
+            set: function setWithExpiry(key, value, ttl) {
+                if (ttl === 0)
+                    return
+                const now = new Date()
+                const expiryDay = ttl * 86400000
+                const item = {
+                    value: value,
+                    expiry: now.getTime() + expiryDay
+                }
+                localStorage.setItem(key, JSON.stringify(item))
+            },
+            get: function getWithExpiry(key) {
+                const itemStr = localStorage.getItem(key)
+    
+                if (!itemStr) {
+                    return undefined
+                }
+                const item = JSON.parse(itemStr)
+                const now = new Date()
+    
+                if (now.getTime() > item.expiry) {
+                    localStorage.removeItem(key)
+                    return undefined
+                }
+                return item.value
+            }
+        };
+        window.utils = {
+            saveToLocal: saveToLocal,
+            getCSS: (url, id = false) => new Promise((resolve, reject) => {
+              const link = document.createElement('link')
+              link.rel = 'stylesheet'
+              link.href = url
+              if (id) link.id = id
+              link.onerror = reject
+              link.onload = link.onreadystatechange = function() {
+                const loadState = this.readyState
+                if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+                link.onload = link.onreadystatechange = null
+                resolve()
+              }
+              document.head.appendChild(link)
+            }),
+            getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+              const script = document.createElement('script')
+              script.src = url
+              script.async = true
+              script.onerror = reject
+              script.onload = script.onreadystatechange = function() {
+                const loadState = this.readyState
+                if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+                script.onload = script.onreadystatechange = null
+                resolve()
+              }
+    
+              Object.keys(attr).forEach(key => {
+                script.setAttribute(key, attr[key])
+              })
+    
+              document.head.appendChild(script)
+            }),
+            addGlobalFn: (key, fn, name = false, parent = window) => {
+                const globalFn = parent.globalFn || {}
+                const keyObj = globalFn[key] || {}
+        
+                if (name && keyObj[name]) return
+        
+                name = name || Object.keys(keyObj).length
+                keyObj[name] = fn
+                globalFn[key] = keyObj
+                parent.globalFn = globalFn
+            },
+        }
+    })()</script><!-- global head--><script>const GLOBAL_CONFIG = {
+    root: '/',
+    algolia: undefined,
+    localsearch: {"preload":false,"path":"/search.xml"},
+    runtime: 'false',
+    lazyload: {
+        enable: false,
+        error: '/img/error_load.avif'
+    },
+    copyright: {"limit":50,"author":"作者: 颓废市民黄先生","link":"链接: ","source":"来源: 颓废市民黄先生","info":"著作权归作者所有。 商业转载请联系作者获得授权，非商业转载请注明出处。"},
+    highlight: {"limit":200,"expand":true,"copy":true,"syntax":"highlight.js"},
+    randomlink: false,
+    lang: {"theme":{"dark":"已切换至深色模式","light":"已切换至浅色模式"},"copy":{"success":"复制成功","error":"复制失败"},"backtop":"返回顶部","time":{"day":"天前","hour":"小时前","just":"刚刚","min":"分钟前","month":"个月前"},"day":" 天","f12":"开发者模式已打开，请遵循GPL协议。","totalk":"无需删除空行，直接输入评论即可","search":{"empty":"找不到你查询的内容：${query}","hit":"找到 ${hits} 条结果，用时 ${time} 毫秒","placeholder":"输入关键词快速查找","count":"共 <b>${count}</b> 条结果。"},"barrage":{"title":"热评"}},
+    aside: {
+        sayhello: {
+            morning: '起那么早看博客？',
+            noon: '中午休息一下呗',
+            afternoon: '下午好像在犯困',
+            night: '晚上洗个澡爽一下呗',
+            goodnight: '睡个好觉，保证精力充沛',
+        },
+        sayhello2: [],
+        sayhello3: {
+            prefix: '好久不见，',
+            back: '欢迎再次回来，',
+        },
+    },
+    covercolor: {
+        enable: false
+    },
+    comment: {"avatar":"https://cravatar.cn","commentBarrage":true},
+    lightbox: 'null',
+    post_ai: {"key":"449aa72132adf73ef7084ef83c46792af1edab","talk":null,"randomPost":false},
+    right_menu: {"mode":{"dark":"深色模式","light":"浅色模式"},"img_error":"此图片无法复制与下载","music":{"start":"播放音乐","stop":"暂停音乐"},"barrage":{"open":"显示热评","close":"关闭热评"},"translate":{"translateDelay":0,"defaultEncoding":2}},
+    lure: {"jump":"404 Not Found","back":"被骗了吧（），网页没有404"},
+    expire: false,
+};</script><!-- page-config head--><script id="config-diff">var PAGE_CONFIG = {
+    is_post: true,
+    is_page: false,
+    is_home: false,
+    page: 'string',
+    toc: true,
+    comment: true,
+    ai_text: false
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body id="body" data-type="string"><!-- universe--><canvas id="universe"></canvas><!-- background img--><div id="global_bg"></div><!-- loading--><!-- console--><!-- sidebar--><div id="sidebar" style="zoom: 1;"><div id="menu-mask" style="display: none;"></div><div id="sidebar-menus"><div class="site-data"><div class="data-item is-center"><div class="data-item-link"><a href="/archives/"><div class="headline">文章</div><div class="length-num">31</div></a></div></div><div class="data-item is-center"><div class="data-item-link"><a href="/categories/"><div class="headline">分类</div><div class="length-num">7</div></a></div></div><div class="data-item is-center"><div class="data-item-link"><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a></div></div></div><span class="sidebar-menu-item-title">功能</span><div class="sidebar-menu-item"><span class="darkmode_switchbutton menu-child" onclick="sco.switchDarkMode()"><i class="solitude st-moon-clear-fill"></i><span>显示模式</span></span></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><span>首页</span></a></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>文库</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="solitude  st-folder-fill"></i><span>文章列表</span></a></li><li><a class="site-page child" href="/categories/"><i class="solitude  st-checkbox-multiple-blank-fill"></i><span>全部分类</span></a></li><li><a class="site-page child" href="/tags/"><i class="solitude  st-price-tag-fill"></i><span>全部标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>我的歌单</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="solitude  st-disc-fill"></i><span>音乐馆</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>关于</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/about/"><i class="solitude  st-contacts-fill"></i><span>关于本站</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/message"><span>留言板</span></a></div><div class="menus_item"><a class="site-page" href="/recentcomments"><span>最近留言</span></a></div></div><span class="sidebar-menu-item-title">标签</span><div class="card-widget card-tags card-archives card-webinfo card-allinfo"><div class="card-tag-cloud"><a href="/tags/mysql/">mysql<sup>6</sup></a><a href="/tags/%E9%9D%A2%E8%AF%95/">面试<sup>19</sup></a><a href="/tags/redis/">redis<sup>3</sup></a><a href="/tags/docker/">docker<sup>2</sup></a><a href="/tags/%E8%BD%AF%E4%BB%B6%E6%8A%80%E6%9C%AF/">软件技术<sup>5</sup></a><a href="/tags/JDBC/">JDBC<sup>1</sup></a><a href="/tags/JVM/">JVM<sup>1</sup></a><a href="/tags/Java/">Java<sup>1</sup></a><a href="/tags/spring/">spring<sup>2</sup></a><a href="/tags/%E5%90%8E%E7%AB%AF/">后端<sup>1</sup></a><a href="/tags/git/">git<sup>1</sup></a><a href="/tags/%E5%A4%9A%E7%BA%BF%E7%A8%8B/">多线程<sup>4</sup></a><a href="/tags/mybatis/">mybatis<sup>1</sup></a><a href="/tags/hexo/">hexo<sup>1</sup></a><a href="/tags/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/">操作系统<sup>2</sup></a><a href="/tags/%E7%AE%97%E6%B3%95/">算法<sup>4</sup></a><a href="/tags/MQ/">MQ<sup>2</sup></a></div></div></div></div><!-- keyboard--><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav class="show" id="nav"><div id="nav-group"><div id="blog_name"><a id="site-name" href="/" title="返回博客主页"><span class="title">颓废市民黄先生</span></a></div><div id="page-name-mask"><div id="page-name"><a id="page-name-text" onclick="sco.toTop()">MQ进阶</a></div></div><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><span>首页</span></a></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>文库</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="solitude  st-folder-fill"></i><span>文章列表</span></a></li><li><a class="site-page child" href="/categories/"><i class="solitude  st-checkbox-multiple-blank-fill"></i><span>全部分类</span></a></li><li><a class="site-page child" href="/tags/"><i class="solitude  st-price-tag-fill"></i><span>全部标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>我的歌单</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="solitude  st-disc-fill"></i><span>音乐馆</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>关于</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/about/"><i class="solitude  st-contacts-fill"></i><span>关于本站</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/message"><span>留言板</span></a></div><div class="menus_item"><a class="site-page" href="/recentcomments"><span>最近留言</span></a></div></div></div><div id="nav-left"></div><div id="nav-right"><div class="nav-button" id="randomPost_button"><a class="site-page" onclick="toRandomPost()" title="随机一篇文章" href="javascript:void(0);"><i class="solitude st-dice-line"></i></a></div><div class="nav-button" id="search-button"><a class="site-page social-icon search" href="javascript:void(0);" title="搜索"><i class="solitude st-search-line"></i></a></div><div class="nav-button" id="nav-totop" onclick="sco.toTop()"><a class="totopbtn"><i class="solitude st-arrow-up-line"></i><span id="percent">0</span></a></div><div id="toggle-menu"><a class="site-page"><i class="solitude st-menu-line"></i></a></div></div></div></nav><div class="coverdiv" id="coverdiv"><img class="nolazyload" id="post-cover" src="/img/cover/mq.avif" alt="MQ进阶"></div><div id="post-info"><div id="post-firstinfo"><div class="meta-firstline"><a class="post-meta-original" title="该文章为原创文章，注意版权协议">原创</a><span class="post-meta-categories"><a class="post-meta-categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%BC%80%E5%8F%91/">后端开发</a></span><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/"><span class="tags-name tags-punctuation">面试</span></a><a class="post-meta__tags" href="/tags/MQ/"><span class="tags-name tags-punctuation">MQ</span></a></div></div></div></div><h1 class="post-title">MQ进阶</h1><div id="post-meta"><div class="meta-secondline"><span class="post-meta-date" title="发布于 2024-09-09 14:46:30"><i class="post-meta-icon solitude st-calendar-todo-fill"></i><time datetime="2024-09-09T06:46:30.000Z">2024-09-09T06:46:30.000Z</time></span><span class="post-meta-date" title="最后更新于 2024-09-09 15:02:04"><i class="post-meta-icon solitude st-refresh-line"></i><time datetime="2024-09-09T07:02:04.811Z">2024-09-09T07:02:04.811Z</time></span><span class="post-meta-position" title="作者IP归属地为广西"><i class="post-meta-icon solitude st-map-pin-fill"></i><span>广西</span></span><a class="post-meta-pv" href="/2024/09/09/06MQ%E8%BF%9B%E9%98%B6/" title="文章热度"><i class="post-meta-icon solitude st-fire-fill"></i><span id="twikoo_visitors"><i class="solitude st-loading-line"></i></span></a><span class="post-meta-commentcount" title="评论数" onclick="sco.scrollTo('post-comment')"><i class="solitude st-chat-fill"></i><a href="/2024/09/09/06MQ%E8%BF%9B%E9%98%B6/#post-comment"><span class="twikoo-count"><i class="solitude st-loading-line"></i></span></a></span></div></div></div><section class="main-hero-waves-area waves-area"><svg class="waves-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" viewBox="0 24 150 28" preserveAspectRatio="none" shape-rendering="auto"><defs><path id="gentle-wave" d="M -160 44 c 30 0 58 -18 88 -18 s 58 18 88 18 s 58 -18 88 -18 s 58 18 88 18 v 44 h -352 Z"></path></defs><g class="parallax"><use href="#gentle-wave" x="48" y="0"></use><use href="#gentle-wave" x="48" y="3"></use><use href="#gentle-wave" x="48" y="5"></use><use href="#gentle-wave" x="48" y="7"></use></g></svg></section></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><div class="post-ai"><div class="ai-title"><div class="ai-title-left"><i class="ai-title-icon solitude st-robot-fill"></i><div class="ai-title-text">文章摘要</div></div><div class="ai-tag" id="ai-tag">GPT 4</div></div><div class="ai-explanation" style="display: block;"></div><div class="ai-suggestions"></div><div class="ai-bottom"><div class="ai-tips">此内容根据文章生成，仅用于文章内容的解释与总结</div><a class="ai-report" title="投诉" href="https://samurai-127.github.io">投诉</a></div></div><h1 id="1-消息可靠性"><a href="#1-消息可靠性" class="headerlink" title="1.  消息可靠性"></a>1.  消息可靠性</h1><h2 id="1-1-生产者确认机制"><a href="#1-1-生产者确认机制" class="headerlink" title="1.1 生产者确认机制"></a>1.1 生产者确认机制</h2><p><img src="clip_image002.jpg"></p>
+<p><img src="clip_image004.jpg"><img src="clip_image006.gif"><img src="clip_image008.gif"></p>
+<h2 id="1-2-消息持久化（默认就是持久化，了解代码）"><a href="#1-2-消息持久化（默认就是持久化，了解代码）" class="headerlink" title="1.2 消息持久化（默认就是持久化，了解代码）"></a>1.2 消息持久化（默认就是持久化，了解代码）</h2><p><img src="clip_image010.jpg"></p>
+<h2 id="1-3-消费者消息确认"><a href="#1-3-消费者消息确认" class="headerlink" title="1.3 消费者消息确认"></a>1.3 消费者消息确认</h2><p><img src="clip_image012.jpg"></p>
+<h3 id="1-3-1-none模式"><a href="#1-3-1-none模式" class="headerlink" title="1.3.1 none模式"></a>1.3.1 none模式</h3><p><img src="clip_image014.jpg"></p>
+<h3 id="1-3-2-auto模式"><a href="#1-3-2-auto模式" class="headerlink" title="1.3.2 auto模式"></a>1.3.2 auto模式</h3><p><img src="clip_image016.jpg"></p>
+<h2 id="1-4-消费者重试机制"><a href="#1-4-消费者重试机制" class="headerlink" title="1.4 消费者重试机制"></a>1.4 消费者重试机制</h2><h3 id="1-4-1-本地重试（默认的RejectAndDontRequeueRecoverer策略）"><a href="#1-4-1-本地重试（默认的RejectAndDontRequeueRecoverer策略）" class="headerlink" title="1.4.1 本地重试（默认的RejectAndDontRequeueRecoverer策略）"></a>1.4.1 本地重试（默认的RejectAndDontRequeueRecoverer策略）</h3><p>基于1.3.2的auto模式，发送失败的消息会重新放入队列queue中，导致mq反复处理失败的消息，带来过多的压力。因此通过本地重试的方式，将失败的队列进行retry处理（spring），而不是反复放入队列。</p>
+<p>在消费者的application.yml文件中配置启动失败重试开关、以及重复的次数：</p>
+<p><img src="clip_image018.jpg"></p>
+<h3 id="1-4-2-三个失败策略（RepublishMessageRecoverer实例）"><a href="#1-4-2-三个失败策略（RepublishMessageRecoverer实例）" class="headerlink" title="1.4.2 三个失败策略（RepublishMessageRecoverer实例）"></a>1.4.2 三个失败策略（RepublishMessageRecoverer实例）</h3><p>在springAMQP中的失败策略有三个，1.4.1中是默认的处理方式。对于废弃的消息，如果不希望消息的丢失，可以采用RepublishMessageRecoverer策略。流程图：</p>
+<p><img src="clip_image020.jpg"></p>
+<p>消费者中绑定error交换机后，由交换机根据rountingkey（例子中key&#x3D;error）转发到error.queue队列。</p>
+<p>对于MessageRecoverer接口，在1.4.1中的重试机制是默认的，因此接口对应1.4.1也是默认的（不需要声明）。但是使用RepublishMessage -Recoverer方式实现重试机制需要覆盖MessageRecoverer接口。</p>
+<p>声明在消费者模块中的config类：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"> <span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ErrorMessageConfig</span> &#123;</span><br><span class="line"></span><br><span class="line">   <span class="comment">//声明交换机：当重试机制触发上限时，消费者自动递交失败消息的交换机errorExchange</span></span><br><span class="line">   <span class="meta">@Bean</span></span><br><span class="line">   <span class="keyword">public</span> DirectExchange <span class="title function_">errorMessageExchange</span><span class="params">()</span>&#123;</span><br><span class="line">     <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">DirectExchange</span>(<span class="string">&quot;error.direct&quot;</span>);</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   <span class="comment">//声明队列：绑定errorExchange的队列errorQueue</span></span><br><span class="line">   <span class="meta">@Bean</span></span><br><span class="line">   <span class="keyword">public</span> Queue <span class="title function_">errorQueue</span><span class="params">()</span>&#123;</span><br><span class="line">     <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">Queue</span>(<span class="string">&quot;error.queue&quot;</span>);</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   <span class="comment">//绑定errorExchange交换机和errorQueue队列</span></span><br><span class="line">   <span class="meta">@Bean</span></span><br><span class="line">   <span class="keyword">public</span> Binding <span class="title function_">errorMessageBinding</span><span class="params">()</span>&#123;</span><br><span class="line">     <span class="keyword">return</span> BindingBuilder.bind(errorQueue()).to(errorMessageExchange()).with(<span class="string">&quot;error&quot;</span>);</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   <span class="comment">//声明MessageRecoverer接口，覆盖默认RejectAndDontRequeueRecoverer方式</span></span><br><span class="line">   <span class="meta">@Bean</span></span><br><span class="line">   <span class="keyword">public</span> MessageRecoverer <span class="title function_">republishMessageRecoverer</span><span class="params">(RabbitTemplate rabbitTemplate)</span>&#123;</span><br><span class="line">     <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">RepublishMessageRecoverer</span>(rabbitTemplate, <span class="string">&quot;error.direct&quot;</span>, <span class="string">&quot;error&quot;</span>);</span><br><span class="line">   &#125;</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="2-死信交换机"><a href="#2-死信交换机" class="headerlink" title="2. 死信交换机"></a>2. 死信交换机</h1><h2 id="2-1-成为死信的条件"><a href="#2-1-成为死信的条件" class="headerlink" title="2.1 成为死信的条件"></a>2.1 成为死信的条件</h2><p>成为死信的前提消费者没有重试机制，</p>
+<p><img src="clip_image022.jpg"></p>
+<p>基于config实现2.1的流程</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 声明普通的 simple.queue队列，并且为其指定死信交换机：dl.direct</span></span><br><span class="line"> <span class="meta">@Bean</span></span><br><span class="line"> <span class="keyword">public</span> Queue <span class="title function_">simpleQueue2</span><span class="params">()</span>&#123;</span><br><span class="line">   <span class="keyword">return</span> QueueBuilder.*durable*(**<span class="string">&quot;**simple.queue**&quot;</span>**) <span class="comment">// 指定队列名称，并持久化</span></span><br><span class="line">       .deadLetterExchange(<span class="string">&quot;dl.direct&quot;</span>) <span class="comment">// 指定死信交换机</span></span><br><span class="line">       .build();</span><br><span class="line"> &#125;</span><br><span class="line"> <span class="comment">// 声明死信交换机 dl.direct</span></span><br><span class="line"> <span class="meta">@Bean</span></span><br><span class="line"> <span class="keyword">public</span> DirectExchange <span class="title function_">dlExchange</span><span class="params">()</span>&#123;</span><br><span class="line">   <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">DirectExchange</span>(<span class="string">&quot;dl.direct&quot;</span>, <span class="literal">true</span>, <span class="literal">false</span>);</span><br><span class="line"> &#125;</span><br><span class="line"> <span class="comment">// 声明存储死信的队列 dl.queue</span></span><br><span class="line"> <span class="meta">@Bean</span></span><br><span class="line"> <span class="keyword">public</span> Queue <span class="title function_">dlQueue</span><span class="params">()</span>&#123;</span><br><span class="line">   <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">Queue</span>(**<span class="string">&quot;**dl.queue**&quot;</span>**, <span class="literal">true</span>);</span><br><span class="line"> &#125;</span><br><span class="line"> <span class="comment">// 将死信队列 与 死信交换机绑定</span></span><br><span class="line"> <span class="meta">@Bean</span></span><br><span class="line"> <span class="keyword">public</span> Binding <span class="title function_">dlBinding</span><span class="params">()</span>&#123;</span><br><span class="line">   <span class="keyword">return</span> BindingBuilder.*bind*(dlQueue()).to(dlExchange()).with(<span class="string">&quot;simple&quot;</span>);</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="2-2-结合TTL和死信交换机实现延时发送消息"><a href="#2-2-结合TTL和死信交换机实现延时发送消息" class="headerlink" title="2.2 结合TTL和死信交换机实现延时发送消息"></a>2.2 结合TTL和死信交换机实现延时发送消息</h2><p><img src="clip_image024.jpg"></p>
+<p><img src="clip_image026.jpg"></p>
+<h3 id="2-2-1-2-2-2-声明死信交换机和指定TTL的队列"><a href="#2-2-1-2-2-2-声明死信交换机和指定TTL的队列" class="headerlink" title="2.2.1 &amp; 2.2.2 声明死信交换机和指定TTL的队列"></a>2.2.1 &amp; 2.2.2 声明死信交换机和指定TTL的队列</h3><img src="clip_image028.jpg" style="zoom: 150%;">
+
+ 
+
+<p><img src="clip_image030.jpg"></p>
+<p><img src="clip_image032.jpg"></p>
+<h3 id="2-2-3-消息指定TTL"><a href="#2-2-3-消息指定TTL" class="headerlink" title="2.2.3 消息指定TTL"></a>2.2.3 消息指定TTL</h3><img src="clip_image034.jpg" style="zoom:150%;">
+
+ 
+
+<h2 id="2-3-DelayExchange（mq插件）"><a href="#2-3-DelayExchange（mq插件）" class="headerlink" title="2.3 DelayExchange（mq插件）"></a>2.3 DelayExchange（mq插件）</h2><p>插件用来改进2.2方式，但是我觉得特别麻烦我选择用2.2。另外官方推荐版本3.9.0适配当前docker中装的mq。另外，在docker创建mq的容器时需要指定数据卷，不然把容器删了重新创建，此时注意修改账号密码，不然登不进mq客户端（最后给创建容器命令）。需要将插件拖进去（使用finalshell）</p>
+<img src="clip_image036.jpg" style="zoom:67%;">
+
+<img src="clip_image038.jpg" style="zoom:150%;">
+
+ 
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">docker run \</span><br><span class="line"> -e RABBITMQ_DEFAULT_USER=root\</span><br><span class="line"> -e RABBITMQ_DEFAULT_PASS=root \</span><br><span class="line"> -v mq-plugins:/plugins \</span><br><span class="line"> --name mq \</span><br><span class="line"> --hostname mq1 \</span><br><span class="line"> -p 15672:15672 \</span><br><span class="line"> -p 5672:5672 \</span><br><span class="line"> -d \</span><br><span class="line"> rabbitmq:3.8-management</span><br></pre></td></tr></table></figure>
+
+
+
+<h1 id="3-惰性队列"><a href="#3-惰性队列" class="headerlink" title="3. 惰性队列"></a>3. 惰性队列</h1><h2 id="3-1-消息堆积问题"><a href="#3-1-消息堆积问题" class="headerlink" title="3.1 消息堆积问题"></a>3.1 消息堆积问题</h2><p><img src="clip_image040.jpg"></p>
+<h2 id="3-2-惰性队列"><a href="#3-2-惰性队列" class="headerlink" title="3.2 惰性队列"></a>3.2 惰性队列</h2><p><img src="clip_image042.gif"> <img src="clip_image044.jpg"></p>
+</article><div class="post-copyright"><div class="post-copyright__author_group"><a class="post-copyright__author_img" href="/about/"><img class="post-copyright__author_img_front" src="/img/avatar.ico"></a><div class="post-copyright__author_name">颓废市民黄先生</div><div class="post-copyright__author_desc">welcome 艾瑞巴蒂</div></div><div class="post-tools" id="post-tools"><div class="post-tools-left"><div id="quit-box" onclick="RemoveRewardMask()"></div></div></div><div class="social-share"><a class="social-share-ico icon-qq" target="_blank" rel="noopener" href="https://connect.qq.com/widget/shareqq/index.html?url=https%3A%2F%2Fsamurai-127.github.io%2F2024%2F09%2F09%2F06MQ%25E8%25BF%259B%25E9%2598%25B6%2F&amp;title=MQ%E8%BF%9B%E9%98%B6&amp;desc=undefined&amp;summary=undefined&amp;site=MQ%E8%BF%9B%E9%98%B6&amp;pics=%2Fimg%2Fcover%2Fmq.avif" title="分享到QQ"><i class="solitude st-qq-fill"></i></a></div><div class="post-copyright__notice"><span class="post-copyright-info">本文是原创文章，采用<a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh">CC BY-NC-SA 4.0</a>协议，完整转载请注明来自<a href="/">颓废市民黄先生</a></span></div></div><div class="post-tools-right"><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/"><span class="tags-punctuation"></span>面试<span class="tagsPageCount">19</span></a><a class="post-meta__tags" href="/tags/MQ/"><span class="tags-punctuation"></span>MQ<span class="tagsPageCount">2</span></a></div></div></div><nav class="needEndHide pagination-post" id="pagination"><div class="next-post pull-full"><a href="/2024/09/04/05SpringAMQP/"><div class="pagination-info"><div class="label">下一篇</div><div class="next_info">异步通信：MQ基础</div></div></a></div></nav><div class="relatedPosts"><div class="headline"><i class="solitude st-star-smile-fill"></i><span>喜欢这篇的人也看了</span><div class="relatedPosts-link"><a onclick="event.preventDefault(); toRandomPost();" href="javascript:void(0);" rel="external nofollow" data-pjax-state="">随便逛逛</a></div></div><div class="relatedPosts-list"><div><a href="/2024/09/04/05SpringAMQP/" title="异步通信：MQ基础"><img class="cover" src="/img/cover/mq.avif" alt="cover"><div class="content is-center"><div class="title">异步通信：MQ基础</div></div></a></div><div><a href="/2024/09/02/04Redis%EF%BC%9A%EF%BC%88%E4%B8%89%EF%BC%89%E7%BC%93%E5%AD%98%E8%AE%BE%E8%AE%A1/" title="Redis：（三）缓存设计"><img class="cover" src="/img/cover/02redis.png" alt="cover"><div class="content is-center"><div class="title">Redis：（三）缓存设计</div></div></a></div></div></div><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="solitude st-chat-fill"></i><span> 评论</span><span class="count"> (<span class="twikoo-count"><i class="solitude st-loading-line"></i></span>)</span></div></div><div class="comment-wrap"><div id="twikoo-wrap"></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="card-content"><div class="card-info-avatar is-center"><div class="author-info__top-group"><div class="author-info__sayhi" id="author-info__sayhi" onclick="sco.changeSayHelloText()">sayhello.morning</div></div></div><div class="avatar-img-group"><img class="avatar-img" alt="头像" src="/img/avatar.jpg"></div><div class="author-info__description_group"><div class="author-info__description">大郞，你来看我的博客啦~</div><div class="author-info__description2">看看有没有对你有帮助的内容呗</div></div><div class="author-info__bottom-group"><a class="author-info__bottom-group-left" href="/about/"><div class="author-info__name">颓废市民黄先生</div><div class="author-info__desc">welcome 艾瑞巴蒂</div></a><div class="card-info-social-icons is-center"><a class="social-icon" target="_blank" rel="noopener" href="https://space.bilibili.com/314882691" title="Bilibili"><i class="solitude  st-bilibili-line"></i></a><a class="social-icon" target="_blank" rel="noopener" href="https://www.douyin.com/user/MS4wLjABAAAAy1FJN9CK4loLwbU-ngonlCdhB5ZT99fq4_Jdg3qJS7w" title="douyin"><i class="solitude  st-douyin-fill"></i></a></div></div></div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="solitude st-menu-line"></i><span>文章目录</span></div><div class="toc-content" id="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#1-%E6%B6%88%E6%81%AF%E5%8F%AF%E9%9D%A0%E6%80%A7"><span class="toc-text">1.  消息可靠性</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#1-1-%E7%94%9F%E4%BA%A7%E8%80%85%E7%A1%AE%E8%AE%A4%E6%9C%BA%E5%88%B6"><span class="toc-text">1.1 生产者确认机制</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#1-2-%E6%B6%88%E6%81%AF%E6%8C%81%E4%B9%85%E5%8C%96%EF%BC%88%E9%BB%98%E8%AE%A4%E5%B0%B1%E6%98%AF%E6%8C%81%E4%B9%85%E5%8C%96%EF%BC%8C%E4%BA%86%E8%A7%A3%E4%BB%A3%E7%A0%81%EF%BC%89"><span class="toc-text">1.2 消息持久化（默认就是持久化，了解代码）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#1-3-%E6%B6%88%E8%B4%B9%E8%80%85%E6%B6%88%E6%81%AF%E7%A1%AE%E8%AE%A4"><span class="toc-text">1.3 消费者消息确认</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-3-1-none%E6%A8%A1%E5%BC%8F"><span class="toc-text">1.3.1 none模式</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-3-2-auto%E6%A8%A1%E5%BC%8F"><span class="toc-text">1.3.2 auto模式</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#1-4-%E6%B6%88%E8%B4%B9%E8%80%85%E9%87%8D%E8%AF%95%E6%9C%BA%E5%88%B6"><span class="toc-text">1.4 消费者重试机制</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-4-1-%E6%9C%AC%E5%9C%B0%E9%87%8D%E8%AF%95%EF%BC%88%E9%BB%98%E8%AE%A4%E7%9A%84RejectAndDontRequeueRecoverer%E7%AD%96%E7%95%A5%EF%BC%89"><span class="toc-text">1.4.1 本地重试（默认的RejectAndDontRequeueRecoverer策略）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-4-2-%E4%B8%89%E4%B8%AA%E5%A4%B1%E8%B4%A5%E7%AD%96%E7%95%A5%EF%BC%88RepublishMessageRecoverer%E5%AE%9E%E4%BE%8B%EF%BC%89"><span class="toc-text">1.4.2 三个失败策略（RepublishMessageRecoverer实例）</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#2-%E6%AD%BB%E4%BF%A1%E4%BA%A4%E6%8D%A2%E6%9C%BA"><span class="toc-text">2. 死信交换机</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#2-1-%E6%88%90%E4%B8%BA%E6%AD%BB%E4%BF%A1%E7%9A%84%E6%9D%A1%E4%BB%B6"><span class="toc-text">2.1 成为死信的条件</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2-2-%E7%BB%93%E5%90%88TTL%E5%92%8C%E6%AD%BB%E4%BF%A1%E4%BA%A4%E6%8D%A2%E6%9C%BA%E5%AE%9E%E7%8E%B0%E5%BB%B6%E6%97%B6%E5%8F%91%E9%80%81%E6%B6%88%E6%81%AF"><span class="toc-text">2.2 结合TTL和死信交换机实现延时发送消息</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#2-2-1-2-2-2-%E5%A3%B0%E6%98%8E%E6%AD%BB%E4%BF%A1%E4%BA%A4%E6%8D%A2%E6%9C%BA%E5%92%8C%E6%8C%87%E5%AE%9ATTL%E7%9A%84%E9%98%9F%E5%88%97"><span class="toc-text">2.2.1 &amp; 2.2.2 声明死信交换机和指定TTL的队列</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-2-3-%E6%B6%88%E6%81%AF%E6%8C%87%E5%AE%9ATTL"><span class="toc-text">2.2.3 消息指定TTL</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2-3-DelayExchange%EF%BC%88mq%E6%8F%92%E4%BB%B6%EF%BC%89"><span class="toc-text">2.3 DelayExchange（mq插件）</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#3-%E6%83%B0%E6%80%A7%E9%98%9F%E5%88%97"><span class="toc-text">3. 惰性队列</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#3-1-%E6%B6%88%E6%81%AF%E5%A0%86%E7%A7%AF%E9%97%AE%E9%A2%98"><span class="toc-text">3.1 消息堆积问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#3-2-%E6%83%B0%E6%80%A7%E9%98%9F%E5%88%97"><span class="toc-text">3.2 惰性队列</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="solitude st-map-line"></i><span>最近发布</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2024/09/09/06MQ%E8%BF%9B%E9%98%B6/" title="MQ进阶"><img alt="MQ进阶" src="/img/cover/mq.avif"></a><div class="content"><a class="title" href="/2024/09/09/06MQ%E8%BF%9B%E9%98%B6/" title="MQ进阶">MQ进阶</a><a class="article-recent_post_categories" href="/2024/09/09/06MQ%E8%BF%9B%E9%98%B6/">后端开发</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/09/04/05SpringAMQP/" title="异步通信：MQ基础"><img alt="异步通信：MQ基础" src="/img/cover/mq.avif"></a><div class="content"><a class="title" href="/2024/09/04/05SpringAMQP/" title="异步通信：MQ基础">异步通信：MQ基础</a><a class="article-recent_post_categories" href="/2024/09/04/05SpringAMQP/">后端开发</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/09/02/04Redis%EF%BC%9A%EF%BC%88%E4%B8%89%EF%BC%89%E7%BC%93%E5%AD%98%E8%AE%BE%E8%AE%A1/" title="Redis：（三）缓存设计"><img alt="Redis：（三）缓存设计" src="/img/cover/02redis.png"></a><div class="content"><a class="title" href="/2024/09/02/04Redis%EF%BC%9A%EF%BC%88%E4%B8%89%EF%BC%89%E7%BC%93%E5%AD%98%E8%AE%BE%E8%AE%A1/" title="Redis：（三）缓存设计">Redis：（三）缓存设计</a><a class="article-recent_post_categories" href="/2024/09/02/04Redis%EF%BC%9A%EF%BC%88%E4%B8%89%EF%BC%89%E7%BC%93%E5%AD%98%E8%AE%BE%E8%AE%A1/">后端开发</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/08/30/03Redis%EF%BC%9A%EF%BC%88%E4%BA%8C%EF%BC%89%E7%BC%93%E5%AD%98%E9%97%AE%E9%A2%98/" title="Redis：（二）Redis集群"><img alt="Redis：（二）Redis集群" src="/img/cover/02redis.png"></a><div class="content"><a class="title" href="/2024/08/30/03Redis%EF%BC%9A%EF%BC%88%E4%BA%8C%EF%BC%89%E7%BC%93%E5%AD%98%E9%97%AE%E9%A2%98/" title="Redis：（二）Redis集群">Redis：（二）Redis集群</a><a class="article-recent_post_categories" href="/2024/08/30/03Redis%EF%BC%9A%EF%BC%88%E4%BA%8C%EF%BC%89%E7%BC%93%E5%AD%98%E9%97%AE%E9%A2%98/">后端开发</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/08/28/02Redis%EF%BC%9A%EF%BC%88%E4%B8%80%EF%BC%89%E5%86%85%E5%AD%98%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E5%AD%98%E5%82%A8/" title="Redis：（一）内存数据结构存储"><img alt="Redis：（一）内存数据结构存储" src="/img/cover/02redis.png"></a><div class="content"><a class="title" href="/2024/08/28/02Redis%EF%BC%9A%EF%BC%88%E4%B8%80%EF%BC%89%E5%86%85%E5%AD%98%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E5%AD%98%E5%82%A8/" title="Redis：（一）内存数据结构存储">Redis：（一）内存数据结构存储</a><a class="article-recent_post_categories" href="/2024/08/28/02Redis%EF%BC%9A%EF%BC%88%E4%B8%80%EF%BC%89%E5%86%85%E5%AD%98%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E5%AD%98%E5%82%A8/">后端开发</a></div></div></div></div></div></div></main><footer id="footer"><div id="st-footer-bar"><div class="footer-logo"><span>颓废市民黄先生</span></div><div class="footer-bar-description">来自 颓废市民黄先生 的文章</div><a class="footer-bar-link" href="/about/">了解更多</a></div><div id="footer_deal"></div><div id="st-footer"></div><div id="footer-bar"><div class="footer-bar-links"><div class="footer-bar-left"><div class="copyright">© 2024 By&nbsp;<a class="footer-bar-link" href="/">颓废市民黄先生</a></div></div><div class="footer-bar-right"><a class="footer-bar-link" target="_blank" rel="noopener" href="https://github.com/everfu/hexo-theme-solitude" alt="主题">主题</a><a class="footer-bar-link cc" href="/null" aria-label="copyright"><i class="solitude st-copyright-line"></i><i class="solitude st-creative-commons-by-line"></i><i class="solitude st-creative-commons-nc-line"></i><i class="solitude st-creative-commons-nd-line"></i></a></div></div></div><div class="comment-barrage needEndHide"></div></footer></div><!-- right_menu--><div id="rightMenu"><div class="rightMenu-group rightMenu-small"><div class="rightMenu-item" id="menu-backward"><i class="solitude st-arrow-left-line"></i></div><div class="rightMenu-item" id="menu-forward"><i class="solitude st-arrow-right-line"></i></div><div class="rightMenu-item" id="menu-refresh"><i class="solitude st-restart-line"></i></div><div class="rightMenu-item" id="menu-top"><i class="solitude st-arrow-up-line"></i></div></div><div class="rightMenu-group rightMenu-line rightMenuPlugin"><div class="rightMenu-item" id="menu-copytext"><i class="solitude st-copy-fill"></i><span>复制选中文本</span></div><div class="rightMenu-item" id="menu-pastetext"><i class="solitude st-clipboard-fill"></i><span>粘贴文本</span></div><div class="rightMenu-item" id="menu-commenttext"><i class="solitude st-chat-new-fill"></i><span>引用到评论</span></div><div class="rightMenu-item" id="menu-newwindow"><i class="solitude st-window-fill"></i><span>新窗口打开</span></div><div class="rightMenu-item" id="menu-copylink"><i class="solitude st-link-line"></i><span>复制链接地址</span></div><div class="rightMenu-item" id="menu-copyimg"><i class="solitude st-copy-fill"></i><span>复制此图片</span></div><div class="rightMenu-item" id="menu-downloadimg"><i class="solitude st-download-cloud-fill"></i><span>下载此图片</span></div><div class="rightMenu-item" id="menu-search"><i class="solitude st-search-line"></i><span>站内搜索</span></div><div class="rightMenu-item" id="menu-music-toggle"><i class="solitude st-play-fill"></i><span>播放音乐</span></div><div class="rightMenu-item" id="menu-music-back"><i class="solitude st-skip-back-fill"></i><span>切换到上一首</span></div><div class="rightMenu-item" id="menu-music-forward"><i class="solitude st-skip-forward-fill"></i><span>切换到下一首</span></div><div class="rightMenu-item" id="menu-music-copyMusicName"><i class="solitude st-copy-fill"></i><span>复制歌名</span></div></div><div class="rightMenu-group rightMenu-line rightMenuOther"><div class="rightMenu-item" id="menu-randomPost" onclick="toRandomPost()||rm.hideRightMenu()"><i class="solitude st-signal-tower-fill"></i><span>随机短文</span></div><div class="rightMenu-item" onclick="pjax.loadUrl('/categories/')||rm.hideRightMenu()"><i class="solitude st-checkbox-multiple-blank-fill"></i><span>全部分类</span></div><div class="rightMenu-item" onclick="pjax.loadUrl('/tags/')||rm.hideRightMenu()"><i class="solitude st-price-tag-fill"></i><span>全部标签</span></div></div><div class="rightMenu-group rightMenu-line rightMenuOther"><div class="rightMenu-item" id="menu-commentBarrage" onclick="sco.switchCommentBarrage()"><i class="solitude st-chat-fill"></i><span class="menu-commentBarrage-text">关闭热评</span></div><div class="rightMenu-item" id="menu-darkmode" onclick="sco.switchDarkMode()"><i class="solitude st-moon-clear-fill"></i><span class="menu-darkmode-text">深色模式</span></div><div class="rightMenu-item" id="menu-translate"><i class="solitude st-panben-line"></i><span>轉為繁體</span></div></div></div><div id="rightmenu-mask"></div><!-- inject body--><div><script src="/js/utils.js?v=1.13.3"></script><script src="/js/main.js?v=1.13.3"></script><script src="/js/third_party/waterfall.min.js?v=1.13.3"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/pjax/0.2.8/pjax.min.js"></script><script src="/js/third_party/universe.min.js?v=1.13.3"></script><script>dark()
+</script><script src="/js/tw_cn.js?v=1.13.3"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/node-snackbar/0.1.16/snackbar.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/Swiper/11.0.5/swiper-bundle.min.js"></script><script src="/js/third_party/efu_ai.min.js?v=1.13.3"></script><script>var meting_api = 'https://meting.qjqq.cn/?server=:server&type=:type&id=:id&auth=:auth&r=:r';</script><script src="https://cdnjs.cloudflare.com/ajax/libs/aplayer/1.10.1/APlayer.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/meting/2.0.1/Meting.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/pace/1.2.4/pace.min.js"></script><script src="/js/right_menu.js?v=1.13.3"></script><script src="/js/custom.js"></script><div class="js-pjax"><script>(() => {
+    const getCount = () => {
+        const ele = document.querySelectorAll('.twikoo-count')
+        if (!ele) return
+        twikoo.getCommentsCount({
+            envId: 'https://samurai127.cn',
+            region: '',
+            urls: [window.location.pathname],
+            includeReply: false
+        }).then(res => {
+            ele.forEach(item => item.textContent = res[0].count)
+        }).catch(err => {
+            console.error(err)
+        })
+    }
+    const init = () => {
+        twikoo.init(Object.assign({
+            el: '#twikoo-wrap',
+            envId: 'https://samurai127.cn',
+            region: '',
+            path: window.location.pathname,
+            onCommentLoaded: () => {
+                GLOBAL_CONFIG.lightbox && utils.lightbox(document.querySelectorAll('#twikoo .tk-content img:not(.tk-owo-emotion)'))
+            }
+        }, null))
+
+         && getCount()
+        sco.owoBig({
+            body: '.OwO-body',
+            item: '.OwO-items li'
+        })
+
+        true && barrageTwikoo()
+    }
+
+    const loadTwikoo = () => {
+        if (typeof twikoo === 'object') setTimeout(init,0)
+        else utils.getScript('https://cdnjs.cloudflare.com/ajax/libs/twikoo/1.6.36/twikoo.all.min.js').then(init)
+    }
+
+    if ('Twikoo' === 'Twikoo' || false) {
+        if (false) utils.loadComment(document.getElementById('twikoo-wrap'), loadTwikoo)
+        else loadTwikoo()
+    } else {
+        window.loadTwoComment = loadTwikoo
+    }
+})()
+</script><script>async function barrageTwikoo() {
+    await fetch("https://samurai127.cn", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            event: "COMMENT_GET",
+            accessToken: "",
+            url: window.location.pathname
+        })
+    }).then(async res => {
+        if (!res.ok) throw new Error("HTTP error! status: " + res.status)
+        const data = await res.json();
+        const init = () => {
+            initializeCommentBarrage((data.data).map(item => Object.assign({
+                content: item.comment,
+                nick: item.nick,
+                mailMd5: item.mailMd5,
+                id: item.id
+            })))
+        }
+        if (typeof initializeCommentBarrage === "undefined") await utils.getScript('/js/third_party/barrage.min.js?v=1.13.3').then(init)
+        else init()
+    }).catch(error => console.error("An error occurred while fetching comments: ", error))
+}</script><script defer pjax src="https://cdnjs.cloudflare.com/ajax/libs/busuanzi/2.3.0/bsz.pure.mini.min.js"></script></div></div><!-- pjax--><script>const pjax = new Pjax({
+    elements: 'a:not([target="_blank"])',
+    selectors: ['title','#body-wrap','#site-config','meta[name="description"]','.js-pjax','meta[property^="og:"]','#config-diff'],
+    cacheBust: false,
+    analytics: false,
+    scrollRestoration: false
+})
+
+document.querySelectorAll('script[data-pjax]').forEach(item => {
+    const newScript = document.createElement('script')
+    const content = item.text || item.textContent || item.innerHTML || ""
+    Array.from(item.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value))
+    newScript.appendChild(document.createTextNode(content))
+    item.parentNode.replaceChild(newScript, item)
+})
+
+document.addEventListener('pjax:complete', () => {
+    window.refreshFn()
+
+    document.querySelectorAll('script[data-pjax]').forEach(item => {
+        const newScript = document.createElement('script')
+        const content = item.text || item.textContent || item.innerHTML || ""
+        Array.from(item.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value))
+        newScript.appendChild(document.createTextNode(content))
+        item.parentNode.replaceChild(newScript, item)
+    })
+
+    GLOBAL_CONFIG.islazyload && window.lazyLoadInstance.update()
+
+})
+
+document.addEventListener('pjax:error', (e) => {
+    if (e.request.status === 404) {
+        pjax.loadUrl('/404.html')
+    }
+})</script><!-- theme--><script>initTheme = () => {
+    let isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const cachedMode = utils.saveToLocal.get('theme');
+    if (cachedMode === undefined) {
+        const nowMode =
+            isDarkMode ? 'dark' : 'light'
+        document.documentElement.setAttribute('data-theme', nowMode);
+    } else {
+        document.documentElement.setAttribute('data-theme', cachedMode);
+    }
+    typeof rm === 'object' && rm.mode(cachedMode === 'dark' && isDarkMode)
+}
+initTheme()</script><!-- google adsense--><!-- search--><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><button class="search-close-button"><i class="solitude st-close-fill"></i></button></nav><div class="search-wrap"><div class="search-box"><input class="search-box-input" id="search-input" type="text" autocomplete="off" spellcheck="false" autocorrect="off" autocapitalize="off" placeholder="输入关键词快速查找"></div><div id="search-results"><div id="search-hits"></div></div><div id="search-pagination"></div><div id="search-tips"></div></div></div><div id="search-mask"></div></div><script src="/js/search/local.js?v=1.13.3"></script><!-- Tianli-Talk--><span class="needEndHide" id="efuTalk" onclick="togglePostChatContainer(); return false;" title="问答ai"><i class="solitude st-robot-fill"></i><span class="efuTalkTitle">问答ai</span></span><script>var postChatConfig = {
+backgroundColor: "var(--efu-main)",
+bottom: "60px",
+...{"defaultInput":false,"upLoadWeb":true,"userTitle":"小黄同学来也","userDesc":"有什么可以帮助你的？","showInviteLink":"https://ai.tianli0.top/?InviteID=OZ3Z0V2R","blackDom":[".aplayer"]}
+};
+
+let b = true;
+
+document.getElementById('efuTalk').addEventListener('click', function () {
+    this.classList.toggle('on');
+    let efu = this
+    b && setTimeout(() => {
+        document.getElementById('close-button').addEventListener('click', function () {
+            efu.classList.remove('on');
+        })
+    }, 0);
+    b = false
+});</script><script pjax data-postChat_key="449aa72132adf73ef7084ef83c46792af1edab" src="https://ai.tianli0.top/static/public/postChatUser.min.js"></script><!-- music--><div class="needEndHide" id="nav-music" onclick="sco.musicToggle()"><div id="nav-music-hoverTips">音乐已暂停</div><meting-js id="994057368" server="netease" type="playlist" mutex="true" preload="none" data-lrctype="0" order="random" theme="var(--efu-main)"></meting-js></div></body></html><script>const posts=["2024/09/09/06MQ进阶/","2024/09/04/05SpringAMQP/","2024/09/02/04Redis：（三）缓存设计/","2024/08/30/03Redis：（二）缓存问题/","2024/08/28/02Redis：（一）内存数据结构存储/","2024/08/23/01Mysql-sql优化/","2024/08/21/Resilience4J熔断、限流、重试/","2024/08/20/MySQL-分库分表/","2024/08/19/spring框架：面试知识/","2024/08/16/MySQL-MVCC/","2024/08/15/MySQL-锁/","2024/08/15/MySQL-存储引擎/","2024/08/15/MySQL-索引/","2024/08/13/JVM-gc/","2024/08/06/java：详解ConcurrentHashMap/","2024/08/05/java多线程：三、锁/","2024/08/04/java多线程：JMM/","2024/08/03/java-线程池/","2024/07/30/操作系统：（二）为什么0-1-0-2不等于0-3/","2024/07/14/搭建博客？本站搭建博客花费了多少精力？/","2024/07/09/算法：（四）递归/","2024/07/06/Java-JDK8函数式接口、lambda表达式、方法引用/","2024/07/06/算法：（三）链表/","2024/07/06/Docker实操/","2024/07/06/centOS部署docker/","2024/07/06/mybatis/","2024/07/06/JDBC 笔记/","2024/07/03/算法：（二）二分查找/","2024/07/03/操作系统：（一）快速学习存储器/","2024/07/03/算法：（一）排序算法/","2024/06/26/git速查/"];function toRandomPost(){ pjax.loadUrl(GLOBAL_CONFIG.root+posts[Math.floor(Math.random()*posts.length)]); }</script>

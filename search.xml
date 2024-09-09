@@ -386,7 +386,7 @@
 <p>针对「进行数据淘汰」这一类策略，又可以细分为「在设置了过期时间的数据中进行淘汰」和「在所有数据范围内进行淘汰」这两类策略。 在设置了过期时间的数据中进行淘汰：</p>
 <ul>
 <li><strong>volatile-random</strong>：随机淘汰设置了过期时间的任意键值；</li>
-<li><strong>volatile-ttl</strong>（time to live）：优先淘汰过期并且<strong>存活时间最短</strong>的键。在 Redis 中可以设置<code>ttl策略</code>的删除时间，如果淘汰的时间大于这个设定的值，则删除这个过期的键。</li>
+<li><strong>volatile-ttl</strong>（time to live）：优先淘汰过期并且<strong>存活时间最短</strong>的键。适用于缓存场景，并且希望首先淘汰即将过期的数据。</li>
 <li><strong>volatile-lru</strong>（Least Recently Used）（Redis3.0 之前，默认的内存淘汰策略）：淘汰所有设置了过期时间的键值中，<strong>最久没被使用的</strong>键值；</li>
 <li><strong>volatile-lfu</strong>（Least Frequently Used）（Redis 4.0 后新增的内存淘汰策略）：淘汰所有设置了过期时间的键值中，<strong>最少使用</strong>的键值；</li>
 </ul>
@@ -2895,7 +2895,8 @@
 <p><img src="other-bukfsdjavassmtjstd-d6e12a34-c889-45e1-83bf-a4d7e36eedde.png"></p>
 <h2 id="5、公平锁和非公平锁"><a href="#5、公平锁和非公平锁" class="headerlink" title="5、公平锁和非公平锁"></a>5、公平锁和非公平锁</h2><p>这里的“公平”，其实通俗意义来说就是“先来先服务”，也就是 FIFO。如果对一个锁来说，先对锁获取请求的线程一定会先被满足，后对锁获取请求的线程后被满足，那这个锁就是公平的，即<strong>当一个线程释放锁后，等待时间最长的线程会获得锁的访问权</strong>。反之，那就是不公平的。</p>
 <p>一般情况下，<strong>非公平锁能提升一定的效率。但是非公平锁可能会发生线程饥饿（有一些线程长时间得不到锁）的情况</strong>。所以要根据实际的需求来选择非公平锁和公平锁。</p>
-<p><code>ReentrantLock</code> 支持非公平锁和公平锁两种。</p>
+<p><code>ReentrantLock</code> 支持非公平锁和公平锁两种，而 <code>synchronized</code> 只支持非公平锁。</p>
+<p>在 Java 中，<code>ReentrantLock</code>类可以作为公平锁或非公平锁来使用，通过构造函数的参数来指定。默认情况下，<code>ReentrantLock</code>是非公平锁。如果需要创建公平锁，可以在创建<code>ReentrantLock</code>实例时，将构造函数的<code>fair</code>参数设置为<code>true</code>。</p>
 <h2 id="6、读写锁和排它锁"><a href="#6、读写锁和排它锁" class="headerlink" title="6、读写锁和排它锁"></a>6、读写锁和排它锁</h2><p> <code>synchronized</code>和<code>ReentrantLock</code>，其实都是“排它锁”。也就是说，这些锁在同一时刻只允许一个线程进行访问。</p>
 <p>而读写锁可以在同一时刻允许多个读线程访问。Java 提供了 <code>ReentrantReadWriteLock</code>类作为读写锁的默认实现，内部维护了两个锁：一个读锁，一个写锁。通过分离读锁和写锁，使得在“读多写少”的环境下，大大地提高了性能。</p>
 <h3 id="（1）介绍一下ReentrantReadWriteLock："><a href="#（1）介绍一下ReentrantReadWriteLock：" class="headerlink" title="（1）介绍一下ReentrantReadWriteLock："></a>（1）介绍一下ReentrantReadWriteLock：</h3><p><strong>ReentrantReadWriteLock</strong>：是Java中的一个读写锁实现，它允许多个线程同时读取共享资源（读读可以并发），但在写入时只允许一个线程独占（读写、写读、写写互斥）。这个锁支持重入，即同一个线程可以多次获取相同类型的锁。它提高了读操作的并发性，同时保证了写操作的独占性。</p>
@@ -3094,6 +3095,31 @@
 <p>如果还没有获取到锁就尝试解锁，运行后就会抛出非法的锁状态异常。这里的代码抛出该异常正是这个原因：wait方法内部有一步重要的操作：先解锁，再阻塞等待。</p>
 <p>因此，在使用wait方法 前，必须先加锁，把wait方法写到synchronized代码块内部。 同时，Java也规定调用notify方法也必须在synchronized代码块中。</p>
 <p>并且，加锁的锁对象必须要与调用wait方法的锁对象是同一个。如果加锁对象与调用wait方法的对象不是同一个，也会抛出<code>IllgalMonitorStateException</code> 异常。</p>
+<h3 id="Lock和synchronized有什么区别？"><a href="#Lock和synchronized有什么区别？" class="headerlink" title="Lock和synchronized有什么区别？"></a>Lock和synchronized有什么区别？</h3><p>Lock和synchronized是Java中用于控制多个线程对共享资源进行访问的两种不同机制，它们在多个方面存在显著的区别。以下是Lock和synchronized之间的一些主要区别：</p>
+<h4 id="类型与实现"><a href="#类型与实现" class="headerlink" title="类型与实现"></a>类型与实现</h4><ul>
+<li><strong>Lock</strong>：是一个接口（<code>java.util.concurrent.locks.Lock</code>），提供了比synchronized关键字更灵活的线程同步控制。它允许显式地获取锁和释放锁，支持中断和超时等待等特性。</li>
+<li><strong>synchronized</strong>：是Java中的一个关键字，用于实现同步控制。它支持对方法或代码块进行同步，但不如Lock接口那样灵活。</li>
+</ul>
+<h4 id="加锁与解锁方式"><a href="#加锁与解锁方式" class="headerlink" title="加锁与解锁方式"></a>加锁与解锁方式</h4><ul>
+<li><strong>Lock</strong>：需要显式地调用<code>lock()</code>方法来获取锁，并在适当的时候调用<code>unlock()</code>方法来释放锁。这种方式提供了更细粒度的控制，但也要求程序员必须确保在finally块中释放锁，以避免死锁。</li>
+<li><strong>synchronized</strong>：加锁和解锁是隐式的。对于同步方法，JVM会在方法调用时自动获取锁，并在方法返回时（无论是正常返回还是异常返回）自动释放锁。对于同步代码块，锁的范围由<code>synchronized(对象)</code>语句块确定，当执行完该代码块时，JVM会自动释放锁。</li>
+</ul>
+<h4 id="等待与通知机制"><a href="#等待与通知机制" class="headerlink" title="等待与通知机制"></a>等待与通知机制</h4><ul>
+<li><strong>Lock</strong>：提供了<code>Condition</code>接口，允许多个条件变量存在，可以实现更灵活的线程间通信。通过<code>Condition</code>的<code>await()</code>、<code>signal()</code>和<code>signalAll()</code>方法，可以实现线程的等待、唤醒和唤醒所有等待线程。</li>
+<li><strong>synchronized</strong>：使用<code>Object</code>类的<code>wait()</code>、<code>notify()</code>和<code>notifyAll()</code>方法来实现线程的等待和唤醒。这些方法只能与synchronized关键字一起使用，且每个对象只有一个等待队列和一个通知队列。</li>
+</ul>
+<h4 id="锁的类型与公平性"><a href="#锁的类型与公平性" class="headerlink" title="锁的类型与公平性"></a>锁的类型与公平性</h4><ul>
+<li><strong>Lock</strong>：支持非公平锁和公平锁。非公平锁允许插队，即新请求的线程可能会立即获得锁，而已经等待的线程可能会继续等待。公平锁则严格按照请求锁的顺序来获取锁，但可能会导致性能下降。</li>
+<li><strong>synchronized</strong>：只支持非公平锁。</li>
+</ul>
+<h4 id="性能与伸缩性"><a href="#性能与伸缩性" class="headerlink" title="性能与伸缩性"></a>性能与伸缩性</h4><ul>
+<li><strong>Lock</strong>：通常比synchronized具有更好的性能和伸缩性。因为Lock接口的实现类（如<code>ReentrantLock</code>）可以使用不同的算法来优化锁的获取和释放过程，例如使用自旋锁、轻量级锁等。</li>
+<li><strong>synchronized</strong>：在JDK 1.6及以后的版本中，synchronized的性能得到了显著提高，包括引入了自旋锁和轻量级锁等优化机制。但在某些高并发场景下，Lock接口的实现类可能仍然具有更好的性能。</li>
+</ul>
+<h4 id="适用范围"><a href="#适用范围" class="headerlink" title="适用范围"></a>适用范围</h4><ul>
+<li><strong>Lock</strong>：适用于需要更灵活控制锁的场景，例如需要实现超时等待、可中断等待、尝试非阻塞地获取锁等。</li>
+<li><strong>synchronized</strong>：适用于简单的同步控制场景，如保护单例模式中的唯一实例、在多线程环境下访问共享资源等。</li>
+</ul>
 <h2 id="5、ReentrantReadWriteLock"><a href="#5、ReentrantReadWriteLock" class="headerlink" title="5、ReentrantReadWriteLock"></a>5、ReentrantReadWriteLock</h2><p><code>ReentrantReadWriteLock</code>是 <code>ReadWriteLock</code> 接口的默认实现。它与 ReentrantLock 的功能类似，同样是可重入的，支持非公平锁和公平锁。不同的是，它还支持”读写锁“。</p>
 <blockquote>
 <p>在这里只介绍内部结构，可重入锁、非公平锁和公平锁看第二大节</p>
@@ -3675,6 +3701,7 @@
 <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//使用try-finally 结构自动关闭 SqlSession</span></span><br><span class="line"><span class="keyword">try</span> ( <span class="type">SqlSession</span> <span class="variable">sqlSession</span> <span class="operator">=</span> MybatisUtil.getSqlSession() ) &#123;</span><br><span class="line">    </span><br><span class="line">&#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
 </ol>
 <h1 id="12-二级缓存配置"><a href="#12-二级缓存配置" class="headerlink" title="12. 二级缓存配置"></a>12. 二级缓存配置</h1><p><a href="https://blog.csdn.net/Lotus_dong/article/details/116334317">MyBatis缓存看这一篇就够了（一级缓存+二级缓存+缓存失效+缓存配置+工作模式+测试）_直接修改数据库数据会使mybatis一级缓存和二级缓存的使用场景失效吗-CSDN博客</a></p>
+<p><img src="image-20240906172359473.png" alt="springboot中打开二级缓存"></p>
 <p>咱们得知道，做数据<strong>查询</strong>是可以进行缓存的。注意，是查询，dml语句没办法缓存的吧？</p>
 <p><strong>SqlSession</strong>级的缓存称为一级缓存、事务级缓存、线程级缓存。</p>
 <p><strong>SqlSessionFactory</strong>级的缓存称为二级缓存、应用级缓存、全局缓存。Mybatis除了自身提供二级缓存的实现外，同时也提供对第三方缓存的支持，如：<em>Redis, Ehcache, Memory Cache</em>等。</p>
@@ -4403,6 +4430,64 @@
   </div>
 </div>
 <script data-pjax src="/lib/hbe.js"></script><link href="/css/hbe.style.css" rel="stylesheet" type="text/css">]]></content>
+      <categories>
+        <category>后端开发</category>
+      </categories>
+      <tags>
+        <tag>面试</tag>
+        <tag>MQ</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>MQ进阶</title>
+    <url>/2024/09/09/06MQ%E8%BF%9B%E9%98%B6/</url>
+    <content><![CDATA[<h1 id="1-消息可靠性"><a href="#1-消息可靠性" class="headerlink" title="1.  消息可靠性"></a>1.  消息可靠性</h1><h2 id="1-1-生产者确认机制"><a href="#1-1-生产者确认机制" class="headerlink" title="1.1 生产者确认机制"></a>1.1 生产者确认机制</h2><p><img src="clip_image002.jpg"></p>
+<p><img src="clip_image004.jpg"><img src="clip_image006.gif"><img src="clip_image008.gif"></p>
+<h2 id="1-2-消息持久化（默认就是持久化，了解代码）"><a href="#1-2-消息持久化（默认就是持久化，了解代码）" class="headerlink" title="1.2 消息持久化（默认就是持久化，了解代码）"></a>1.2 消息持久化（默认就是持久化，了解代码）</h2><p><img src="clip_image010.jpg"></p>
+<h2 id="1-3-消费者消息确认"><a href="#1-3-消费者消息确认" class="headerlink" title="1.3 消费者消息确认"></a>1.3 消费者消息确认</h2><p><img src="clip_image012.jpg"></p>
+<h3 id="1-3-1-none模式"><a href="#1-3-1-none模式" class="headerlink" title="1.3.1 none模式"></a>1.3.1 none模式</h3><p><img src="clip_image014.jpg"></p>
+<h3 id="1-3-2-auto模式"><a href="#1-3-2-auto模式" class="headerlink" title="1.3.2 auto模式"></a>1.3.2 auto模式</h3><p><img src="clip_image016.jpg"></p>
+<h2 id="1-4-消费者重试机制"><a href="#1-4-消费者重试机制" class="headerlink" title="1.4 消费者重试机制"></a>1.4 消费者重试机制</h2><h3 id="1-4-1-本地重试（默认的RejectAndDontRequeueRecoverer策略）"><a href="#1-4-1-本地重试（默认的RejectAndDontRequeueRecoverer策略）" class="headerlink" title="1.4.1 本地重试（默认的RejectAndDontRequeueRecoverer策略）"></a>1.4.1 本地重试（默认的RejectAndDontRequeueRecoverer策略）</h3><p>基于1.3.2的auto模式，发送失败的消息会重新放入队列queue中，导致mq反复处理失败的消息，带来过多的压力。因此通过本地重试的方式，将失败的队列进行retry处理（spring），而不是反复放入队列。</p>
+<p>在消费者的application.yml文件中配置启动失败重试开关、以及重复的次数：</p>
+<p><img src="clip_image018.jpg"></p>
+<h3 id="1-4-2-三个失败策略（RepublishMessageRecoverer实例）"><a href="#1-4-2-三个失败策略（RepublishMessageRecoverer实例）" class="headerlink" title="1.4.2 三个失败策略（RepublishMessageRecoverer实例）"></a>1.4.2 三个失败策略（RepublishMessageRecoverer实例）</h3><p>在springAMQP中的失败策略有三个，1.4.1中是默认的处理方式。对于废弃的消息，如果不希望消息的丢失，可以采用RepublishMessageRecoverer策略。流程图：</p>
+<p><img src="clip_image020.jpg"></p>
+<p>消费者中绑定error交换机后，由交换机根据rountingkey（例子中key&#x3D;error）转发到error.queue队列。</p>
+<p>对于MessageRecoverer接口，在1.4.1中的重试机制是默认的，因此接口对应1.4.1也是默认的（不需要声明）。但是使用RepublishMessage -Recoverer方式实现重试机制需要覆盖MessageRecoverer接口。</p>
+<p>声明在消费者模块中的config类：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"> <span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ErrorMessageConfig</span> &#123;</span><br><span class="line"></span><br><span class="line">   <span class="comment">//声明交换机：当重试机制触发上限时，消费者自动递交失败消息的交换机errorExchange</span></span><br><span class="line">   <span class="meta">@Bean</span></span><br><span class="line">   <span class="keyword">public</span> DirectExchange <span class="title function_">errorMessageExchange</span><span class="params">()</span>&#123;</span><br><span class="line">     <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">DirectExchange</span>(<span class="string">&quot;error.direct&quot;</span>);</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   <span class="comment">//声明队列：绑定errorExchange的队列errorQueue</span></span><br><span class="line">   <span class="meta">@Bean</span></span><br><span class="line">   <span class="keyword">public</span> Queue <span class="title function_">errorQueue</span><span class="params">()</span>&#123;</span><br><span class="line">     <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">Queue</span>(<span class="string">&quot;error.queue&quot;</span>);</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   <span class="comment">//绑定errorExchange交换机和errorQueue队列</span></span><br><span class="line">   <span class="meta">@Bean</span></span><br><span class="line">   <span class="keyword">public</span> Binding <span class="title function_">errorMessageBinding</span><span class="params">()</span>&#123;</span><br><span class="line">     <span class="keyword">return</span> BindingBuilder.bind(errorQueue()).to(errorMessageExchange()).with(<span class="string">&quot;error&quot;</span>);</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   <span class="comment">//声明MessageRecoverer接口，覆盖默认RejectAndDontRequeueRecoverer方式</span></span><br><span class="line">   <span class="meta">@Bean</span></span><br><span class="line">   <span class="keyword">public</span> MessageRecoverer <span class="title function_">republishMessageRecoverer</span><span class="params">(RabbitTemplate rabbitTemplate)</span>&#123;</span><br><span class="line">     <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">RepublishMessageRecoverer</span>(rabbitTemplate, <span class="string">&quot;error.direct&quot;</span>, <span class="string">&quot;error&quot;</span>);</span><br><span class="line">   &#125;</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="2-死信交换机"><a href="#2-死信交换机" class="headerlink" title="2. 死信交换机"></a>2. 死信交换机</h1><h2 id="2-1-成为死信的条件"><a href="#2-1-成为死信的条件" class="headerlink" title="2.1 成为死信的条件"></a>2.1 成为死信的条件</h2><p>成为死信的前提消费者没有重试机制，</p>
+<p><img src="clip_image022.jpg"></p>
+<p>基于config实现2.1的流程</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 声明普通的 simple.queue队列，并且为其指定死信交换机：dl.direct</span></span><br><span class="line"> <span class="meta">@Bean</span></span><br><span class="line"> <span class="keyword">public</span> Queue <span class="title function_">simpleQueue2</span><span class="params">()</span>&#123;</span><br><span class="line">   <span class="keyword">return</span> QueueBuilder.*durable*(**<span class="string">&quot;**simple.queue**&quot;</span>**) <span class="comment">// 指定队列名称，并持久化</span></span><br><span class="line">       .deadLetterExchange(<span class="string">&quot;dl.direct&quot;</span>) <span class="comment">// 指定死信交换机</span></span><br><span class="line">       .build();</span><br><span class="line"> &#125;</span><br><span class="line"> <span class="comment">// 声明死信交换机 dl.direct</span></span><br><span class="line"> <span class="meta">@Bean</span></span><br><span class="line"> <span class="keyword">public</span> DirectExchange <span class="title function_">dlExchange</span><span class="params">()</span>&#123;</span><br><span class="line">   <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">DirectExchange</span>(<span class="string">&quot;dl.direct&quot;</span>, <span class="literal">true</span>, <span class="literal">false</span>);</span><br><span class="line"> &#125;</span><br><span class="line"> <span class="comment">// 声明存储死信的队列 dl.queue</span></span><br><span class="line"> <span class="meta">@Bean</span></span><br><span class="line"> <span class="keyword">public</span> Queue <span class="title function_">dlQueue</span><span class="params">()</span>&#123;</span><br><span class="line">   <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">Queue</span>(**<span class="string">&quot;**dl.queue**&quot;</span>**, <span class="literal">true</span>);</span><br><span class="line"> &#125;</span><br><span class="line"> <span class="comment">// 将死信队列 与 死信交换机绑定</span></span><br><span class="line"> <span class="meta">@Bean</span></span><br><span class="line"> <span class="keyword">public</span> Binding <span class="title function_">dlBinding</span><span class="params">()</span>&#123;</span><br><span class="line">   <span class="keyword">return</span> BindingBuilder.*bind*(dlQueue()).to(dlExchange()).with(<span class="string">&quot;simple&quot;</span>);</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="2-2-结合TTL和死信交换机实现延时发送消息"><a href="#2-2-结合TTL和死信交换机实现延时发送消息" class="headerlink" title="2.2 结合TTL和死信交换机实现延时发送消息"></a>2.2 结合TTL和死信交换机实现延时发送消息</h2><p><img src="clip_image024.jpg"></p>
+<p><img src="clip_image026.jpg"></p>
+<h3 id="2-2-1-2-2-2-声明死信交换机和指定TTL的队列"><a href="#2-2-1-2-2-2-声明死信交换机和指定TTL的队列" class="headerlink" title="2.2.1 &amp; 2.2.2 声明死信交换机和指定TTL的队列"></a>2.2.1 &amp; 2.2.2 声明死信交换机和指定TTL的队列</h3><img src="clip_image028.jpg" style="zoom: 150%;">
+
+ 
+
+<p><img src="clip_image030.jpg"></p>
+<p><img src="clip_image032.jpg"></p>
+<h3 id="2-2-3-消息指定TTL"><a href="#2-2-3-消息指定TTL" class="headerlink" title="2.2.3 消息指定TTL"></a>2.2.3 消息指定TTL</h3><img src="clip_image034.jpg" style="zoom:150%;">
+
+ 
+
+<h2 id="2-3-DelayExchange（mq插件）"><a href="#2-3-DelayExchange（mq插件）" class="headerlink" title="2.3 DelayExchange（mq插件）"></a>2.3 DelayExchange（mq插件）</h2><p>插件用来改进2.2方式，但是我觉得特别麻烦我选择用2.2。另外官方推荐版本3.9.0适配当前docker中装的mq。另外，在docker创建mq的容器时需要指定数据卷，不然把容器删了重新创建，此时注意修改账号密码，不然登不进mq客户端（最后给创建容器命令）。需要将插件拖进去（使用finalshell）</p>
+<img src="clip_image036.jpg" style="zoom:67%;">
+
+<img src="clip_image038.jpg" style="zoom:150%;">
+
+ 
+
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">docker run \</span><br><span class="line"> -e RABBITMQ_DEFAULT_USER=root\</span><br><span class="line"> -e RABBITMQ_DEFAULT_PASS=root \</span><br><span class="line"> -v mq-plugins:/plugins \</span><br><span class="line"> --name mq \</span><br><span class="line"> --hostname mq1 \</span><br><span class="line"> -p 15672:15672 \</span><br><span class="line"> -p 5672:5672 \</span><br><span class="line"> -d \</span><br><span class="line"> rabbitmq:3.8-management</span><br></pre></td></tr></table></figure>
+
+
+
+<h1 id="3-惰性队列"><a href="#3-惰性队列" class="headerlink" title="3. 惰性队列"></a>3. 惰性队列</h1><h2 id="3-1-消息堆积问题"><a href="#3-1-消息堆积问题" class="headerlink" title="3.1 消息堆积问题"></a>3.1 消息堆积问题</h2><p><img src="clip_image040.jpg"></p>
+<h2 id="3-2-惰性队列"><a href="#3-2-惰性队列" class="headerlink" title="3.2 惰性队列"></a>3.2 惰性队列</h2><p><img src="clip_image042.gif"> <img src="clip_image044.jpg"></p>
+]]></content>
       <categories>
         <category>后端开发</category>
       </categories>
