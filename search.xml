@@ -619,6 +619,54 @@
 </blockquote>
 </li>
 </ul>
+<h2 id="布隆过滤器"><a href="#布隆过滤器" class="headerlink" title="布隆过滤器"></a>布隆过滤器</h2><p><a href="https://blog.csdn.net/qq_41125219/article/details/119982158">布隆(Bloom Filter)过滤器——全面讲解，建议收藏-CSDN博客</a></p>
+<p>Q：假设已经将布隆过滤器注册为bean对象，为了防止缓存穿透的问题，我在其他service层使用布隆过滤器的时候的逻辑如何写？查询不到的话直接返回空对象吗？</p>
+<p>A：在使用布隆过滤器来防止缓存穿透时，你的策略通常是在访问缓存之前先通过布隆过滤器快速检查请求的数据是否可能存在于你的数据库中或缓存中。如果布隆过滤器判断该数据“不存在”（即<code>mightContain</code>方法返回<code>false</code>），则可以直接返回一个空对象或错误信息，避免进一步查询数据库或缓存。如果布隆过滤器判断该数据“可能存在”（即<code>mightContain</code>方法返回<code>true</code>），则继续执行后续的缓存查询或数据库查询逻辑。</p>
+<p>以下是一个简化的服务层方法示例，该方法展示了如何在使用Spring Boot和布隆过滤器时防止缓存穿透：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Service</span>  </span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">YourService</span> &#123;  </span><br><span class="line">  </span><br><span class="line">    <span class="meta">@Autowired</span>  </span><br><span class="line">    <span class="keyword">private</span> RedisTemplate redisTemplate; <span class="comment">// 假设这是你的缓存服务  </span></span><br><span class="line">  </span><br><span class="line">    <span class="meta">@Autowired</span>  </span><br><span class="line">    <span class="keyword">private</span> BloomFilterService bloomFilterService; <span class="comment">// 假设这是你的布隆过滤器服务</span></span><br><span class="line">  </span><br><span class="line">    <span class="meta">@Autowired</span>  </span><br><span class="line">    <span class="keyword">private</span> YourDatabaseService yourDatabaseService; <span class="comment">// 假设这是你的数据库服务  </span></span><br><span class="line"> </span><br><span class="line">    <span class="comment">// 业务做查询的方法</span></span><br><span class="line">    <span class="keyword">public</span> YourDataObject <span class="title function_">getDataById</span><span class="params">(String id)</span> &#123;  </span><br><span class="line">        <span class="comment">// 首先，通过布隆过滤器检查该id是否可能存在  </span></span><br><span class="line">        <span class="keyword">if</span> (!bloomFilterService.mightContain(id)) &#123;  </span><br><span class="line">            <span class="comment">// 如果布隆过滤器判断该id不存在，则直接返回一个空对象或错误信息  </span></span><br><span class="line">            <span class="comment">// 这里以返回null为例，但实际应用中可能需要更明确的响应  </span></span><br><span class="line">            <span class="keyword">return</span> <span class="literal">null</span>;  </span><br><span class="line">        &#125;  </span><br><span class="line">  </span><br><span class="line">        <span class="comment">// 如果布隆过滤器判断该id可能存在，则继续查询缓存  </span></span><br><span class="line">        <span class="type">YourDataObject</span> <span class="variable">cachedData</span> <span class="operator">=</span> redisTemplate.get(id);  </span><br><span class="line">        <span class="keyword">if</span> (cachedData != <span class="literal">null</span>) &#123;  </span><br><span class="line">            <span class="comment">// 如果缓存中有数据，则直接返回缓存数据  </span></span><br><span class="line">            <span class="keyword">return</span> cachedData;  </span><br><span class="line">        &#125;  </span><br><span class="line">  </span><br><span class="line">        <span class="comment">// 如果缓存中没有数据，则查询数据库  </span></span><br><span class="line">        <span class="type">YourDataObject</span> <span class="variable">dbData</span> <span class="operator">=</span> yourDatabaseService.getById(id);  </span><br><span class="line">        <span class="keyword">if</span> (dbData != <span class="literal">null</span>) &#123;  </span><br><span class="line">            <span class="comment">// 如果数据库中有数据，则更新缓存（如果需要）并返回数据  </span></span><br><span class="line">            yourCacheService.put(id, dbData); <span class="comment">// 假设这是你的缓存更新方法  </span></span><br><span class="line">            <span class="keyword">return</span> dbData;  </span><br><span class="line">        &#125;  </span><br><span class="line">  </span><br><span class="line">        <span class="comment">// 如果数据库中也没有数据，则返回一个空对象或错误信息  </span></span><br><span class="line">        <span class="comment">// 这里以返回null为例  </span></span><br><span class="line">        <span class="keyword">return</span> <span class="literal">null</span>;  </span><br><span class="line">    &#125;  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<h2 id="Spring-Boot项目中使用布隆过滤器"><a href="#Spring-Boot项目中使用布隆过滤器" class="headerlink" title="Spring Boot项目中使用布隆过滤器"></a>Spring Boot项目中使用布隆过滤器</h2><p>在Spring Boot项目中使用布隆过滤器（Bloom Filter）可以有效地减少查询数据库或缓存的次数，特别是在处理大量数据并判断元素是否存在于某个集合时。布隆过滤器通过牺牲一定的错误率（即假正率）来换取空间效率和查询时间的显著提升。</p>
+<h3 id="步骤一：添加依赖"><a href="#步骤一：添加依赖" class="headerlink" title="步骤一：添加依赖"></a>步骤一：添加依赖</h3><p>首先，你需要找到一个Java实现的布隆过滤器库。Google的Guava库提供了布隆过滤器的实现，你可以通过Maven或Gradle将其添加到你的项目中。</p>
+<figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span>  </span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>com.google.guava<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span>  </span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>guava<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span>  </span><br><span class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>你的Guava版本号<span class="tag">&lt;/<span class="name">version</span>&gt;</span>  </span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>请替换<code>你的Guava版本号</code>为最新的或者适合你项目的版本。</p>
+<h3 id="步骤二：配置布隆过滤器"><a href="#步骤二：配置布隆过滤器" class="headerlink" title="步骤二：配置布隆过滤器"></a>步骤二：配置布隆过滤器</h3><p>在你的Spring Boot应用中，你可能需要配置一个布隆过滤器，并决定其预期的元素数量、错误率等参数。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">import</span> com.google.common.hash.Funnels;  </span><br><span class="line"><span class="keyword">import</span> com.google.common.hash.Hashing;  </span><br><span class="line"><span class="keyword">import</span> com.google.common.base.Charsets;  </span><br><span class="line">  </span><br><span class="line"><span class="keyword">import</span> java.nio.charset.Charset;  </span><br><span class="line">  </span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">BloomFilterConfig</span> &#123;  </span><br><span class="line">  </span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">expectedInsertions</span> <span class="operator">=</span> <span class="number">1000000</span>; <span class="comment">// 预期插入的元素数量  </span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">double</span> <span class="variable">fpp</span> <span class="operator">=</span> <span class="number">0.01</span>; <span class="comment">// 假正率  </span></span><br><span class="line">  </span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> BloomFilter&lt;CharSequence&gt; <span class="title function_">createBloomFilter</span><span class="params">()</span> &#123;  </span><br><span class="line">        <span class="comment">// 使用Guava的BloomFilter.create函数创建布隆过滤器  </span></span><br><span class="line">        <span class="comment">// Funnels.stringFunnel(Charsets.UTF_8) 是将字符串转换为字节序列的函数  </span></span><br><span class="line">        <span class="keyword">return</span> BloomFilter.create(  </span><br><span class="line">            Funnels.stringFunnel(Charsets.UTF_8),  </span><br><span class="line">            expectedInsertions,  </span><br><span class="line">            fpp  </span><br><span class="line">        );  </span><br><span class="line">    &#125;  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="步骤三：使用布隆过滤器"><a href="#步骤三：使用布隆过滤器" class="headerlink" title="步骤三：使用布隆过滤器"></a>步骤三：使用布隆过滤器</h3><p>在Spring Boot应用中，你可以在服务层或数据访问层使用布隆过滤器来减少不必要的数据库或缓存查询。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">import</span> com.google.common.hash.BloomFilter;  </span><br><span class="line">  </span><br><span class="line"><span class="meta">@Service</span>  </span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">SomeService</span> &#123;  </span><br><span class="line">  </span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> BloomFilter&lt;CharSequence&gt; bloomFilter;  </span><br><span class="line">  </span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">SomeService</span><span class="params">()</span> &#123;  </span><br><span class="line">        <span class="built_in">this</span>.bloomFilter = BloomFilterConfig.createBloomFilter();  </span><br><span class="line">        <span class="comment">// 初始化时，可以添加一些元素到布隆过滤器中  </span></span><br><span class="line">        <span class="comment">// bloomFilter.put(&quot;someElement&quot;);  </span></span><br><span class="line">    &#125;  </span><br><span class="line">  </span><br><span class="line">    <span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">mightContain</span><span class="params">(String element)</span> &#123;  </span><br><span class="line">        <span class="keyword">return</span> bloomFilter.mightContain(element);  </span><br><span class="line">    &#125;  </span><br><span class="line">  </span><br><span class="line">    <span class="comment">// 在需要的地方使用mightContain来减少查询  </span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">someMethod</span><span class="params">()</span> &#123;  </span><br><span class="line">        <span class="type">String</span> <span class="variable">elementToCheck</span> <span class="operator">=</span> <span class="string">&quot;testElement&quot;</span>;  </span><br><span class="line">        <span class="keyword">if</span> (bloomFilter.mightContain(elementToCheck)) &#123;  </span><br><span class="line">            <span class="comment">// 假设这里执行数据库或缓存查询  </span></span><br><span class="line">            <span class="comment">// 注意：布隆过滤器可能有假正率，所以这里的查询是必要的  </span></span><br><span class="line">            <span class="comment">// ...  </span></span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;  </span><br><span class="line">            <span class="comment">// 元素肯定不在集合中，无需进一步查询  </span></span><br><span class="line">        &#125;  </span><br><span class="line">    &#125;  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="注意事项"><a href="#注意事项" class="headerlink" title="注意事项"></a>注意事项</h3><ul>
+<li>布隆过滤器只能告诉你某个元素<strong>可能</strong>存在于集合中，但不能保证一定存在。</li>
+<li>当你从布隆过滤器得到<code>true</code>时，你需要进一步验证元素是否真的存在于你的数据源中（比如数据库或缓存）。</li>
+<li>当你从布隆过滤器得到<code>false</code>时，你可以确信元素<strong>不在</strong>集合中，因为布隆过滤器不会有假负率。</li>
+<li>布隆过滤器的性能和空间效率受其参数（如预期插入的元素数量和假正率）的影响，需要根据你的具体需求进行调整。</li>
+</ul>
+<h2 id="数据插入布隆过滤器的时机"><a href="#数据插入布隆过滤器的时机" class="headerlink" title="数据插入布隆过滤器的时机"></a>数据插入布隆过滤器的时机</h2><p>将数据插入布隆过滤器（Bloom Filter）的时机主要取决于你的应用场景和需求。一般来说，以下情况是将数据插入布隆过滤器的常见时机：</p>
+<ol>
+<li>新增数据时<ul>
+<li>当有新数据需要被加入到你的系统中，并且这些数据未来可能需要被快速检查是否存在时，你应该在新增数据的同时将其插入到布隆过滤器中。这样可以利用布隆过滤器的空间效率和查询速度优势，快速判断新数据是否已存在，避免重复插入或执行不必要的操作。</li>
+</ul>
+</li>
+<li>数据更新时（视情况而定）<ul>
+<li>数据更新时是否需要将数据重新插入布隆过滤器取决于你的具体需求。如果数据更新只是修改了某些字段的值，而这些字段与布隆过滤器中的检查逻辑无关，那么可能不需要重新插入。但是，如果数据更新改变了布隆过滤器中用于判断的关键信息（比如唯一标识符），那么你可能需要重新插入更新后的数据到布隆过滤器中，以确保查询的准确性。</li>
+</ul>
+</li>
+<li>缓存失效或数据库数据变动时<ul>
+<li>在使用布隆过滤器作为缓存失效或数据库数据存在性检查的辅助手段时，如果缓存中的数据失效或数据库中的数据发生了变动（如新增、删除等），你需要同步更新布隆过滤器中的数据，以保持其与实际数据的一致性。</li>
+</ul>
+</li>
+<li>初始化或系统启动时<ul>
+<li>在系统初始化或启动时，如果你需要将一些基础数据或热点数据预先加载到布隆过滤器中以提高查询效率，那么此时也是将数据插入布隆过滤器的合适时机。</li>
+</ul>
+</li>
+</ol>
+<p>需要注意的是，布隆过滤器存在误判率，即有可能将不存在的元素误判为存在。因此，在使用布隆过滤器进行存在性判断时，如果得到的结果为“存在”，你可能还需要通过其他方式（如直接查询数据库或缓存）来进一步验证。</p>
+<p>此外，由于布隆过滤器不支持删除操作（或删除操作会导致误判率增加），因此在设计系统时需要考虑到这一点，避免在需要频繁删除元素的场景中使用布隆过滤器。如果确实需要删除元素，可以考虑使用其他数据结构或算法来辅助实现。</p>
 ]]></content>
       <categories>
         <category>后端开发</category>
@@ -1494,7 +1542,8 @@
   <entry>
     <title>微服务保护：sentinel</title>
     <url>/2024/09/14/11sentinel/</url>
-    <content><![CDATA[<h1 id="微服务保护"><a href="#微服务保护" class="headerlink" title="微服务保护"></a>微服务保护</h1><h1 id="1-初识Sentinel"><a href="#1-初识Sentinel" class="headerlink" title="1.初识Sentinel"></a>1.初识Sentinel</h1><h2 id="1-1-雪崩问题及解决方案"><a href="#1-1-雪崩问题及解决方案" class="headerlink" title="1.1.雪崩问题及解决方案"></a>1.1.雪崩问题及解决方案</h2><h3 id="1-1-1-雪崩问题"><a href="#1-1-1-雪崩问题" class="headerlink" title="1.1.1.雪崩问题"></a>1.1.1.雪崩问题</h3><p>微服务中，服务间调用关系错综复杂，一个微服务往往依赖于多个其它微服务。</p>
+    <content><![CDATA[<h1 id="微服务保护"><a href="#微服务保护" class="headerlink" title="微服务保护"></a>微服务保护</h1><p><img src="image-20240917232441906.png" alt="我亲手制作的思维导图"></p>
+<h1 id="1-初识Sentinel"><a href="#1-初识Sentinel" class="headerlink" title="1.初识Sentinel"></a>1.初识Sentinel</h1><h2 id="1-1-雪崩问题及解决方案"><a href="#1-1-雪崩问题及解决方案" class="headerlink" title="1.1.雪崩问题及解决方案"></a>1.1.雪崩问题及解决方案</h2><h3 id="1-1-1-雪崩问题"><a href="#1-1-1-雪崩问题" class="headerlink" title="1.1.1.雪崩问题"></a>1.1.1.雪崩问题</h3><p>微服务中，服务间调用关系错综复杂，一个微服务往往依赖于多个其它微服务。</p>
 <p> <img src="1533829099748.png"></p>
 <p>如图，如果服务提供者I发生了故障，当前的应用的部分业务因为依赖于服务I，因此也会被阻塞。此时，其它不依赖于服务I的业务似乎不受影响。</p>
 <p> <img src="1533829198240.png"></p>
@@ -1668,6 +1717,7 @@
 <h1 id="2-流量控制"><a href="#2-流量控制" class="headerlink" title="2.流量控制"></a>2.流量控制</h1><p>雪崩问题虽然有四种方案，但是限流是避免服务因突发的流量而发生故障，是对微服务雪崩问题的预防。我们先学习这种模式。</p>
 <h2 id="2-1-簇点链路"><a href="#2-1-簇点链路" class="headerlink" title="2.1.簇点链路"></a>2.1.簇点链路</h2><p>当请求进入微服务时，首先会访问DispatcherServlet，然后进入Controller、Service、Mapper，这样的一个调用链就叫做<strong>簇点链路</strong>。簇点链路中被监控的每一个接口就是一个<strong>资源</strong>。</p>
 <p>默认情况下sentinel会监控SpringMVC的每一个端点（Endpoint，也就是controller中的方法），因此SpringMVC的每一个端点（Endpoint）就是调用链路中的一个资源。</p>
+<p>如果想要监控service、mapper方法，需要添加sentinel的额外的注解。</p>
 <p>例如，我们刚才访问的order-service中的OrderController中的端点：&#x2F;order&#x2F;{orderId}</p>
 <p><img src="image-20210715191757319.png" alt="image-20210715191757319"></p>
 <p>流控、熔断等都是针对簇点链路中的资源来设置的，因此我们可以点击对应资源后面的按钮来设置规则：</p>
@@ -2186,7 +2236,7 @@
 <p><img src="image-20210716154155238.png"></p>
 <h3 id="5-1-2-push模式"><a href="#5-1-2-push模式" class="headerlink" title="5.1.2.push模式"></a>5.1.2.push模式</h3><p>push模式：控制台将配置规则推送到远程配置中心，例如Nacos。Sentinel客户端监听Nacos，获取配置变更的推送消息，完成本地配置更新。</p>
 <p><img src="image-20210716154215456.png"></p>
-<h2 id="5-2-实现push模式"><a href="#5-2-实现push模式" class="headerlink" title="5.2.实现push模式"></a>5.2.实现push模式</h2><p><img src="image-20210716154255466.png"></p>
+<h2 id="5-2-实现push模式"><a href="#5-2-实现push模式" class="headerlink" title="5.2.实现push模式"></a>5.2.实现push模式</h2><p>见下篇博客：sentinel规则持久化</p>
 ]]></content>
       <categories>
         <category>后端开发</category>
@@ -6003,6 +6053,75 @@
       </categories>
       <tags>
         <tag>算法</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>微服务保护：sentinel规则持久化</title>
+    <url>/2024/09/17/13sentinel%E8%A7%84%E5%88%99%E6%8C%81%E4%B9%85%E5%8C%96/</url>
+    <content><![CDATA[<h1 id="Sentinel-规则持久化"><a href="#Sentinel-规则持久化" class="headerlink" title="Sentinel 规则持久化"></a>Sentinel 规则持久化</h1><h2 id="一、修改order-service服务"><a href="#一、修改order-service服务" class="headerlink" title="一、修改order-service服务"></a>一、修改order-service服务</h2><p>修改OrderService，让其监听Nacos中的sentinel规则配置。</p>
+<p>具体步骤如下：</p>
+<h3 id="1-引入依赖"><a href="#1-引入依赖" class="headerlink" title="1.引入依赖"></a>1.引入依赖</h3><p>在order-service中引入sentinel监听nacos的依赖：</p>
+<figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>com.alibaba.csp<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>sentinel-datasource-nacos<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="2-配置nacos地址"><a href="#2-配置nacos地址" class="headerlink" title="2.配置nacos地址"></a>2.配置nacos地址</h3><p>在order-service中的application.yml文件配置nacos地址及监听的配置信息：加的是datasource往下的内容。</p>
+<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">cloud:</span></span><br><span class="line">    <span class="attr">sentinel:</span></span><br><span class="line">      <span class="attr">datasource:</span></span><br><span class="line">        <span class="attr">flow:</span></span><br><span class="line">          <span class="attr">nacos:</span></span><br><span class="line">            <span class="attr">server-addr:</span> <span class="string">localhost:8848</span> <span class="comment"># nacos地址</span></span><br><span class="line">            <span class="attr">dataId:</span> <span class="string">orderservice-flow-rules</span></span><br><span class="line">            <span class="attr">groupId:</span> <span class="string">SENTINEL_GROUP</span></span><br><span class="line">            <span class="attr">rule-type:</span> <span class="string">flow</span> <span class="comment"># 还可以是：degrade、authority、param-flow</span></span><br><span class="line">        <span class="attr">degrade:</span></span><br><span class="line">          <span class="attr">nacos:</span></span><br><span class="line">            <span class="attr">server-addr:</span> <span class="string">localhost:8848</span> <span class="comment"># nacos地址</span></span><br><span class="line">            <span class="attr">dataId:</span> <span class="string">orderservice-degrade-rules</span></span><br><span class="line">            <span class="attr">groupId:</span> <span class="string">SENTINEL_GROUP</span></span><br><span class="line">            <span class="attr">rule-type:</span> <span class="string">degrade</span> <span class="comment"># 还可以是：degrade、authority、param-flow</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>dataId指定了nacos的存储的配置文件，在后续跑sentinel的四个功能的时候，nacos会自动添加这个配置的</strong></p>
+<h2 id="二、修改sentinel-dashboard源码"><a href="#二、修改sentinel-dashboard源码" class="headerlink" title="二、修改sentinel-dashboard源码"></a>二、修改sentinel-dashboard源码</h2><p>SentinelDashboard默认不支持nacos的持久化，需要修改源码。</p>
+<h3 id="1-下载源码包并解压"><a href="#1-下载源码包并解压" class="headerlink" title="1. 下载源码包并解压"></a>1. 下载源码包并解压</h3><figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># github地址，版本自选</span><br><span class="line">https://github.com/alibaba/Sentinel/tags</span><br></pre></td></tr></table></figure>
+
+<p>解压sentinel源码包：</p>
+<p><img src="image-20210618201340086.png"></p>
+<p>然后并用IDEA打开这个项目，结构如下：</p>
+<p><img src="image-20210618201412878.png"></p>
+<h3 id="2-修改nacos依赖"><a href="#2-修改nacos依赖" class="headerlink" title="2. 修改nacos依赖"></a>2. 修改nacos依赖</h3><p>在sentinel-dashboard源码的pom文件中，nacos的依赖默认的scope是test，只能在测试时使用，这里要去除：</p>
+<p><img src="image-20210618201607831.png"></p>
+<p>将sentinel-datasource-nacos依赖的scope去掉：</p>
+<figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>com.alibaba.csp<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>sentinel-datasource-nacos<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="3-添加nacos支持"><a href="#3-添加nacos支持" class="headerlink" title="3. 添加nacos支持"></a>3. 添加nacos支持</h3><p>在sentinel-dashboard的test包下，已经编写了对nacos的支持，我们需要将其拷贝到main下。</p>
+<p><img src="image-20210618201726280.png"></p>
+<h3 id="4-修改nacos地址"><a href="#4-修改nacos地址" class="headerlink" title="4. 修改nacos地址"></a>4. 修改nacos地址</h3><p>然后，还需要修改测试代码中的NacosConfig类：</p>
+<p><img src="image-20210618201912078.png"></p>
+<p>修改其中的nacos地址，让其读取application.properties中的配置：</p>
+<p><img src="image-20210618202047575.png"></p>
+<p>在sentinel-dashboard的application.properties中添加nacos地址配置：</p>
+<figure class="highlight properties"><table><tr><td class="code"><pre><span class="line"><span class="attr">nacos.addr</span>=<span class="string">localhost:8848</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="5-配置nacos数据源"><a href="#5-配置nacos数据源" class="headerlink" title="5. 配置nacos数据源"></a>5. 配置nacos数据源</h3><p>另外，还需要修改com.alibaba.csp.sentinel.dashboard.controller.v2包下的FlowControllerV2类：</p>
+<p><img src="image-20210618202322301.png"></p>
+<p>让我们添加的Nacos数据源生效：</p>
+<p><img src="image-20210618202334536.png"></p>
+<h3 id="6-修改前端页面"><a href="#6-修改前端页面" class="headerlink" title="6. 修改前端页面"></a>6. 修改前端页面</h3><p>接下来，还要修改前端页面，添加一个支持nacos的菜单。</p>
+<p>修改src&#x2F;main&#x2F;webapp&#x2F;resources&#x2F;app&#x2F;scripts&#x2F;directives&#x2F;sidebar&#x2F;目录下的sidebar.html文件：</p>
+<p><img src="image-20210618202433356.png"></p>
+<p>将其中的这部分注释打开：</p>
+<p><img src="image-20210618202449881.png"></p>
+<p>修改其中的文本：</p>
+<p><img src="image-20210618202501928.png"></p>
+<h3 id="7-重新编译、打包项目"><a href="#7-重新编译、打包项目" class="headerlink" title="7. 重新编译、打包项目"></a>7. 重新编译、打包项目</h3><p>运行IDEA中的maven插件，编译和打包修改好的Sentinel-Dashboard：</p>
+<p><img src="image-20210618202701492.png"></p>
+<h3 id="8-启动"><a href="#8-启动" class="headerlink" title="8.启动"></a>8.启动</h3><p>启动方式跟官方一样：</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">java -jar sentinel-dashboard.jar</span><br></pre></td></tr></table></figure>
+
+<p>如果要修改nacos地址，需要添加参数：</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">java -jar -Dnacos.addr=localhost:8848 sentinel-dashboard.jar</span><br></pre></td></tr></table></figure>
+
+
+
+]]></content>
+      <categories>
+        <category>后端开发</category>
+      </categories>
+      <tags>
+        <tag>springcloud</tag>
+        <tag>sentinel</tag>
       </tags>
   </entry>
 </search>
