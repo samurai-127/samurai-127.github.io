@@ -831,15 +831,15 @@
 <p><img src="clip_image018.jpg"></p>
 <h3 id="1-4-2-三个失败策略（RepublishMessageRecoverer实例）"><a href="#1-4-2-三个失败策略（RepublishMessageRecoverer实例）" class="headerlink" title="1.4.2 三个失败策略（RepublishMessageRecoverer实例）"></a>1.4.2 三个失败策略（RepublishMessageRecoverer实例）</h3><p>在springAMQP中的失败策略有三个，1.4.1中是默认的处理方式。对于废弃的消息，如果不希望消息的丢失，可以采用RepublishMessageRecoverer策略。流程图：</p>
 <p><img src="clip_image020.jpg"></p>
-<p>消费者中绑定error交换机后，由交换机根据rountingkey（例子中key&#x3D;error）转发到error.queue队列。</p>
+<p>消费者中绑定error交换机后（重写失败策略实现），由交换机根据rountingkey（例子中key&#x3D;error）转发到error.queue队列。</p>
 <p>对于MessageRecoverer接口，在1.4.1中的重试机制是默认的，因此接口对应1.4.1也是默认的（不需要声明）。但是使用RepublishMessage -Recoverer方式实现重试机制需要覆盖MessageRecoverer接口。</p>
 <p>声明在消费者模块中的config类：</p>
 <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"> <span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ErrorMessageConfig</span> &#123;</span><br><span class="line"></span><br><span class="line">   <span class="comment">//声明交换机：当重试机制触发上限时，消费者自动递交失败消息的交换机errorExchange</span></span><br><span class="line">   <span class="meta">@Bean</span></span><br><span class="line">   <span class="keyword">public</span> DirectExchange <span class="title function_">errorMessageExchange</span><span class="params">()</span>&#123;</span><br><span class="line">     <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">DirectExchange</span>(<span class="string">&quot;error.direct&quot;</span>);</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   <span class="comment">//声明队列：绑定errorExchange的队列errorQueue</span></span><br><span class="line">   <span class="meta">@Bean</span></span><br><span class="line">   <span class="keyword">public</span> Queue <span class="title function_">errorQueue</span><span class="params">()</span>&#123;</span><br><span class="line">     <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">Queue</span>(<span class="string">&quot;error.queue&quot;</span>);</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   <span class="comment">//绑定errorExchange交换机和errorQueue队列</span></span><br><span class="line">   <span class="meta">@Bean</span></span><br><span class="line">   <span class="keyword">public</span> Binding <span class="title function_">errorMessageBinding</span><span class="params">()</span>&#123;</span><br><span class="line">     <span class="keyword">return</span> BindingBuilder.bind(errorQueue()).to(errorMessageExchange()).with(<span class="string">&quot;error&quot;</span>);</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   <span class="comment">//声明MessageRecoverer接口，覆盖默认RejectAndDontRequeueRecoverer方式</span></span><br><span class="line">   <span class="meta">@Bean</span></span><br><span class="line">   <span class="keyword">public</span> MessageRecoverer <span class="title function_">republishMessageRecoverer</span><span class="params">(RabbitTemplate rabbitTemplate)</span>&#123;</span><br><span class="line">     <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">RepublishMessageRecoverer</span>(rabbitTemplate, <span class="string">&quot;error.direct&quot;</span>, <span class="string">&quot;error&quot;</span>);</span><br><span class="line">   &#125;</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
 
 <h1 id="2-死信交换机"><a href="#2-死信交换机" class="headerlink" title="2. 死信交换机"></a>2. 死信交换机</h1><h2 id="2-1-成为死信的条件"><a href="#2-1-成为死信的条件" class="headerlink" title="2.1 成为死信的条件"></a>2.1 成为死信的条件</h2><p>成为死信的前提消费者没有重试机制，</p>
 <p><img src="clip_image022.jpg"></p>
-<p>基于config实现2.1的流程</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 声明普通的 simple.queue队列，并且为其指定死信交换机：dl.direct</span></span><br><span class="line"> <span class="meta">@Bean</span></span><br><span class="line"> <span class="keyword">public</span> Queue <span class="title function_">simpleQueue2</span><span class="params">()</span>&#123;</span><br><span class="line">   <span class="keyword">return</span> QueueBuilder.*durable*(**<span class="string">&quot;**simple.queue**&quot;</span>**) <span class="comment">// 指定队列名称，并持久化</span></span><br><span class="line">       .deadLetterExchange(<span class="string">&quot;dl.direct&quot;</span>) <span class="comment">// 指定死信交换机</span></span><br><span class="line">       .build();</span><br><span class="line"> &#125;</span><br><span class="line"> <span class="comment">// 声明死信交换机 dl.direct</span></span><br><span class="line"> <span class="meta">@Bean</span></span><br><span class="line"> <span class="keyword">public</span> DirectExchange <span class="title function_">dlExchange</span><span class="params">()</span>&#123;</span><br><span class="line">   <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">DirectExchange</span>(<span class="string">&quot;dl.direct&quot;</span>, <span class="literal">true</span>, <span class="literal">false</span>);</span><br><span class="line"> &#125;</span><br><span class="line"> <span class="comment">// 声明存储死信的队列 dl.queue</span></span><br><span class="line"> <span class="meta">@Bean</span></span><br><span class="line"> <span class="keyword">public</span> Queue <span class="title function_">dlQueue</span><span class="params">()</span>&#123;</span><br><span class="line">   <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">Queue</span>(**<span class="string">&quot;**dl.queue**&quot;</span>**, <span class="literal">true</span>);</span><br><span class="line"> &#125;</span><br><span class="line"> <span class="comment">// 将死信队列 与 死信交换机绑定</span></span><br><span class="line"> <span class="meta">@Bean</span></span><br><span class="line"> <span class="keyword">public</span> Binding <span class="title function_">dlBinding</span><span class="params">()</span>&#123;</span><br><span class="line">   <span class="keyword">return</span> BindingBuilder.*bind*(dlQueue()).to(dlExchange()).with(<span class="string">&quot;simple&quot;</span>);</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+<p><img src="image-20240920212103677.png"></p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 声明普通的 simple.queue队列，并且为其指定死信交换机：dl.direct</span></span><br><span class="line"> <span class="meta">@Bean</span></span><br><span class="line"> <span class="keyword">public</span> Queue <span class="title function_">simpleQueue2</span><span class="params">()</span>&#123;</span><br><span class="line">   <span class="keyword">return</span> QueueBuilder.durable(<span class="string">&quot;simple.queue&quot;</span>) <span class="comment">// 指定队列名称，并持久化</span></span><br><span class="line">       .deadLetterExchange(<span class="string">&quot;dl.direct&quot;</span>) <span class="comment">// 指定死信交换机</span></span><br><span class="line">       .build();</span><br><span class="line"> &#125;</span><br><span class="line"> <span class="comment">// 声明死信交换机 dl.direct</span></span><br><span class="line"> <span class="meta">@Bean</span></span><br><span class="line"> <span class="keyword">public</span> DirectExchange <span class="title function_">dlExchange</span><span class="params">()</span>&#123;</span><br><span class="line">   <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">DirectExchange</span>(<span class="string">&quot;dl.direct&quot;</span>, <span class="literal">true</span>, <span class="literal">false</span>);</span><br><span class="line"> &#125;</span><br><span class="line"> <span class="comment">// 声明存储死信的队列 dl.queue</span></span><br><span class="line"> <span class="meta">@Bean</span></span><br><span class="line"> <span class="keyword">public</span> Queue <span class="title function_">dlQueue</span><span class="params">()</span>&#123;</span><br><span class="line">   <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">Queue</span>(<span class="string">&quot;dl.queue&quot;</span>, <span class="literal">true</span>);</span><br><span class="line"> &#125;</span><br><span class="line"> <span class="comment">// 将死信队列 与 死信交换机绑定</span></span><br><span class="line"> <span class="meta">@Bean</span></span><br><span class="line"> <span class="keyword">public</span> Binding <span class="title function_">dlBinding</span><span class="params">()</span>&#123;</span><br><span class="line">   <span class="keyword">return</span> BindingBuilder.bind(dlQueue()).to(dlExchange()).with(<span class="string">&quot;simple&quot;</span>);</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
 
 <h2 id="2-2-结合TTL和死信交换机实现延时发送消息"><a href="#2-2-结合TTL和死信交换机实现延时发送消息" class="headerlink" title="2.2 结合TTL和死信交换机实现延时发送消息"></a>2.2 结合TTL和死信交换机实现延时发送消息</h2><p><img src="clip_image024.jpg"></p>
 <p><img src="clip_image026.jpg"></p>
@@ -2443,14 +2443,14 @@
 <p><strong>第二种：CAS非阻塞同步。</strong></p>
 <p>通过不断自旋进行重试，避免线程进入阻塞状态，挂起和唤醒都需要性能开销。</p>
 <p>前面两种方式可以参考上面的博客和我写的锁的内容：<a href="https://rengoku.top/2024/08/05/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E9%94%81/">Java多线程：（三）多线程锁、JUC锁的实现 </a></p>
-<p><strong>第三种：ThreadLocal无同步。</strong></p>
+<p><strong>第三种：ThreadLocal无同步方案。</strong></p>
 <p>线程本地存储：将共享数据的可见范围限制在一个线程中。这样无需同步也能保证线程之间不出现数据争用问题。</p>
 <p>这种方式我结合后端开发一起介绍。</p>
 <h1 id="SpringBoot-ThreadLocal"><a href="#SpringBoot-ThreadLocal" class="headerlink" title="SpringBoot + ThreadLocal"></a>SpringBoot + ThreadLocal</h1><p>通常，我们会使用 synchronzed 关键字 或者 lock锁 来控制线程对临界区资源的同步顺序，但这种加锁的方式会让未获取到锁的线程进行阻塞，很显然，这种方式的时间效率不会特别高。</p>
 <p><strong>线程安全问题的核心在于多个线程会对同一个临界区的共享资源进行访问</strong>，那如果每个线程都拥有自己的“共享资源”，各用各的，互不影响，这样就不会出现线程安全的问题了，对吧？</p>
 <p>顾名思义，<strong>ThreadLocal 就是线程的“本地变量”，即每个线程都拥有该变量的一个副本，达到人手一份的目的，这样就可以避免共享资源的竞争</strong>。</p>
 <h2 id="ThreadLocal源码分析"><a href="#ThreadLocal源码分析" class="headerlink" title="ThreadLocal源码分析"></a>ThreadLocal源码分析</h2><p><a href="https://www.cnblogs.com/lingyejun/p/13380348.html">理清ThreadLocal、ThreadLocalMap、Thread之间的关系 - 翎野君 - 博客园 (cnblogs.com)</a></p>
-<h2 id="使用ThreadLocal工具类改善springboot代码"><a href="#使用ThreadLocal工具类改善springboot代码" class="headerlink" title="使用ThreadLocal工具类改善springboot代码"></a>使用ThreadLocal工具类改善springboot代码</h2><figure class="highlight java"><table><tr><td class="code"><pre><span class="line">ThreadLocal工具类代码</span><br><span class="line"><span class="keyword">package</span> com.example.tadakai.utils;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * ThreadLocal 工具类</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="meta">@SuppressWarnings(&quot;all&quot;)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ThreadLocalUtil</span> &#123;</span><br><span class="line">    <span class="comment">//提供ThreadLocal对象,</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">ThreadLocal</span> <span class="variable">THREAD_LOCAL</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ThreadLocal</span>();</span><br><span class="line"></span><br><span class="line">    <span class="comment">//根据键获取值</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> &lt;T&gt; T <span class="title function_">get</span><span class="params">()</span>&#123;</span><br><span class="line">        <span class="keyword">return</span> (T) THREAD_LOCAL.get();</span><br><span class="line">    &#125;</span><br><span class="line">   </span><br><span class="line">    <span class="comment">//存储键值对</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">set</span><span class="params">(Object value)</span>&#123;</span><br><span class="line">        THREAD_LOCAL.set(value);</span><br><span class="line">    &#125;</span><br><span class="line">   <span class="comment">//清除ThreadLocal 防止内存泄漏</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">remove</span><span class="params">()</span>&#123;</span><br><span class="line">        THREAD_LOCAL.remove();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="ThreadLocal工具类-springboot"><a href="#ThreadLocal工具类-springboot" class="headerlink" title="ThreadLocal工具类 + springboot"></a>ThreadLocal工具类 + springboot</h2><figure class="highlight java"><table><tr><td class="code"><pre><span class="line">ThreadLocal工具类代码</span><br><span class="line"><span class="keyword">package</span> com.example.tadakai.utils;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * ThreadLocal 工具类</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="meta">@SuppressWarnings(&quot;all&quot;)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ThreadLocalUtil</span> &#123;</span><br><span class="line">    <span class="comment">//提供ThreadLocal对象,</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">ThreadLocal</span> <span class="variable">THREAD_LOCAL</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ThreadLocal</span>();</span><br><span class="line"></span><br><span class="line">    <span class="comment">//根据键获取值</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> &lt;T&gt; T <span class="title function_">get</span><span class="params">()</span>&#123;</span><br><span class="line">        <span class="keyword">return</span> (T) THREAD_LOCAL.get();</span><br><span class="line">    &#125;</span><br><span class="line">   </span><br><span class="line">    <span class="comment">//存储键值对</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">set</span><span class="params">(Object value)</span>&#123;</span><br><span class="line">        THREAD_LOCAL.set(value);</span><br><span class="line">    &#125;</span><br><span class="line">   <span class="comment">//清除ThreadLocal 防止内存泄漏</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">remove</span><span class="params">()</span>&#123;</span><br><span class="line">        THREAD_LOCAL.remove();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 
 
@@ -3849,7 +3849,7 @@
 </ol>
 <p>缺点：</p>
 <ol>
-<li><p>插入速度严重依赖于插入顺序，按照主键的顺序插入是最快的方式，否则将会出现页分裂（页分裂见4.2链接和下图），严重影响性能。因此，对于InnoDB表，我们一般都会定义一个自增的ID列为主键（主键列不要选没有意义的自增列，选经常查询的条件列才好，不然无法体现其主键索引性能）</p>
+<li><p>插入速度严重依赖于插入顺序，按照主键的顺序插入是最快的方式，否则将会出现<a href="https://rengoku.top/2024/08/23/01Mysql-sql%E4%BC%98%E5%8C%96/">页分裂</a>（页分裂见链接和下图），严重影响性能。因此，对于InnoDB表，我们一般都会定义一个自增的ID列为主键（主键列不要选没有意义的自增列，选经常查询的条件列才好，不然无法体现其主键索引性能）</p>
 </li>
 <li><p>更新主键的代价很高，因为将会导致被更新的行移动。因此，对于InnoDB表，我们一般定义主键为不可更新。</p>
 </li>
@@ -4247,10 +4247,20 @@
 <p><code>PriorityBlockingQueue</code>一个具有优先级的无限阻塞队列。PriorityBlockingQueue也是基于最小二叉堆实现。PriorityBlockingQueue 并<strong>不会阻塞数据生产者，而只会在没有可消费的数据时，阻塞数据的消费者。</strong><br>因此使用的时候要特别注意，<strong>生产者生产数据的速度绝对不能快于消费者消费数据的速度</strong>，否则时间一长，会最终耗尽所有的可用堆内存空间。</p>
 <p><code>DelayQueue</code> 阿里内部资料只有当其指定的延迟时间到了，才能够从队列中获取到该元素。 DelayQueue是一个没有大小限制的队列， 因此往队列中插入数据的操作（生产者）永远不会被阻塞，而只有获取数据的操作（消费者）才会被阻塞。 </p>
 <p>这里能说出前三种也就差不多了，如果能说全那是最好。</p>
-<h1 id="二、八股：常用的线程池"><a href="#二、八股：常用的线程池" class="headerlink" title="二、八股：常用的线程池"></a>二、八股：常用的线程池</h1><p><strong>newSingleThreadExecutor：</strong>创建一个单线程的线程池，此线程池保证所有任务的执行顺序按照任务的提交顺序执行。</p>
+<h1 id="二、八股：常用的线程池"><a href="#二、八股：常用的线程池" class="headerlink" title="二、八股：常用的线程池"></a>二、八股：常用的线程池</h1><blockquote>
+<p>阿里写的</p>
+</blockquote>
+<p><strong>newSingleThreadExecutor：</strong>创建一个单线程的线程池，此线程池保证所有任务的执行顺序按照任务的提交顺序执行。</p>
 <p><strong>newFixedThreadPool：</strong>创建固定大小的线程池，每次提交一个任务就创建一个线程，直到线程达到线程池的最大大小。</p>
 <p><strong>newCachedThreadPool：</strong>创建一个可缓存的线程池，此线程池不会对线程池大小做限制，线程池大小完全依赖于操作系统（或者说JVM）能够创建的最大线程大小。</p>
 <p><strong>newScheduledThreadPool：</strong>创建一个大小无限的线程池，此线程池支持定时以及周期性执行任务的需求。</p>
+<blockquote>
+<p>简化一下</p>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 主函数</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="type">ExecutorService</span> <span class="variable">executor1</span> <span class="operator">=</span> Executors.newFixedThreadPool(<span class="number">3</span>);<span class="comment">//固定线程池，线程不变</span></span><br><span class="line">        <span class="type">ExecutorService</span> <span class="variable">executor2</span> <span class="operator">=</span> Executors.newCachedThreadPool();<span class="comment">//缓冲线程池，自由伸缩</span></span><br><span class="line">        <span class="type">ExecutorService</span> <span class="variable">executor3</span> <span class="operator">=</span> Executors.newSingleThreadExecutor();<span class="comment">//单线程池，FIFO</span></span><br><span class="line">        <span class="type">ScheduledExecutorService</span>  <span class="variable">executor4</span> <span class="operator">=</span> Executors.newScheduledThreadPool (<span class="number">5</span>);<span class="comment">// 调度线程池，用于实现定时任务、周期任务</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
 <h1 id="三、使用线程池的步骤"><a href="#三、使用线程池的步骤" class="headerlink" title="三、使用线程池的步骤"></a>三、使用线程池的步骤</h1><h2 id="3-1-使用线程池的一般步骤如下："><a href="#3-1-使用线程池的一般步骤如下：" class="headerlink" title="3.1 使用线程池的一般步骤如下："></a>3.1 使用线程池的一般步骤如下：</h2><ol>
 <li><strong>创建线程池：</strong>使用Executors工具类提供的静态方法之一，或者直接使用ThreadPoolExecutor类来创建线程池。</li>
 </ol>
@@ -4562,7 +4572,7 @@
 <p><code>native</code>方法，简单的说就是由 Java 调用非 Java 代码的接口，被调用的方法是由非 Java 语言实现的，例如它可以由 C 或 C++语言来实现，并编译成 DLL，然后直接供 Java 进行调用。<code>native</code>方法是通过 JNI（<code>Java Native Interface</code>）实现调用的，从 Java 1.1 开始 JNI 标准就是 Java 平台的一部分，它允许 Java 代码和其他语言的代码进行交互。</p>
 </blockquote>
 <h4 id="（2）实现原子操作"><a href="#（2）实现原子操作" class="headerlink" title="（2）实现原子操作"></a>（2）实现原子操作</h4><p>JDK 提供了一些用于原子操作的类，在<code>java.util.concurrent.atomic</code>包下面。在 JDK 8 中，有以下这些类：</p>
-<p>这里就做部分了解，需要深入了解可自行搜相关内容</p>
+<p>这里就做部分了解，需要深入了解可自行搜相关内容：<a href="https://zhuanlan.zhihu.com/p/683346836">Java中的CAS（Compare-and-Swap）机制：深入解析与实践 - 知乎 (zhihu.com)</a></p>
 <p><img src="cas-20230731195315.png"></p>
 <h3 id="八股：CAS-的三大问题"><a href="#八股：CAS-的三大问题" class="headerlink" title="八股：CAS 的三大问题"></a>八股：CAS 的三大问题</h3><p>尽管 CAS 提供了一种有效的同步手段，但也存在一些问题，主要有以下三个：ABA 问题、长时间自旋、多个共享变量的原子操作。</p>
 <h4 id="（1）ABA-问题"><a href="#（1）ABA-问题" class="headerlink" title="（1）ABA 问题"></a>（1）ABA 问题</h4><p>所谓的 ABA 问题，就是一个值原来是 A，变成了 B，又变回了 A。<strong>而当前线程在CAS操作中错误地认为该变量没有被其他线程修改过，从而可能导致数据不一致或错误。</strong>这个时候使用 CAS 是检查不出变化的，但实际上却被更新了两次。</p>
@@ -5788,6 +5798,16 @@
 <li>事务管理器：像一个大管家，从整体上管理事务的处理过程，如打开、提交、回滚等。</li>
 <li>事务应用和属性配置：像一个标识符，表明哪些方法要参与事务，如何参与事务，以及一些相关属性如隔离级别、超时时间等。</li>
 </ol>
+<h2 id="5-Spring事务失效的几种场景"><a href="#5-Spring事务失效的几种场景" class="headerlink" title="5. Spring事务失效的几种场景"></a>5. Spring事务失效的几种场景</h2><h3 id="1-数据库引擎不支持事务"><a href="#1-数据库引擎不支持事务" class="headerlink" title="1. 数据库引擎不支持事务"></a>1. 数据库引擎不支持事务</h3><p>场景描述：如果使用的数据库引擎不支持事务，如MySQL的MyISAM引擎，那么即使Spring配置了事务管理，也无法实现事务的ACID特性（原子性、一致性、隔离性、持久性）。</p>
+<h3 id="2-类或方法未被Spring管理"><a href="#2-类或方法未被Spring管理" class="headerlink" title="2. 类或方法未被Spring管理"></a>2. 类或方法未被Spring管理</h3><p>场景描述：如果Spring事务管理的类或方法没有被Spring容器管理（即没有通过@Service、@Component等注解或XML配置方式注册为Bean），那么这些类或方法上的@Transactional注解将不会生效。</p>
+<h3 id="3-方法非public"><a href="#3-方法非public" class="headerlink" title="3. 方法非public"></a>3. 方法非public</h3><p>场景描述：Spring AOP（面向切面编程）默认是通过JDK动态代理或CGLIB代理来实现的，而这些代理机制只能对public方法进行拦截。因此，如果@Transactional注解被用在protected、private或默认访问权限的方法上，事务将不会生效。</p>
+<h3 id="4-自身调用问题"><a href="#4-自身调用问题" class="headerlink" title="4. 自身调用问题"></a>4. 自身调用问题</h3><p>场景描述：在同一个类中，一个方法调用另一个带有@Transactional注解的方法时，由于调用是在同一个类的内部进行的，并没有经过Spring的代理对象，因此事务不会生效。</p>
+<h3 id="5-数据源未配置事务管理器"><a href="#5-数据源未配置事务管理器" class="headerlink" title="5. 数据源未配置事务管理器"></a>5. 数据源未配置事务管理器</h3><p>场景描述：如果Spring配置文件中没有为数据源配置相应的事务管理器，或者事务管理器的配置有误，那么事务将不会生效。</p>
+<h3 id="6-不支持事务的传播行为"><a href="#6-不支持事务的传播行为" class="headerlink" title="6. 不支持事务的传播行为"></a>6. 不支持事务的传播行为</h3><p>场景描述：@Transactional注解中的propagation属性定义了事务的传播行为。如果设置了不支持事务的传播行为（如Propagation.NOT_SUPPORTED），那么该方法将不会以事务方式运行。</p>
+<h3 id="7-异常被吞没"><a href="#7-异常被吞没" class="headerlink" title="7. 异常被吞没"></a>7. 异常被吞没</h3><p>场景描述：如果在事务方法内部捕获了异常，并且没有重新抛出（或抛出的异常类型不被Spring事务管理器识别为需要回滚的异常），那么事务将不会回滚。</p>
+<h3 id="8-抛出的异常类型不符合默认回滚规则"><a href="#8-抛出的异常类型不符合默认回滚规则" class="headerlink" title="8. 抛出的异常类型不符合默认回滚规则"></a>8. 抛出的异常类型不符合默认回滚规则</h3><p>场景描述：Spring默认只会在抛出运行时异常（RuntimeException）和错误（Error）时回滚事务。如果抛出了检查型异常（checked exception），并且没有在@Transactional注解中通过rollbackFor属性指定该异常类型需要回滚，那么事务将不会回滚。</p>
+<h3 id="9-事务方法被其他非事务方法调用"><a href="#9-事务方法被其他非事务方法调用" class="headerlink" title="9. 事务方法被其他非事务方法调用"></a>9. 事务方法被其他非事务方法调用</h3><p>场景描述：如果事务方法被其他没有@Transactional注解的方法调用，且这些调用没有通过Spring的代理对象进行，那么事务将不会生效。</p>
+<h3 id="10-代理机制问题"><a href="#10-代理机制问题" class="headerlink" title="10.代理机制问题"></a>10.代理机制问题</h3><p>场景描述：在某些情况下，如果Spring的代理机制没有正确配置或工作，例如类加载器问题、AOP配置错误等，都可能导致事务失效。</p>
 ]]></content>
       <categories>
         <category>后端开发</category>
@@ -6158,6 +6178,261 @@
       </categories>
       <tags>
         <tag>算法</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>docker：容器化项目</title>
+    <url>/2024/09/20/15%E6%9E%84%E5%BB%BAdocker%E9%95%9C%E5%83%8F%E4%B8%8E%E8%BF%90%E8%A1%8C%E5%AE%B9%E5%99%A8/</url>
+    <content><![CDATA[<h1 id="Docker-是什么"><a href="#Docker-是什么" class="headerlink" title="Docker 是什么"></a>Docker 是什么</h1><p>Docker 是一个开源的应用容器引擎，基于 <a href="https://www.runoob.com/go/go-tutorial.html">Go 语言</a> 并遵从 Apache2.0 协议开源。</p>
+<p>Docker 可以让开发者打包他们的应用以及依赖包到一个轻量级、可移植的容器中，然后发布到任何流行的 Linux 机器上，也可以实现虚拟化。</p>
+<p>容器是完全使用沙箱机制，相互之间不会有任何接口（类似 iPhone 的 app）,更重要的是容器性能开销极低。</p>
+<h2 id="docker-三个重要概念"><a href="#docker-三个重要概念" class="headerlink" title="docker 三个重要概念"></a>docker 三个重要概念</h2><h3 id="1-Dockerfile"><a href="#1-Dockerfile" class="headerlink" title="1. Dockerfile"></a>1. Dockerfile</h3><p>这是一个文本文件，包含了一系列的指令，用于描述如何构建一个镜像。可以使用 docker build 命令根据 Dockerfile 中的指令逐步构建镜像。</p>
+<h3 id="2-Image-镜像"><a href="#2-Image-镜像" class="headerlink" title="2. Image&#x2F;镜像"></a>2. Image&#x2F;镜像</h3><p><strong>一、概念</strong></p>
+<p>Docker 镜像可以看作是一个包含了运行特定软件所需的所有文件和配置的静态文件包。它就像是一个软件的安装包，但更加轻量级和灵活。</p>
+<p>一个镜像通常由以下几个部分组成：</p>
+<ol>
+<li><p>基础操作系统层：可以基于常见的 Linux 发行版，如 Ubuntu、CentOS 等。</p>
+</li>
+<li><p>应用程序及其依赖：包括应用程序的二进制文件、库文件、配置文件等。</p>
+</li>
+<li><p>元数据：描述镜像的信息，如作者、版本号、标签等。</p>
+</li>
+</ol>
+<p><strong>二、原理：</strong></p>
+<ol>
+<li>分层存储</li>
+</ol>
+<p>• Docker 镜像采用分层存储的方式，每个镜像都是由一系列的层组成。当构建一个镜像时，Docker 会按照一定的规则将每个变化的部分作为一个新的层进行存储。这样做的好处是可以重复利用已有的层，提高存储和传输效率。</p>
+<p>• 例如，如果多个镜像都基于相同的基础操作系统，那么它们可以共享这个操作系统层，而不必在每个镜像中都重复存储。</p>
+<ol start="2">
+<li>联合文件系统（Union File System）</li>
+</ol>
+<p>• Docker 使用联合文件系统将这些层组合成一个统一的文件系统，呈现给容器使用。当容器启动时，Docker 会将镜像的各个层挂载到一个联合挂载点上，形成一个完整的文件系统。</p>
+<p>• 容器在运行过程中对文件系统的修改只会发生在最上层的可写层，而不会影响到镜像的其他层。这样可以保证镜像的不可变性，同时也方便了镜像的分发和版本管理。</p>
+<ol start="3">
+<li>镜像构建</li>
+</ol>
+<p>• 可以通过两种主要方式构建 Docker 镜像：</p>
+<p>• <em>Dockerfile</em>：这是一个文本文件，包含了一系列的指令，用于描述如何构建一个镜像。可以使用 docker build 命令根据 Dockerfile 中的指令逐步构建镜像。</p>
+<p>• 基于已有镜像进行修改：可以使用 docker commit 命令将一个正在运行的容器的状态保存为一个新的镜像。这种方式比较简单，但不太适合复杂的镜像构建场景。</p>
+<ol start="4">
+<li>镜像仓库</li>
+</ol>
+<p>• Docker 镜像可以存储在镜像仓库中，方便分发和共享。常见的镜像仓库有 Docker Hub、私有仓库等。</p>
+<p>• 用户可以从镜像仓库中拉取所需的镜像到本地，也可以将自己构建的镜像推送到镜像仓库中供其他人使用。</p>
+<p><em>Docker 镜像</em>包含可执行的应用源代码，以及在将应用代码作为容器运行时所需的所有工具、库和依赖项。 运行 Docker 镜像时，它会成为容器的一个（或多个）实例。 例如一个 Java APP必须在JDK环境中运行，所以 JDK 将作为构建 Java APP镜像的的基础镜像。</p>
+<h3 id="3-Container-容器"><a href="#3-Container-容器" class="headerlink" title="3. Container&#x2F;容器"></a>3. Container&#x2F;容器</h3><p>通过运行镜像而产生。一个镜像可以产生多个容器实例。容器是通过 Linux 内核中内置的过程隔离和虚拟化功能来实现的。容器技术可提供虚拟机的所有功能和优势，包括应用隔离、经济高效的可扩展性和可处置性，以及其他重要的优势：</p>
+<ul>
+<li><p>更轻巧：与虚拟机不同，容器不会承载整个操作系统实例和系统管理程序的有效负载。 它们仅包括执行代码所需的操作系统进程和依赖项。 容器大小以兆字节为单位（某些虚拟机则是以G 为单位）来衡量，因此它们可以更好地利用硬件容量，启动速度也更快。 </p>
+</li>
+<li><p>提高了开发人员的工作效率：容器化应用可以“一次编写，随处运行”。 与虚拟机相比，容器的部署、配置和重启过程更迅速且更简单。 这使得容器非常适合在<em>持续集成</em>和<em>持续交付 (CI&#x2F;CD)</em> 管道中使用，并且更适合采取敏捷和 DevOps 实践的开发团队。 </p>
+</li>
+<li><p>提高了资源利用率：开发人员使用容器在硬件上运行的应用副本数量是使用虚拟机的数倍。 这可以减少云支出。</p>
+</li>
+</ul>
+<h2 id="Docker-Hub"><a href="#Docker-Hub" class="headerlink" title="Docker Hub"></a>Docker Hub</h2><p><a href="https://hub.docker.com/"><em>Docker Hub</em></a> 是Docker 镜像的公共存储库，是“世界上最大的容器镜像库和社区”。 它存储超过 10 万个容器映像，来源于商业软件供应商、开源项目和开发者个人。</p>
+<h2 id="Docker-Compose"><a href="#Docker-Compose" class="headerlink" title="Docker Compose"></a>Docker Compose</h2><p>开发人员可以使用 Docker Compose 来管理多容器应用，其中所有容器都在同一 Docker 主机上运行。 Docker Compose 会创建一个 YAML (.YML) 文件来指定应用中要包含的服务，并且可以使用单个命令来部署和运行容器。 由于 YAML 语法与语言无关，因此 YAML 文件可用于用 Java、Python、Ruby 和许多其他语言编写的程序。 </p>
+<p>开发人员还可以使用 Docker Compose 来定义用于存储的持久卷、指定基本节点，以及记录和配置服务依赖项。 </p>
+<h1 id="一、docker命令"><a href="#一、docker命令" class="headerlink" title="一、docker命令"></a>一、docker命令</h1><h2 id="1-1-镜像相关命令"><a href="#1-1-镜像相关命令" class="headerlink" title="1.1 镜像相关命令"></a>1.1 镜像相关命令</h2><p>官方镜像仓库 Docker Hub: <a href="https://www.docker.com/products/docker-hub/">https://www.docker.com/products/docker-hub/</a></p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">获取镜像 (下载)</span></span><br><span class="line">docker pull IAMGE_NAME</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">官方pull</span></span><br><span class="line">docker pull IAMGE_NAME:VERSION（没有指定版本，默认会下载最新版） </span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">查看镜像列表</span></span><br><span class="line">docker images</span><br><span class="line">docker image ls</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">删除单个镜像，如：docker image <span class="built_in">rm</span> mysql:latest</span></span><br><span class="line">docker image rm IAMGE_NAME:VERSION</span><br><span class="line"><span class="meta prompt_">#</span><span class="language-bash">或</span></span><br><span class="line">docker image rm 578c3（镜像 ID）</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">删除所有镜像</span></span><br><span class="line">docker image rm $&#123;docker images -q&#125;</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">搜索镜像</span></span><br><span class="line">docker search 镜像名字</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">创建镜像, 点号表示使用当前目录下的 Dockerfile 构建镜像，-t 指定镜像的tag</span></span><br><span class="line">docker build -t &lt;image-name&gt; . *(点一定不能去掉)</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">显示一个镜像的历史</span></span><br><span class="line">docker history image_name </span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">导出镜像</span></span><br><span class="line">docker image save centos &gt; docker-centos6.9.tar.gz</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">导入镜像</span></span><br><span class="line">docker image load -i docker-centos6.9.tar.gz</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">给源中镜像打标签</span></span><br><span class="line">docker tag nginx:latest 10.0.0.11:80/nginx:latest</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">推送指定镜像到docker镜像源服务器</span></span><br><span class="line">docker push 10.0.0.11:80/nginx:latest</span><br></pre></td></tr></table></figure>
+
+<h2 id="1-2容器相关命令"><a href="#1-2容器相关命令" class="headerlink" title="1.2容器相关命令"></a>1.2容器相关命令</h2><figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 查看版本</span></span><br><span class="line">docker -v         </span><br><span class="line"></span><br><span class="line"><span class="comment"># 查看docker信息</span></span><br><span class="line">docker info</span><br><span class="line"></span><br><span class="line"><span class="comment"># 查看docker信息,如：docker search mysql</span></span><br><span class="line">docker search IMAGE_NAME</span><br><span class="line"></span><br><span class="line"><span class="comment"># 运行容器，--name 指定容器名称 </span></span><br><span class="line">docker run --name 容器名 -d -p 3306:3306 mysql</span><br><span class="line"></span><br><span class="line"><span class="comment"># 运行容器</span></span><br><span class="line">docker run -d -p 80:80 nginx:latest</span><br><span class="line"><span class="comment"># run（创建并运行一个容器）没有指定容器名时会自动分配容器名，</span></span><br><span class="line"><span class="comment"># --name可指定容器名</span></span><br><span class="line"><span class="comment"># -d 放在后台 </span></span><br><span class="line"><span class="comment"># -p 端口映射，宿主机端口:docker容器端口</span></span><br><span class="line"><span class="comment"># -P （大写）随机分配端口</span></span><br><span class="line"><span class="comment"># -v 挂载目录卷，宿主机路径: 容器目标路径</span></span><br><span class="line"><span class="comment"># --rm 将会在容器停止时自动删除容器; 不能与 -d 选项一起使用</span></span><br><span class="line"></span><br><span class="line"><span class="comment">#运行容器后命令行窗口进入到容器的 bash 终端</span></span><br><span class="line">docker run -it --name centos6 centos:6.9 /bin/bash </span><br><span class="line"><span class="comment"># -it 分配交互式的终端</span></span><br><span class="line"><span class="comment"># /bin/sh 覆盖容器的初始命令</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 修改容器名</span></span><br><span class="line">docker rename OLD_CONTAINER_NAME NEW_CONTAINER_NAME </span><br><span class="line"></span><br><span class="line"><span class="comment"># 启动容器</span></span><br><span class="line">docker run IMAGE_NAME </span><br><span class="line"></span><br><span class="line"><span class="comment"># 停止所有容器</span></span><br><span class="line">docker stop $(docker ps -aq)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 删除所有容器</span></span><br><span class="line">docker <span class="built_in">rm</span> $(docker ps -aq)</span><br><span class="line">docker <span class="built_in">rm</span> -f <span class="string">&#x27;docker ps -a -q&#x27;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 查看容器列表，-a查看所有容器; 加上-f status-exited查看停止的容器</span></span><br><span class="line">docker ps (-a -l -q)    </span><br><span class="line">docker ps -a  </span><br><span class="line"></span><br><span class="line"><span class="comment"># 进入容器bash终端，CONTAINER_ID 容器ID</span></span><br><span class="line">docker <span class="built_in">exec</span> -it  CONTAINER_ID /bin/bash</span><br><span class="line"><span class="comment"># 进入容器后，在容器中安装 ping 命令来测试跟其它容器是否连通</span></span><br><span class="line">&gt;apt-get install -yqq inetutils-ping</span><br><span class="line"></span><br><span class="line"><span class="comment"># 开启|停止|重启|杀死  指定id的容器或者容器名称的容器</span></span><br><span class="line">docker start|stop|restart|<span class="built_in">kill</span> CONTAINER_ID|CONTAINER_NAME</span><br><span class="line"></span><br><span class="line"><span class="comment"># 运行容器,-v 为挂载的目录卷，宿主路径:容器路径</span></span><br><span class="line">docker run -d -p 80:80 \</span><br><span class="line">-v /opt/docker/nginx/nginx.conf:/etc/nginx/nginx.conf \</span><br><span class="line">-v /opt/docker/nginx/conf.d:/etc/nginx/conf.d \</span><br><span class="line">-v /opt/docker/nginx/logs:/var/log/nginx \</span><br><span class="line">-v /opt/docker/nginx/html:/usr/share/nginx/html nginx:latest</span><br><span class="line"></span><br><span class="line"><span class="comment"># 查看容器日志</span></span><br><span class="line">docker logs CONTAINER_ID||CONTAINER_NAME</span><br><span class="line"></span><br><span class="line"><span class="comment"># 查看容器状态</span></span><br><span class="line">docker ps | grep <span class="variable">$&#123;CONTAINER_ID&#125;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 容器保存为镜像 (保存对容器的修改)</span></span><br><span class="line">docker commit CONTAINER_ID NEW_IMAGE_NAME</span><br><span class="line">docker commit -m=<span class="string">&quot;提交的描述信息&quot;</span> -a=<span class="string">&quot;作者&quot;</span> 容器<span class="built_in">id</span>  新创建的目标镜像名:[标签名]</span><br><span class="line"><span class="comment"># 镜像备份为tar文件</span></span><br><span class="line">docker save -o 备份后镜像名称.tar 原镜像名称</span><br><span class="line"></span><br><span class="line"><span class="comment"># 查看容器内部详情细节</span></span><br><span class="line">docker inspect CONTAINER_ID|CONTAINER_NAME</span><br><span class="line"></span><br><span class="line"><span class="comment"># 查看容器文件的变化，显示表示 A:新建的文件，C:修改的文件，D:删除的文件, 如：docker diff nginx</span></span><br><span class="line">docker diff CONTAINER_ID</span><br><span class="line"></span><br><span class="line"><span class="comment"># 登录</span></span><br><span class="line">docker login </span><br></pre></td></tr></table></figure>
+
+<p>示例：</p>
+<ol>
+<li>运行 microservice-eureka-server 镜像，版本 0.0.1</li>
+</ol>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">docker run -d -p 8761:8761 --name microservice-eureka-server --net staticnet  microservice-eureka-server:0.0.1</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><p><em>-p 8761:8761</em>：宿主机端口:容器端口，将本地端口映射为容器指定的端口，可根据实际情修改。</p>
+</li>
+<li><p><em>–name microservice-eureka-server</em>：为运行的容器指定名称。</p>
+</li>
+<li><p><em>–net staticnet</em>：运行的容器使用 docker中自定义创建的固定 ip地址，默认 docker 容器使用的 <em>bridge</em> 桥接模式以宿主机连接，所以每次docker容器重启时会按照顺序获取对应ip地址，这就导致容器每次重启，ip都发生变化。</p>
+</li>
+</ul>
+<ol start="2">
+<li><p>运行 redis 时指定密码：</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">docker run -d --name MyRedis -p 6379:6379 redis --requirepass <span class="string">&quot;myredis&quot;</span></span><br></pre></td></tr></table></figure></li>
+</ol>
+<ul>
+<li><em>–requirepass</em>：redis的密码</li>
+</ul>
+<h2 id="1-3-网络管理"><a href="#1-3-网络管理" class="headerlink" title="1.3 网络管理"></a>1.3 网络管理</h2><p>docker安装后，默认会创建三种网络类型，<em>bridge</em>、<em>host</em>和<em>none</em>，可通过如下命令查看</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">sudo docker network <span class="built_in">ls</span></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><p><em>bridge</em>: 网络桥接<br> 默认情况下启动、创建容器都是用该模式，所以每次docker容器重启时会按照顺序获取对应ip地址，这就导致容器每次重启，ip都发生变化。</p>
+</li>
+<li><p><em>host</em>：主机网络<br> docker容器的网络会附属在主机上，两者是互通的。</p>
+</li>
+<li><p><em>none</em>：无指定网络<br> 启动容器时，可以通过–network&#x3D;none, docker容器不会分配局域网ip</p>
+</li>
+</ul>
+<h3 id="创建固定ip容器"><a href="#创建固定ip容器" class="headerlink" title="创建固定ip容器"></a>创建固定ip容器</h3><ol>
+<li><p>创建自定义网络类型，并且指定网段</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">sudo docker network create --subnet=192.168.0.0/16 staticnet</span><br></pre></td></tr></table></figure>
+
+<p>通过<em>docker network ls</em> 可以查看到网络类型中多了一个staticnet</p>
+</li>
+<li><p>使用新的网络类型创建并启动容器</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">docker run -d -p 9000:9000 \</span><br><span class="line">--restart=always \</span><br><span class="line">-v /var/run/docker.sock:/var/run/docker.sock \</span><br><span class="line">--name portainer \</span><br><span class="line">--net staticnet \</span><br><span class="line">--ip 192.168.0.100 portainer/portainer</span><br></pre></td></tr></table></figure>
+
+<p>通过docker inspect可以查看容器ip为192.168.0.2，关闭容器并重启，发现容器ip并未发生改变</p>
+</li>
+</ol>
+<h1 id="二、容器化前端项目"><a href="#二、容器化前端项目" class="headerlink" title="二、容器化前端项目"></a>二、容器化前端项目</h1><p> 为了方便管理 docker 减少命令行的使用，可以安装<em>portainer</em> 容器。</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 拉取镜像</span></span><br><span class="line">docker pull portainer/portainer</span><br><span class="line"></span><br><span class="line"><span class="comment"># 创建数据卷</span></span><br><span class="line">docker volume create portainer_data</span><br><span class="line"></span><br><span class="line"><span class="comment"># 运行 Portainer 容器</span></span><br><span class="line">docker run -d -p 9000:9000 \</span><br><span class="line">-v /var/run/docker.sock:/var/run/docker.sock \</span><br><span class="line">-v portainer_data:/data portainer/portainer</span><br></pre></td></tr></table></figure>
+
+<p><em>Portainer</em> 安装参考：<a href="https://cloud.tencent.com/developer/article/1866869">https://cloud.tencent.com/developer/article/1866869</a></p>
+<ol>
+<li><p>构建前端项目镜像</p>
+<p>先构建前端项目产生的dist目录，如果项目中使用到的图片等先复制到dist目录中。在项目根目录下新建 <em>Dockerfile</em> 文件，参考前端项目中引用的地址来放，<em>Dockerfile</em> 文件内容如下：</p>
+</li>
+</ol>
+<figure class="highlight dockerfile"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 基于nginx镜像来构建</span></span><br><span class="line"><span class="keyword">FROM</span> nginx</span><br><span class="line"><span class="comment"># 复制dist目录中的所有文件和目录到nginx容器的的 html目录（Web根目录）</span></span><br><span class="line"><span class="keyword">COPY</span><span class="language-bash"> ./dist/ /usr/share/nginx/html</span></span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>在 <em>Dockerfile</em> 文件所在目录下依次执行以下命令</li>
+</ol>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">构建镜像，镜像文件名：mynginx  版本：1.0</span></span><br><span class="line">docker build -t my_nginx:1.0 .</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">运行容器，--name 指定容器名称，-d: 以后台方式运行镜像；-p: 端口映射</span></span><br><span class="line">docker run  --name my_nginx -d -p 8000:80 my_nginx:1.0</span><br></pre></td></tr></table></figure>
+
+<h1 id="三、容器化后端项目"><a href="#三、容器化后端项目" class="headerlink" title="三、容器化后端项目"></a>三、容器化后端项目</h1><h2 id="2-1-在-docker-中安装-Mysql"><a href="#2-1-在-docker-中安装-Mysql" class="headerlink" title="2.1 在 docker 中安装 Mysql"></a>2.1 在 docker 中安装 Mysql</h2><h3 id="安装-Mysql-8-0"><a href="#安装-Mysql-8-0" class="headerlink" title="安装 Mysql 8.0"></a>安装 Mysql 8.0</h3><p>在命令行中执行以下命令：</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">1.下载最新的 mysql镜像</span></span><br><span class="line">docker pull mysql</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">2.创建容器并运行</span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">-e 覆盖构建镜像是 Dockerfile 中的环境变量值;</span></span><br><span class="line">docker run --name mysql8 -p 13306:3306 -e MYSQL_ROOT_PASSWORD=root -d mysql:latest</span><br></pre></td></tr></table></figure>
+
+<p>然后使用<em>navicat</em> 连接 <em>docker</em> 中的 <em>mysql</em> 测试是否可用。</p>
+<p>主机：<strong>localhost</strong></p>
+<p>端口：<strong>13306</strong></p>
+<p><em>springboot 应用yml 文件配置</em>内容大致如下：</p>
+<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="comment"># 配置jdbc数据源</span></span><br><span class="line">  <span class="attr">datasource:</span></span><br><span class="line">    <span class="attr">driver-class-name:</span> <span class="string">com.mysql.cj.jdbc.Driver</span></span><br><span class="line">    <span class="comment"># mysql8:13306 为容器名称:端口号；如果不行就改成 mysql容器网络IP:3306</span></span><br><span class="line">    <span class="attr">url:</span> <span class="string">jdbc:mysql://mysql8:3306/renting?useUnicode=true&amp;characterEncoding=UTF-8&amp;autoReconnect=true&amp;useSSL=false&amp;zeroDateTimeBehavior=convertToNull&amp;serverTimezone=UTC</span></span><br><span class="line">    <span class="attr">username:</span> <span class="string">root</span></span><br><span class="line">    <span class="attr">password:</span> <span class="string">root</span></span><br><span class="line">    <span class="attr">type:</span> <span class="string">com.zaxxer.hikari.HikariDataSource</span></span><br><span class="line">    <span class="attr">hikari:</span></span><br><span class="line">      <span class="attr">minimum-idle:</span> <span class="number">1</span></span><br><span class="line">      <span class="attr">maximum-pool-size:</span> <span class="number">5</span></span><br><span class="line">      <span class="attr">auto-commit:</span> <span class="literal">true</span></span><br><span class="line">      <span class="attr">idle-timeout:</span> <span class="number">30000</span></span><br><span class="line">      <span class="attr">pool-name:</span> <span class="string">RentingHikariCP</span></span><br><span class="line">      <span class="attr">max-lifetime:</span> <span class="number">1800000</span></span><br><span class="line">      <span class="attr">connection-timeout:</span> <span class="number">30000</span></span><br><span class="line">      <span class="attr">connection-test-query:</span> <span class="string">SELECT</span> <span class="number">1</span></span><br><span class="line"><span class="string">......</span>      </span><br></pre></td></tr></table></figure>
+
+<p><em>yml文件解析：</em> </p>
+<p>mysql：端口号前的 <code>mysql8</code> 是 mysql数据库 docker 容器名称: <code>mysql8</code>，此处注意，稍后使用命令启动 sp ringboot 应用容器时连接 到 <code>mysql8</code>容器名要和此处一致。启动 mysql 容器请参考 2.1 节部分。</p>
+<h3 id="安装-Mysql-5-7"><a href="#安装-Mysql-5-7" class="headerlink" title="安装 Mysql 5.7"></a>安装 Mysql 5.7</h3><ul>
+<li><em>在本地创建 mysql 的映射目录 ( macOS )，不同系统路径自行修改</em></li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">mkdir -p /Users/jamesmac/dev/docker/mysql5/data /Users/jamesmac/dev/docker/mysql5/logs /Users/jamesmac/dev/docker/mysql5/conf</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_">#</span><span class="language-bash">添加访问对目录的访问权限</span></span><br><span class="line">chmod 777 /Users/jamesmac/dev/docker/mysql5</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>下载镜像</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">下载镜像</span></span><br><span class="line">docker pull mysql:5.7.39</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><p>运行容器</p>
+<p>使用下载的镜像运行来创建容器。</p>
+</li>
+</ul>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line"><span class="comment"># --name指定容器名字 -v挂载目录卷 -p指定端口映射  -e设置(覆盖)mysql参数 -d后台运行  \表示命令换行</span></span><br><span class="line">sudo docker run -p 23306:3306 --name mysql5 \</span><br><span class="line">-v /Users/jamesmac/dev/docker/mysql5/logs:/var/log/mysql \</span><br><span class="line">-v /Users/jamesmac/dev/docker/mysql5/data:/var/lib/mysql \</span><br><span class="line">-v /Users/jamesmac/dev/docker/mysql5/conf:/etc/mysql/conf.d \</span><br><span class="line">-e MYSQL_ROOT_PASSWORD=root \</span><br><span class="line">-d mysql:5.7.39</span><br></pre></td></tr></table></figure>
+
+<h2 id="2-2-Dockerfile-文件构建-docker-镜像"><a href="#2-2-Dockerfile-文件构建-docker-镜像" class="headerlink" title="2.2 Dockerfile 文件构建 docker 镜像"></a>2.2 Dockerfile 文件构建 docker 镜像</h2><h3 id="Dockerfile-命令"><a href="#Dockerfile-命令" class="headerlink" title="Dockerfile 命令"></a>Dockerfile 命令</h3><p>是一系列命令和参数构成的脚本，这些命令应用于基础镜像并最终创建一个新的镜像</p>
+<p>常用命令</p>
+<ul>
+<li><strong>FROM 镜像名称:标签</strong>：定义了使用哪个基础镜像启动构建流程</li>
+<li><strong>MAINTAINER 名字</strong>：声明镜像的创建者</li>
+<li><strong>ENV key value</strong>：设置环境变量，使用*$VAR_NAME 或 ${VAR_NAME}* 的语法引用变量名。</li>
+<li><strong>ARG key&#x3D;value</strong>: 也称为构建时变量。仅在构建Docker映像期间（RUN等）可用，而在创建映像（ENTRYPOINT，CMD）之后不可用。</li>
+<li><strong>RUN command</strong>：在创建镜像时使用；是Docker的核心部分(可以写多条)</li>
+<li><strong>ADD 宿主机文件 容器目录文件</strong> ：将宿主机的文件复制到容器中, 如果是一个压缩文件将会在复制后自动解压。</li>
+<li><strong>COPY 宿主机文件 容器目录文件</strong>：和ADD相似，但如果有压缩文件不能解</li>
+<li><strong>WORKDIR 目录名称</strong>：设置工作目录，此后的命令在此目录位置下执行</li>
+<li><strong>EXPOSE  port</strong> ：暴露的端口号</li>
+<li><strong>ENTRYPOINT [command…]</strong>: 容器启动时执行的命令</li>
+<li><strong>CMD  [command…]</strong>: 与 <em>ENTRYPOINT</em> 相似</li>
+</ul>
+<h3 id="构建-docker-镜像"><a href="#构建-docker-镜像" class="headerlink" title="构建 docker 镜像"></a>构建 docker 镜像</h3><ol>
+<li><p>首先编译项目，在target目录中生成：<em>spring-security-jwt-1.0.jar</em></p>
+</li>
+<li><p>在项目根目录下编写 <code>Dockerfile</code> 文件（无扩展名），与 <code>pom.xml</code> 位置相同，<code>Dockerfile</code> 内容如下：</p>
+<figure class="highlight dockerfile"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 基础镜像</span></span><br><span class="line"><span class="keyword">FROM</span> openjdk:<span class="number">8</span>-jdk-alpine</span><br><span class="line"><span class="comment"># 维护者</span></span><br><span class="line"><span class="keyword">MAINTAINER</span> JAMESZHANG</span><br><span class="line"><span class="comment"># 定义容器挂载的卷标</span></span><br><span class="line"><span class="keyword">VOLUME</span><span class="language-bash"> /tmp</span></span><br><span class="line"><span class="comment"># 声明环境变量；ARG 也是声明环境变量</span></span><br><span class="line"><span class="comment"># ARG JAR_FILE=target/spring-security-jwt-1.0.jar</span></span><br><span class="line"><span class="keyword">ENV</span> JAR_FILE target/spring-security-jwt-<span class="number">1.0</span>.jar</span><br><span class="line"><span class="comment"># 复制 jar 文件到 docker 系统中</span></span><br><span class="line"><span class="keyword">COPY</span><span class="language-bash"> <span class="variable">$&#123;JAR_FILE&#125;</span> .</span></span><br><span class="line"><span class="comment"># 在构建镜像过程中要运行的命令，格式：RUN &lt;command&gt;</span></span><br><span class="line"><span class="comment">#RUN </span></span><br><span class="line"><span class="comment"># 暴露的端口号</span></span><br><span class="line"><span class="keyword">EXPOSE</span> <span class="number">8080</span></span><br><span class="line"><span class="comment"># 容器启动时执行的命令</span></span><br><span class="line"><span class="keyword">ENTRYPOINT</span><span class="language-bash"> [<span class="string">&quot;java&quot;</span>,<span class="string">&quot;-jar&quot;</span>,<span class="string">&quot;/spring-security-jwt-1.0.jar&quot;</span>]</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p>命令执行Dockerfile 构建docker 镜像</p>
+</li>
+</ol>
+<pre><code><figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">docker build -t spring-security-jwt-docker:1.0 .</span><br></pre></td></tr></table></figure>
+</code></pre>
+<p>​	构建镜像时可以使用<em>–build-arg</em> 来设置 <em>ARG</em> 的值 </p>
+<h2 id="2-3-通过-maven-插件方式构建docker-镜像"><a href="#2-3-通过-maven-插件方式构建docker-镜像" class="headerlink" title="2.3 通过 maven 插件方式构建docker 镜像"></a>2.3 通过 maven 插件方式构建docker 镜像</h2>  <figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">properties</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">java.version</span>&gt;</span>1.8<span class="tag">&lt;/<span class="name">java.version</span>&gt;</span></span><br><span class="line">  <span class="comment">&lt;!-- 镜像前缀--&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">docker.image.prefix</span>&gt;</span>spring-security-jwt<span class="tag">&lt;/<span class="name">docker.image.prefix</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">properties</span>&gt;</span></span><br><span class="line">......</span><br><span class="line"><span class="tag">&lt;<span class="name">build</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">plugins</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">plugin</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>com.spotify<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>docker-maven-plugin<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">version</span>&gt;</span>1.1.0<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">configuration</span>&gt;</span></span><br><span class="line">          <span class="comment">&lt;!-- 镜像名称--&gt;</span></span><br><span class="line">          <span class="tag">&lt;<span class="name">imageName</span>&gt;</span>$&#123;docker.image.prefix&#125;-docker:1.0<span class="tag">&lt;/<span class="name">imageName</span>&gt;</span></span><br><span class="line">          <span class="comment">&lt;!-- maven内部变量，Dockerfile 文件所在位置 --&gt;</span></span><br><span class="line">          <span class="tag">&lt;<span class="name">dockerDirectory</span>&gt;</span>$&#123;project.basedir&#125;<span class="tag">&lt;/<span class="name">dockerDirectory</span>&gt;</span></span><br><span class="line">          <span class="tag">&lt;<span class="name">resources</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">resource</span>&gt;</span></span><br><span class="line">              <span class="tag">&lt;<span class="name">targetPath</span>&gt;</span>/<span class="tag">&lt;/<span class="name">targetPath</span>&gt;</span></span><br><span class="line">              <span class="comment">&lt;!-- maven内部变量，项目编译目录：target --&gt;</span></span><br><span class="line">              <span class="tag">&lt;<span class="name">directory</span>&gt;</span>$&#123;project.build.directory&#125;<span class="tag">&lt;/<span class="name">directory</span>&gt;</span></span><br><span class="line">              <span class="tag">&lt;<span class="name">include</span>&gt;</span>$&#123;project.build.finalName&#125;.jar<span class="tag">&lt;/<span class="name">include</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;/<span class="name">resource</span>&gt;</span></span><br><span class="line">          <span class="tag">&lt;/<span class="name">resources</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;/<span class="name">configuration</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">plugin</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;/<span class="name">plugins</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">build</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>运行 docker 容器</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">docker run \</span><br><span class="line">		--rm --name spring-security-jwt \</span><br><span class="line">		--link mysql8:mysql8 \</span><br><span class="line">		-d -p 8888:8080 \</span><br><span class="line">		spring-security-jwt-docker:1.0</span><br></pre></td></tr></table></figure>
+
+<p><em>注意：</em> 可以加多个<code>--link</code> 来链接多个容器，如：<code>--link mysql8:mysql8  --link redisdb:redisdb</code></p>
+<p><em>命令解析:</em></p>
+<ul>
+<li><code>--rm</code> （可选项）停止容器时自动删除容器实例。</li>
+<li><code>-p</code> 端口映射，宿主机的 <code>8888</code> 端口映射到容器的<code>8080</code> 端口，即访问宿主机的 <code>8888</code>端口就是访问容器的 <code>8080</code> 端口。</li>
+<li><code>--name</code> 运行时的容器名称。</li>
+<li><code>--link</code> 链接容器。<code>mysql8:mysql8 </code>第一个参数mysql 为 docker 镜像名称，第二个参数 mysql8 为别名，此处和<code>yml</code>文件中连接 mysql 的地址保持一致。<code>spring-security-jwt-docker:1.0</code> 这个为我们刚刚build的 docker 镜像名称。注意上面 yml 文件中连接数据库的 url 使用的就是这里的 mysql 名称。因为容器默认使用的网络模式是桥接方式，这样容器每次重启后ip地址会改变，不方便迁移，除非使用固定的ip，<code>link</code>机制方便了容器去发现其它的容器并且可以安全的传递一些连接信息给其它的容器。</li>
+</ul>
+<h2 id="2-4-nginx-springboot"><a href="#2-4-nginx-springboot" class="headerlink" title="2.4 nginx + springboot"></a>2.4 nginx + springboot</h2><p>以下两种方案两选一。</p>
+<h3 id="方案-1：镜像包含前端资源文件"><a href="#方案-1：镜像包含前端资源文件" class="headerlink" title="方案 1：镜像包含前端资源文件"></a>方案 1：镜像包含前端资源文件</h3><p><em><strong>这种方案需要把前端应用文件包含到新的 docker 镜像文件（ nginx + 前端资源 ）里</strong></em></p>
+<p>   步骤：</p>
+<p>（1）编写 Dockerfile</p>
+<figure class="highlight dockerfile"><table><tr><td class="code"><pre><span class="line"><span class="keyword">FROM</span> nginx</span><br><span class="line"><span class="keyword">COPY</span><span class="language-bash"> ./dist/ /usr/share/nginx/html</span></span><br></pre></td></tr></table></figure>
+
+<p>然后先把此容器临时运行起来，接着需要复制容器中的的 nginx 配置文件出来修改，<code>目的是拿到nginx 的配置文件来用</code>。</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">构建 Image</span></span><br><span class="line">docker build -t my_nginx:latest . </span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">临时运行容器，--<span class="built_in">rm</span> 表示停止容器自动删除容器实例</span></span><br><span class="line">docker run --rm -itd -p 8000:80 --name my_nginx my_nginx:latest</span><br></pre></td></tr></table></figure>
+
+<p>（2）复制容器相关配置文件到宿主机目录</p>
+<p>​		首先在宿主机中创建 <code>/Users/jamesmac/dev/docker/nginx</code> 目录（位置自行更改），并且配置的时候要配置上绝对路径</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">新建目录 docker/nginx，位置自行更改</span></span><br><span class="line">mkdir -p /Users/jamesmac/dev/docker/nginx</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">复制名称为my_nginx容器中/etc/nginx/nginx.conf文件到宿主机的～/dev/docker/nginx路径下</span></span><br><span class="line">docker cp my_nginx:/etc/nginx/nginx.conf /Users/jamesmac/dev/docker/nginx</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">复制名称为my_nginx容器中/etc/nginx/conf.d 目录到宿主机的 ～/dev/docker/nginx 路径下</span></span><br><span class="line">docker cp my_nginx:/etc/nginx/conf.d /Users/jamesmac/dev/docker/nginx</span><br></pre></td></tr></table></figure>
+
+<p>（3） 修改宿主机 <code>/Users/jamesmac/dev/docker/nginx/conf.d/default.conf</code> 配置文件：</p>
+<figure class="highlight nginx"><table><tr><td class="code"><pre><span class="line"><span class="section">server</span> &#123;</span><br><span class="line">    ......</span><br><span class="line"></span><br><span class="line">		<span class="comment"># 增加反向代理配置</span></span><br><span class="line">    <span class="section">location</span> /qunar/ &#123;</span><br><span class="line">    	  <span class="attribute">add_header</span> <span class="string">&#x27;Access-Control-Allow-Credentials&#x27;</span> <span class="string">&#x27;true&#x27;</span>;</span><br><span class="line">        <span class="attribute">add_header</span> <span class="string">&#x27;Access-Control-Allow-Headers&#x27;</span> <span class="string">&#x27;Authorization,Content-Type,Accept,Origin,User-Agent,DNT,Cache-Control,X-Mx-ReqToken,X-Requested-With&#x27;</span>;</span><br><span class="line">        <span class="attribute">add_header</span> <span class="string">&#x27;Access-Control-Allow-Methods&#x27;</span> <span class="string">&#x27;GET,POST,OPTIONS,PUT,DELETE&#x27;</span>;</span><br><span class="line">  			<span class="attribute">proxy_set_header</span> Cookie <span class="variable">$http_cookie</span>;</span><br><span class="line">        <span class="comment">#proxy_set_header Host $host;</span></span><br><span class="line">        <span class="comment">#proxy_set_header X-Real-IP $remote_addr;</span></span><br><span class="line">        <span class="comment">#proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;</span></span><br><span class="line">        <span class="comment">#反向代理至 springboot 容器 IP 地址:端口号</span></span><br><span class="line">        <span class="attribute">proxy_pass</span> http://172.17.0.6:8088/;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>前端页面请求如下：</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">#springboot控制器方法映射：@<span class="title class_">GetMapping</span>(<span class="string">&quot;/api/recommends&quot;</span>)</span><br><span class="line">axios.<span class="title function_">get</span>(<span class="string">`/qunar/api/recommends`</span>)</span><br></pre></td></tr></table></figure>
+
+<p>（4）删除刚刚临时启动的 Nginx 容器</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">停止容器</span></span><br><span class="line">docker stop my_nginx</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">删除容器</span></span><br><span class="line">docker rm my_nginx</span><br></pre></td></tr></table></figure>
+
+<p>（5）修改改nginx配置后重新构建 docker 镜像 和 运行容器</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">构建 docker 镜像，注意最后的一个点号，表示 Dockerfile文件所在当前位置</span></span><br><span class="line">docker build -t my_nginx:latest . </span><br><span class="line"><span class="meta prompt_"> </span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">运行容器，-v 卷(volume)挂载，宿主机挂载目录:容器目录</span></span><br><span class="line">docker run -itd -p 8000:80 --name my_nginx \</span><br><span class="line">-v /Users/jamesmac/dev/docker/nginx/nginx.conf:/etc/nginx/nginx.conf \</span><br><span class="line">-v /Users/jamesmac/dev/docker/nginx/conf.d:/etc/nginx/conf.d \</span><br><span class="line">-v /Users/jamesmac/dev/docker/nginx/logs:/var/log/nginx \</span><br><span class="line">--privileged=true my_nginx:latest</span><br></pre></td></tr></table></figure>
+
+<p>命令解析：</p>
+<ul>
+<li><code>-p 8000:80</code>：将容器的 80 端口映射到主机的 8000 端口；</li>
+<li><code>-v /Users/jamesmac/dev/docker/nginx/nginx.conf:/etc/nginx/nginx.conf</code>：将容器中的 &#x2F;etc&#x2F;nginx&#x2F;nginx.conf 文件挂载到宿主机中的 &#x2F;Users&#x2F;jamesmac&#x2F;dev&#x2F;docker&#x2F;nginx&#x2F;nginx.conf 文件；</li>
+<li><code>-v /Users/jamesmac/dev/docker/nginx/conf.d:/etc/nginx/conf.d</code>：将容器中 &#x2F;etc&#x2F;nginx&#x2F;conf.d 目录挂载到宿主机中的 &#x2F;Users&#x2F;jamesmac&#x2F;dev&#x2F;docker&#x2F;nginx&#x2F;conf.d 目录下；</li>
+<li><code>-v /Users/jamesmac/dev/docker/nginx/logs:/var/log/nginx</code>：将容器中的 &#x2F;var&#x2F;log&#x2F;nginx 目录挂载到宿主机中的 &#x2F;Users&#x2F;jamesmac&#x2F;dev&#x2F;docker&#x2F;nginx&#x2F;logs 目录下, 用于方便查看 Nginx 日志；</li>
+</ul>
+<h3 id="方案-2（推荐）-把前端资源文件放到宿主机挂载的目录中"><a href="#方案-2（推荐）-把前端资源文件放到宿主机挂载的目录中" class="headerlink" title="方案 2（推荐）: 把前端资源文件放到宿主机挂载的目录中"></a>方案 2（推荐）: 把前端资源文件放到宿主机挂载的目录中</h3><p><em><strong>这种方案不需把前端应用的文件构建到新的 docker 镜像中，只需把文件放到宿主机挂载的目录中</strong></em>。</p>
+<p>步骤：</p>
+<p>（1）下载 nginx 镜像 并运行容器</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">docker pull nginx</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">注意这里直接使用 nginx 镜像来运行容器</span></span><br><span class="line">docker run --rm -itd -p 8000:80 --name my_nginx nginx:latest</span><br></pre></td></tr></table></figure>
+
+<p>（2）和方案 1 的步骤2、3相同，第 4 步容器停了会自动删除容器</p>
+<p>（3）复制编译出来的前端文件，<code>dist</code> 目录下的所有文件到宿主机 <code>/Users/jamesmac/dev/docker/nginx/html</code>目录中</p>
+<p>（4）运行容器，如下：</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">docker run -itd -p 8000:80 --name my_nginx \</span><br><span class="line">-v /Users/jamesmac/dev/docker/nginx/nginx.conf:/etc/nginx/nginx.conf \</span><br><span class="line">-v /Users/jamesmac/dev/docker/nginx/conf.d:/etc/nginx/conf.d \</span><br><span class="line">-v /Users/jamesmac/dev/docker/nginx/logs:/var/log/nginx \</span><br><span class="line">-v /Users/jamesmac/dev/docker/nginx/html:/usr/share/nginx/html \</span><br><span class="line">--privileged=true my_nginx:latest</span><br></pre></td></tr></table></figure>
+
+<p>命令选项解析：</p>
+<p>这里比前面多了一个容器卷挂载</p>
+<ul>
+<li><code>-v /Users/jamesmac/dev/docker/nginx/html:/usr/share/nginx/html</code>：将容器中的 <code>/usr/share/nginx/html</code> 目录挂载到宿主机中的 <code>/Users/jamesmac/dev/docker/nginx/html</code> 目录下；</li>
+<li><code>-v /Users/jamesmac/dev/docker/nginx/logs:/var/log/nginx</code>：将容器中的 <code>/var/log/nginx</code> 目录挂载到宿主机中的 <code>/Users/jamesmac/dev/docker/nginx/logs</code> 目录下, 用以方便查看 Nginx 日志；</li>
+</ul>
+<p>浏览器访问容器中的nginx：<a href="http://localhost:8000/#/">http://localhost:8000/#/</a></p>
+<h1 id="四、安装可视化管理容器-portainer"><a href="#四、安装可视化管理容器-portainer" class="headerlink" title="四、安装可视化管理容器: portainer"></a>四、安装可视化管理容器: portainer</h1><p>portainer是一个可以通过网页来对 docker 中的镜像、容器、卷等进行管理的可视化工具。减少命令行的使用管理 docker 更加高效。</p>
+<ul>
+<li><p>下载镜像</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">docker pull portainer/portainer:latest</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>运行</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">docker run -d -p 9000:9000 -v /var/run/docker.sock:/var/run/docker.sock --restart=always --name prtainer portainer/portainer</span><br></pre></td></tr></table></figure></li>
+</ul>
+<p>完成之后浏览器访问<em>localhost:9000</em>，登录默认用户名&#x2F;密码: <em>admin &#x2F; portioner</em></p>
+]]></content>
+      <categories>
+        <category>软件技术</category>
+      </categories>
+      <tags>
+        <tag>docker</tag>
+        <tag>软件技术</tag>
       </tags>
   </entry>
 </search>
