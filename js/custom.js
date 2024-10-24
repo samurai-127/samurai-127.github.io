@@ -36,7 +36,7 @@ function showWelcome() {
         return;
     }
 
-    let dist = getDistance(110.299288, 25.063238, ipLocation.data.lng, ipLocation.data.lat); // 修改自己的经度（121.413921）纬度（31.089290）
+    let dist = getDistance(120.174229, 30.186697, ipLocation.data.lng, ipLocation.data.lat); // 修改自己的经度（121.413921）纬度（31.089290）
     let pos = ipLocation.data.country;
     let ip = ipLocation.ip;
     let posdesc;
@@ -259,7 +259,7 @@ function showWelcome() {
 
     if (welcomeInfoElement) {
         welcomeInfoElement.innerHTML =
-            `欢迎来自 <b><span style="color: var(--efu-main)">${pos}</span></b> 的好厚米😆，${posdesc}🍂<br>当前位置距博主约 <b><span style="color: var(--efu-main)">${dist}</span></b> 公里！<br>您的IP地址为：<b><span style="font-size: 15px;">${ip}</span></b><br>${timeChange} <br>`;
+            `欢迎 <b><span style="color: var(--efu-main)">${pos}</span></b> 的好盆友，${posdesc}🍂<br>当前位置距博主约 <b><span style="color: var(--efu-main)">${dist}</span></b> 公里！<br>您的IP地址为：<b><span style="font-size: 15px;">${ip}</span></b><br>${timeChange} <br>`;
     } else {
         console.log("Pjax无法获取元素");
     }

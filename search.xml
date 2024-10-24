@@ -1540,6 +1540,193 @@
       </tags>
   </entry>
   <entry>
+    <title>微服务保护：resilience4j</title>
+    <url>/2024/09/14/12Resilience4J%E7%86%94%E6%96%AD%E3%80%81%E9%99%90%E6%B5%81%E3%80%81%E9%87%8D%E8%AF%95/</url>
+    <content><![CDATA[<h1 id="resilience4j"><a href="#resilience4j" class="headerlink" title="resilience4j"></a>resilience4j</h1><p>在 Spring Cloud 中使用 Resilience4J 断路器进行配置非常直观。下面我会提供一个简单的示例，展示如何在 Spring Boot 应用程序中配置 Resilience4J 断路器。</p>
+<h1 id="一、circuitbreaker（断路器）"><a href="#一、circuitbreaker（断路器）" class="headerlink" title="一、circuitbreaker（断路器）"></a>一、circuitbreaker（断路器）</h1><h2 id="1-添加依赖"><a href="#1-添加依赖" class="headerlink" title="1. 添加依赖"></a>1. 添加依赖</h2><p>首先，确保你的项目中包含了必要的依赖。对于非响应式应用程序，你需要添加以下依赖：</p>
+<figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.cloud<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-cloud-starter-circuitbreaker-resilience4j<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>$&#123;spring-cloud.version&#125;<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>对于响应式应用程序，则需要使用：</p>
+<figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.cloud<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-cloud-starter-circuitbreaker-reactor-resilience4j<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>$&#123;spring-cloud.version&#125;<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>同时确保添加 Spring Cloud 的依赖管理：</p>
+<figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependencyManagement</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">dependencies</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.cloud<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-cloud-dependencies<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">version</span>&gt;</span>$&#123;spring-cloud.version&#125;<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">type</span>&gt;</span>pom<span class="tag">&lt;/<span class="name">type</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">scope</span>&gt;</span>import<span class="tag">&lt;/<span class="name">scope</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">dependencies</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependencyManagement</span>&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="tag">&lt;<span class="name">properties</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">spring-cloud.version</span>&gt;</span>2021.0.4<span class="tag">&lt;/<span class="name">spring-cloud.version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">properties</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="2-配置-Resilience4J"><a href="#2-配置-Resilience4J" class="headerlink" title="2. 配置 Resilience4J"></a>2. 配置 Resilience4J</h2><p>接下来，在 <code>application.yml</code> 或 <code>application.properties</code> 文件中添加 Resilience4J 的配置。这里以 <code>application.yml</code> 为例：</p>
+<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">cloud:</span></span><br><span class="line">    <span class="attr">gateway:</span></span><br><span class="line">      <span class="attr">routes:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">id:</span> <span class="string">product-service</span></span><br><span class="line">          <span class="attr">uri:</span> <span class="string">lb://product-service</span></span><br><span class="line">          <span class="attr">predicates:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="string">Path=/products/**</span></span><br><span class="line">          <span class="attr">filters:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">CircuitBreaker</span></span><br><span class="line">              <span class="attr">args:</span></span><br><span class="line">                <span class="attr">name:</span> <span class="string">myService</span></span><br><span class="line">                <span class="attr">fallbackUri:</span> <span class="string">forward:/fallback</span></span><br><span class="line"><span class="attr">resilience4j:</span></span><br><span class="line">  <span class="attr">circuitbreaker:</span></span><br><span class="line">    <span class="attr">configs:</span></span><br><span class="line">      <span class="attr">default:</span>	<span class="comment"># 定义默认配置</span></span><br><span class="line">        <span class="attr">failureRateThreshold:</span> <span class="number">50</span> <span class="comment"># 当失败率达到50%时打开断路器</span></span><br><span class="line">        <span class="attr">minimumNumberOfCalls:</span> <span class="number">5</span> <span class="comment"># 最小请求数量</span></span><br><span class="line">        <span class="attr">waitDurationInOpenState:</span> <span class="string">5s</span> <span class="comment"># 断路器处于打开状态等待重试的时间</span></span><br><span class="line">        <span class="attr">permittedNumberOfCallsInHalfOpenState:</span> <span class="number">2</span> <span class="comment"># 半开状态下允许尝试的请求次数</span></span><br><span class="line">        <span class="attr">automaticTransitionFromOpenToHalfOpenEnabled:</span> <span class="literal">true</span> <span class="comment"># 是否自动从打开转为半开状态</span></span><br><span class="line">        <span class="attr">eventConsumerBufferSize:</span> <span class="number">10</span> <span class="comment"># 缓冲区大小</span></span><br><span class="line">      <span class="attr">myCustomConfig:</span> <span class="comment"># 定义自定义配置</span></span><br><span class="line">        <span class="attr">failureRateThreshold:</span> <span class="number">60</span></span><br><span class="line">        <span class="attr">minimumNumberOfCalls:</span> <span class="number">10</span></span><br><span class="line">        <span class="attr">waitDurationInOpenState:</span> <span class="string">10s</span></span><br><span class="line">        <span class="attr">permittedNumberOfCallsInHalfOpenState:</span> <span class="number">3</span></span><br><span class="line">        <span class="attr">automaticTransitionFromOpenToHalfOpenEnabled:</span> <span class="literal">false</span></span><br><span class="line">        <span class="attr">eventConsumerBufferSize:</span> <span class="number">20</span></span><br><span class="line">    <span class="attr">instances:</span></span><br><span class="line">      <span class="attr">myService:</span> <span class="comment"># 应用到特定的服务实例</span></span><br><span class="line">        <span class="attr">baseConfig:</span> <span class="string">default</span></span><br><span class="line">        <span class="attr">registerHealthIndicator:</span> <span class="literal">true</span> <span class="comment"># 注册健康指标</span></span><br><span class="line">        <span class="comment"># 可以覆盖上面的默认配置</span></span><br><span class="line">        <span class="comment"># failureRateThreshold: 70</span></span><br><span class="line">        <span class="comment"># minimumNumberOfCalls: 15</span></span><br><span class="line">        <span class="comment"># waitDurationInOpenState: 15s</span></span><br><span class="line">        <span class="comment"># permittedNumberOfCallsInHalfOpenState: 4</span></span><br><span class="line">        <span class="comment"># automaticTransitionFromOpenToHalfOpenEnabled: true</span></span><br><span class="line">        <span class="comment"># eventConsumerBufferSize: 25</span></span><br><span class="line"><span class="comment"># 日志记录配置</span></span><br><span class="line"><span class="attr">logging:</span></span><br><span class="line">  <span class="attr">level:</span></span><br><span class="line">    <span class="attr">io.github.resilience4j:</span> <span class="string">DEBUG</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="3-使用断路器"><a href="#3-使用断路器" class="headerlink" title="3. 使用断路器"></a>3. 使用断路器</h2><p>你可以在 Feign 客户端或 OpenFeign 中使用 Resilience4J 断路器，例如：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@FeignClient(name = &quot;myService&quot;, configuration = MyFeignConfig.class)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">MyFeignClient</span> &#123;</span><br><span class="line">    <span class="meta">@GetMapping(&quot;/data&quot;)</span></span><br><span class="line">    String <span class="title function_">getData</span><span class="params">()</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MyFeignConfig</span> &#123;</span><br><span class="line">    <span class="meta">@Bean</span></span><br><span class="line">    <span class="keyword">public</span> Feign.Builder <span class="title function_">feignBuilder</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> Feign.builder()</span><br><span class="line">            .client(<span class="keyword">new</span> <span class="title class_">OkHttpClient</span>())</span><br><span class="line">            .encoder(<span class="keyword">new</span> <span class="title class_">JacksonEncoder</span>())</span><br><span class="line">            .decoder(<span class="keyword">new</span> <span class="title class_">JacksonDecoder</span>())</span><br><span class="line">            .contract(<span class="keyword">new</span> <span class="title class_">SpringMvcContract</span>())</span><br><span class="line">            .errorDecoder((status, response) -&gt; <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;Error: &quot;</span> + status))</span><br><span class="line">            .target(MyFeignClient.class, <span class="string">&quot;http://localhost:8080&quot;</span>);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 使用 Resilience4J 断路器</span></span><br><span class="line">        <span class="keyword">return</span> feignBuilder().requestInterceptor(<span class="keyword">new</span> <span class="title class_">Resilience4JCircuitBreakerRequestInterceptor</span>(<span class="string">&quot;myService&quot;</span>));</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="4-日志记录"><a href="#4-日志记录" class="headerlink" title="4. 日志记录"></a>4. 日志记录</h2><p>在上面的配置中，我们还设置了日志级别，这样可以查看 Resilience4J 的日志输出。</p>
+<h2 id="5-测试"><a href="#5-测试" class="headerlink" title="5. 测试"></a>5. 测试</h2><p>确保你的服务能够正常启动，并且可以通过断路器调用远程服务。你可以模拟远程服务的故障来测试断路器是否能够正确地打开和关闭。</p>
+<p>以上步骤应该可以帮助你在 Spring Cloud 项目中配置 Resilience4J 断路器。如果有任何具体的需求或者遇到问题，请随时告诉我。</p>
+<h1 id="二、Rate-Limiter（限流器）"><a href="#二、Rate-Limiter（限流器）" class="headerlink" title="二、Rate Limiter（限流器）"></a>二、Rate Limiter（限流器）</h1><p>在 Spring Cloud 中使用 Resilience4J 进行限流配置是非常直观的。下面我将向您展示如何在 Spring Boot 应用程序中配置 Resilience4J 的 Rate Limiter（限流器）。</p>
+<h2 id="1-配置-Resilience4J"><a href="#1-配置-Resilience4J" class="headerlink" title="1. 配置 Resilience4J"></a>1. 配置 Resilience4J</h2><p>接下来，在 <code>application.yml</code> 或 <code>application.properties</code> 文件中添加 Resilience4J 的配置。这里以 <code>application.yml</code> 为例：</p>
+<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">resilience4j:</span></span><br><span class="line">  <span class="attr">ratelimiter:</span></span><br><span class="line">    <span class="attr">configs:</span></span><br><span class="line">      <span class="attr">default:</span></span><br><span class="line">        <span class="attr">limitForPeriod:</span> <span class="number">10</span> <span class="comment"># 在限流周期内允许的最大请求数量</span></span><br><span class="line">        <span class="attr">limitRefreshPeriod:</span> <span class="string">5s</span> <span class="comment"># 限流周期时长</span></span><br><span class="line">        <span class="attr">timeoutDuration:</span> <span class="string">0ms</span> <span class="comment"># 超时持续时间，0 表示不限制</span></span><br><span class="line">      <span class="attr">myCustomConfig:</span> <span class="comment"># 自定义配置</span></span><br><span class="line">        <span class="attr">limitForPeriod:</span> <span class="number">20</span></span><br><span class="line">        <span class="attr">limitRefreshPeriod:</span> <span class="string">10s</span></span><br><span class="line">        <span class="attr">timeoutDuration:</span> <span class="string">500ms</span></span><br><span class="line">  <span class="comment">#rate-limiter:</span></span><br><span class="line">    <span class="attr">instances:</span></span><br><span class="line">      <span class="attr">myService:</span> <span class="comment"># 应用到特定的服务实例</span></span><br><span class="line">        <span class="attr">baseConfig:</span> <span class="string">default</span></span><br><span class="line">        <span class="comment"># 可以覆盖上面的默认配置</span></span><br><span class="line">        <span class="comment"># limitForPeriod: 15</span></span><br><span class="line">        <span class="comment"># limitRefreshPeriod: 15s</span></span><br><span class="line">        <span class="comment"># timeoutDuration: 1s</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="2-使用限流器"><a href="#2-使用限流器" class="headerlink" title="2. 使用限流器"></a>2. 使用限流器</h2><p>要在代码中使用限流器，你可以通过注入 <code>RateLimiter</code> 来实现。下面是一个简单的示例：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">import</span> io.github.resilience4j.ratelimiter.RateLimiter;</span><br><span class="line"><span class="keyword">import</span> io.github.resilience4j.ratelimiter.RateLimiterConfig;</span><br><span class="line"><span class="keyword">import</span> io.github.resilience4j.ratelimiter.RateLimiterRegistry;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> org.springframework.beans.factory.annotation.Autowired;</span><br><span class="line"><span class="keyword">import</span> org.springframework.web.bind.annotation.GetMapping;</span><br><span class="line"><span class="keyword">import</span> org.springframework.web.bind.annotation.RestController;</span><br><span class="line"></span><br><span class="line"><span class="meta">@RestController</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">RateLimiterController</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Autowired</span></span><br><span class="line">    <span class="keyword">private</span> RateLimiterRegistry rateLimiterRegistry;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@GetMapping(&quot;/data&quot;)</span></span><br><span class="line">    <span class="keyword">public</span> String <span class="title function_">getData</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="comment">// 获取名为 &quot;myService&quot; 的 RateLimiter 实例</span></span><br><span class="line">        <span class="type">RateLimiter</span> <span class="variable">rateLimiter</span> <span class="operator">=</span> rateLimiterRegistry.rateLimiter(<span class="string">&quot;myService&quot;</span>);</span><br><span class="line">        <span class="comment">// 尝试获取权限</span></span><br><span class="line">        <span class="type">boolean</span> <span class="variable">allowed</span> <span class="operator">=</span> rateLimiter.acquirePermission();</span><br><span class="line">        <span class="keyword">if</span> (!allowed) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;Rate limit exceeded&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 在这里执行业务逻辑</span></span><br><span class="line">        <span class="keyword">return</span> <span class="string">&quot;Data&quot;</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="3-请求限流"><a href="#3-请求限流" class="headerlink" title="3. 请求限流"></a>3. 请求限流</h2><p>​		在高并发的系统中，往往需要在系统中做限流，一方面是为了防止大量的请求使服务器过载，导致服务不可用，另一方面是为了防止网络攻击。</p>
+<p>​		一般开发高并发系统常见的限流有：限制总并发数（比如数据库连接池、线程池）、限制瞬时并发数（如 nginx 的 limit_conn 模块，用来限制瞬时并发连接数）、限制时间窗口内的平均速率（如 Guava 的 RateLimiter、nginx 的 limit_req 模块，限制每秒的平均速率）；其他还有如限制远程接口调用速率、限制 MQ 的消费速率。另外还可以根据网络连接数、网络流量、CPU 或内存负载等来限流。</p>
+<ul>
+<li><strong>限流算法</strong></li>
+</ul>
+<ol>
+<li>计数器</li>
+</ol>
+<p>​		简单的做法是维护一个单位时间内的 计数器，每次请求计数器加1，当单位时间内计数器累加到大于设定的阈值，则之后的请求都被拒绝，直到单位时间已经过去，再将 计数器 重置为零。此方式有个弊端：如果在单位时间1s内允许100个请求，在10ms已经通过了100个请求，那后面的990ms，只能眼巴巴的把请求拒绝，我们把这种现象称为“突刺现象”。</p>
+<p>​		常用的更平滑的限流算法有两种：<strong>漏桶算法</strong> 和 <strong>令牌桶算法</strong>。下面介绍下二者。</p>
+<ol start="2">
+<li>漏桶算法</li>
+</ol>
+<p>​		漏桶算法思路很简单，水（请求）先进入到漏桶里，漏桶以一定的速度出水（接口有响应速率），当水流入速度过大会直接溢出（访问频率超过接口响应速率），然后就拒绝请求，可以看出漏桶算法能强行限制数据的传输速率。</p>
+<p>​		可见这里有两个变量，一个是桶的大小，支持流量突发增多时可以存多少的水（burst），另一个是水桶漏洞的大小（rate）。因为漏桶的漏出速率是固定的参数，所以，即使网络中不存在资源冲突（没有发生拥塞），漏桶算法也不能使流突发（burst）到端口速率。因此，漏桶算法对于存在突发特性的流量来说缺乏效率。</p>
+<ol start="3">
+<li>令牌桶算法</li>
+</ol>
+<p>​		令牌桶算法 和漏桶算法 效果一样但方向相反的算法，更加容易理解。随着时间流逝，系统会按恒定 1&#x2F;QPS 时间间隔（如果 QPS&#x3D;100，则间隔是 10ms）往桶里加入 Token（想象和漏洞漏水相反，有个水龙头在不断的加水），如果桶已经满了就不再加了。新请求来临时，会各自拿走一个 Token，如果没有 Token 可拿了就阻塞或者拒绝服务。</p>
+<p>​		令牌桶的另外一个好处是可以方便的改变速度。一旦需要提高速率，则按需提高放入桶中的令牌的速率。一般会定时（比如 100 毫秒）往桶中增加一定数量的令牌，有些变种算法则实时的计算应该增加的令牌的数量。</p>
+<ul>
+<li><strong>限流实现</strong></li>
+</ul>
+<p>​		在 Spring Cloud Gateway 上实现限流是个不错的选择，只需要编写一个过滤器就可以了。有了前边过滤器的基础，写起来很轻松。</p>
+<p>Spring Cloud Gateway 已经内置了一个RequestRateLimiterGatewayFilterFactory，我们可以直接使用。</p>
+<ul>
+<li>pom.xml</li>
+</ul>
+<figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="comment">&lt;!-- 熔断（断路）器--&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.cloud<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-cloud-starter-circuitbreaker-reactor-resilience4j<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.boot<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifatId</span>&gt;</span>spring-boot-starter-data-redis-reactive<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>application.yml</li>
+</ul>
+<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">server:</span></span><br><span class="line">  <span class="attr">port:</span> <span class="number">8080</span></span><br><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">cloud:</span></span><br><span class="line">    <span class="attr">gateway:</span></span><br><span class="line">      <span class="attr">routes:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">id:</span> <span class="string">limit_route</span></span><br><span class="line">          <span class="attr">uri:</span> <span class="string">http://httpbin.org:80/get</span></span><br><span class="line">          <span class="attr">predicates:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="string">After=2019-02-26T00:00:00+08:00[Asia/Shanghai]</span></span><br><span class="line">          <span class="attr">filters:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">RequestRateLimiter</span></span><br><span class="line">            <span class="attr">args:</span></span><br><span class="line">              <span class="attr">key-resolver:</span> <span class="string">&#x27;#&#123;@hostAddrKeyResolver&#125;&#x27;</span></span><br><span class="line">              <span class="attr">redis-rate-limiter:</span></span><br><span class="line">              	<span class="attr">replenishRate:</span> <span class="number">1</span></span><br><span class="line">              	<span class="attr">burstCapacity:</span> <span class="number">3</span></span><br><span class="line">      <span class="attr">default-filters:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">RequestRateLimiter</span></span><br><span class="line">          <span class="attr">args:</span></span><br><span class="line">            <span class="attr">key-resolver:</span> <span class="string">&quot;#&#123;@hostAddrKeyResolver&#125;&quot;</span> <span class="comment"># SpEL,限流解析器的 Bean 对象的名字</span></span><br><span class="line">            <span class="attr">redis-rate-limiter:</span></span><br><span class="line">              <span class="attr">replenishRate:</span> <span class="number">10</span></span><br><span class="line">              <span class="attr">burstCapacity:</span> <span class="number">20</span></span><br><span class="line">  <span class="attr">application:</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">gateway-limiter</span></span><br><span class="line">  <span class="attr">redis:</span></span><br><span class="line">    <span class="attr">host:</span> <span class="string">localhost</span></span><br><span class="line">    <span class="attr">port:</span> <span class="number">6379</span></span><br><span class="line">    <span class="attr">database:</span> <span class="number">0</span></span><br></pre></td></tr></table></figure>
+
+<p>在上面的配置文件，配置了 redis的信息，并配置了RequestRateLimiter的限流过滤器，该过滤器需要配置三个参数：</p>
+<ul>
+<li>burstCapacity：令牌桶总容量。</li>
+<li>replenishRate：令牌桶每秒填充平均速率。</li>
+<li>key-resolver：用于限流的键的解析器的 Bean 对象的名字。它使用 SpEL 表达式根据#{@beanName}从 Spring 容器中获取 Bean 对象。</li>
+</ul>
+<h3 id="IP限流"><a href="#IP限流" class="headerlink" title="IP限流"></a>IP限流</h3><p>获取请求用户ip作为限流key。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Bean</span> <span class="comment">//Bean Name: hostAddrKeyResolver</span></span><br><span class="line"><span class="keyword">public</span> KeyResolver <span class="title function_">hostAddrKeyResolver</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> exchange -&gt; Mono.just(exchange.getRequest().getRemoteAddress().getHostName());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<h3 id="用户限流"><a href="#用户限流" class="headerlink" title="用户限流"></a>用户限流</h3><p>获取请求用户id作为限流key。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Bean</span> <span class="comment">//Bean Name: userKeyResolver</span></span><br><span class="line"><span class="keyword">public</span> KeyResolver <span class="title function_">userKeyResolver</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> exchange -&gt; Mono.just(exchange.getRequest().getQueryParams().getFirst(<span class="string">&quot;userId&quot;</span>));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<h3 id="接口限流"><a href="#接口限流" class="headerlink" title="接口限流"></a>接口限流</h3><p>获取请求地址的uri作为限流key。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Bean</span> <span class="comment">//Bean Name: apiKeyResolver</span></span><br><span class="line">KeyResolver <span class="title function_">apiKeyResolver</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> exchange -&gt; Mono.just(exchange.getRequest().getPath().value());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-日志记录"><a href="#3-日志记录" class="headerlink" title="3. 日志记录"></a>3. 日志记录</h3><p>在上面的配置中，我们还可以设置日志级别，以便查看 Resilience4J 的日志输出：</p>
+<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">logging:</span></span><br><span class="line">  <span class="attr">level:</span></span><br><span class="line">    <span class="attr">io.github.resilience4j:</span> <span class="string">DEBUG</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="4-测试"><a href="#4-测试" class="headerlink" title="4. 测试"></a>4. 测试</h3><p>确保你的服务能够正常启动，并且限流规则生效。你可以尝试发送多个请求来测试限流器是否能够阻止超出配额的请求。</p>
+<p>以上步骤应该可以帮助你在 Spring Cloud 项目中配置 Resilience4J 的限流器。如果有任何具体的需求或者遇到问题，请随时告诉我。</p>
+<h1 id="三、Retry重试"><a href="#三、Retry重试" class="headerlink" title="三、Retry重试"></a>三、Retry重试</h1><p>Spring Cloud Gateway 可以与 Resilience4j 集成来实现请求级别的重试功能。为了在 Spring Cloud Gateway 中使用 Resilience4j 的重试功能，你需要配置 Resilience4j 和相应的过滤器。</p>
+<p>以下是如何在 Spring Cloud Gateway 中配置默认过滤器（<code>DefaultFilter</code>）以启用 Resilience4j 重试功能的步骤和示例。</p>
+<h2 id="添加依赖"><a href="#添加依赖" class="headerlink" title="添加依赖"></a>添加依赖</h2><p>确保你的项目中包含了 Spring Cloud Gateway 和 Resilience4j 的相关依赖。你可能需要添加如下 Maven 依赖：</p>
+<figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.cloud<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-cloud-starter-gateway<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>io.github.resilience4j<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>resilience4j-spring-cloud-gateway<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>$&#123;resilience4j.version&#125;<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>其中 <code>$&#123;resilience4j.version&#125;</code> 应该替换为 Resilience4j 的实际版本号。</p>
+<h2 id="配置-Resilience4j"><a href="#配置-Resilience4j" class="headerlink" title="配置 Resilience4j"></a>配置 Resilience4j</h2><p>接下来，在你的应用配置文件（如 <code>application.yml</code> 或 <code>application.properties</code>）中配置 Resilience4j 的重试策略：</p>
+<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">resilience4j.retry:</span></span><br><span class="line">  <span class="attr">instances:</span></span><br><span class="line">    <span class="attr">default:</span></span><br><span class="line">      <span class="attr">maxRetryAttempts:</span> <span class="number">3</span></span><br><span class="line">      <span class="attr">waitDuration:</span> <span class="string">100ms</span></span><br><span class="line">      <span class="attr">exponentialBackoffMultiplier:</span> <span class="number">2</span></span><br></pre></td></tr></table></figure>
+
+<p>这里配置了一个名为 <code>default</code> 的重试实例，它将应用于所有未指定特定重试策略的服务路由。</p>
+<h2 id="配置-Spring-Cloud-Gateway"><a href="#配置-Spring-Cloud-Gateway" class="headerlink" title="配置 Spring Cloud Gateway"></a>配置 Spring Cloud Gateway</h2><p>然后，你需要在 Spring Cloud Gateway 的配置中启用 Resilience4j 的重试过滤器。这可以通过全局配置或者针对特定路由进行配置。</p>
+<h3 id="全局配置"><a href="#全局配置" class="headerlink" title="全局配置"></a>全局配置</h3><p>如果你想让所有的路由都使用默认的重试策略，可以在全局配置中启用 Resilience4j Retry 过滤器：</p>
+<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">cloud:</span></span><br><span class="line">    <span class="attr">gateway:</span></span><br><span class="line">      <span class="attr">globalcors:</span></span><br><span class="line">        <span class="attr">corsConfigurations:</span></span><br><span class="line">          <span class="string">&#x27;[/**]&#x27;</span><span class="string">:</span></span><br><span class="line">            <span class="attr">allowedOrigins:</span> <span class="string">&quot;*&quot;</span></span><br><span class="line">            <span class="attr">allowedMethods:</span> <span class="string">&quot;*&quot;</span></span><br><span class="line">      <span class="attr">default-filters:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">Retry</span></span><br><span class="line">          <span class="attr">args:</span></span><br><span class="line">            <span class="attr">RejectedExecutionHandler:</span> <span class="string">SimpleAsyncTaskExecutor</span></span><br><span class="line">            <span class="attr">Resilience4JConfigName:</span> <span class="string">default</span></span><br></pre></td></tr></table></figure>
+
+<p>这里的 <code>Resilience4JConfigName</code> 设置为 <code>default</code>，意味着使用上面配置的 <code>default</code> 实例。</p>
+<h3 id="针对特定路由配置"><a href="#针对特定路由配置" class="headerlink" title="针对特定路由配置"></a>针对特定路由配置</h3><p>如果你想只为某些路由配置重试策略，可以在路由配置中单独指定：</p>
+<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">cloud:</span></span><br><span class="line">    <span class="attr">gateway:</span></span><br><span class="line">      <span class="attr">routes:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">id:</span> <span class="string">service1</span></span><br><span class="line">          <span class="attr">uri:</span> <span class="string">lb://service1</span></span><br><span class="line">          <span class="attr">predicates:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="string">Path=/api/service1/**</span></span><br><span class="line">          <span class="attr">filters:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">Retry</span></span><br><span class="line">              <span class="attr">args:</span></span><br><span class="line">                <span class="attr">RejectedExecutionHandler:</span> <span class="string">SimpleAsyncTaskExecutor</span></span><br><span class="line">                <span class="attr">Resilience4JConfigName:</span> <span class="string">service1</span></span><br><span class="line">      <span class="attr">default-filters:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">Retry</span></span><br><span class="line">          <span class="attr">args:</span></span><br><span class="line">            <span class="attr">RejectedExecutionHandler:</span> <span class="string">SimpleAsyncTaskExecutor</span></span><br><span class="line">            <span class="attr">Resilience4JConfigName:</span> <span class="string">default</span></span><br></pre></td></tr></table></figure>
+
+<p>在这个示例中，路由 <code>service1</code> 使用了一个名为 <code>service1</code> 的重试配置实例，而其他未指定的路由将使用默认的 <code>default</code> 配置。</p>
+<p>确保在应用启动类中也启用了 Resilience4j 的自动配置：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@SpringBootApplication</span></span><br><span class="line"><span class="meta">@EnableWebFlux</span></span><br><span class="line"><span class="meta">@EnableCircuitBreaker</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Application</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        SpringApplication.run(Application.class, args);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>以上配置将允许 Spring Cloud Gateway 使用 Resilience4j 的重试机制处理请求。你可以根据自己的需求调整配置参数。</p>
+]]></content>
+      <categories>
+        <category>后端开发</category>
+      </categories>
+      <tags>
+        <tag>springcloud</tag>
+        <tag>后端</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>微服务保护：sentinel规则持久化</title>
+    <url>/2024/09/17/13sentinel%E8%A7%84%E5%88%99%E6%8C%81%E4%B9%85%E5%8C%96/</url>
+    <content><![CDATA[<h1 id="Sentinel-规则持久化"><a href="#Sentinel-规则持久化" class="headerlink" title="Sentinel 规则持久化"></a>Sentinel 规则持久化</h1><h2 id="一、修改order-service服务"><a href="#一、修改order-service服务" class="headerlink" title="一、修改order-service服务"></a>一、修改order-service服务</h2><p>修改OrderService，让其监听Nacos中的sentinel规则配置。</p>
+<p>具体步骤如下：</p>
+<h3 id="1-引入依赖"><a href="#1-引入依赖" class="headerlink" title="1.引入依赖"></a>1.引入依赖</h3><p>在order-service中引入sentinel监听nacos的依赖：</p>
+<figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>com.alibaba.csp<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>sentinel-datasource-nacos<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="2-配置nacos地址"><a href="#2-配置nacos地址" class="headerlink" title="2.配置nacos地址"></a>2.配置nacos地址</h3><p>在order-service中的application.yml文件配置nacos地址及监听的配置信息：加的是datasource往下的内容。</p>
+<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">cloud:</span></span><br><span class="line">    <span class="attr">sentinel:</span></span><br><span class="line">      <span class="attr">datasource:</span></span><br><span class="line">        <span class="attr">flow:</span></span><br><span class="line">          <span class="attr">nacos:</span></span><br><span class="line">            <span class="attr">server-addr:</span> <span class="string">localhost:8848</span> <span class="comment"># nacos地址</span></span><br><span class="line">            <span class="attr">dataId:</span> <span class="string">orderservice-flow-rules</span></span><br><span class="line">            <span class="attr">groupId:</span> <span class="string">SENTINEL_GROUP</span></span><br><span class="line">            <span class="attr">rule-type:</span> <span class="string">flow</span> <span class="comment"># 还可以是：degrade、authority、param-flow</span></span><br><span class="line">        <span class="attr">degrade:</span></span><br><span class="line">          <span class="attr">nacos:</span></span><br><span class="line">            <span class="attr">server-addr:</span> <span class="string">localhost:8848</span> <span class="comment"># nacos地址</span></span><br><span class="line">            <span class="attr">dataId:</span> <span class="string">orderservice-degrade-rules</span></span><br><span class="line">            <span class="attr">groupId:</span> <span class="string">SENTINEL_GROUP</span></span><br><span class="line">            <span class="attr">rule-type:</span> <span class="string">degrade</span> <span class="comment"># 还可以是：degrade、authority、param-flow</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>dataId指定了nacos的存储的配置文件，在后续跑sentinel的四个功能的时候，nacos会自动添加这个配置的</strong></p>
+<h2 id="二、修改sentinel-dashboard源码"><a href="#二、修改sentinel-dashboard源码" class="headerlink" title="二、修改sentinel-dashboard源码"></a>二、修改sentinel-dashboard源码</h2><p>SentinelDashboard默认不支持nacos的持久化，需要修改源码。</p>
+<h3 id="1-下载源码包并解压"><a href="#1-下载源码包并解压" class="headerlink" title="1. 下载源码包并解压"></a>1. 下载源码包并解压</h3><figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># github地址，版本自选</span><br><span class="line">https://github.com/alibaba/Sentinel/tags</span><br></pre></td></tr></table></figure>
+
+<p>解压sentinel源码包：</p>
+<p><img src="image-20210618201340086.png"></p>
+<p>然后并用IDEA打开这个项目，结构如下：</p>
+<p><img src="image-20210618201412878.png"></p>
+<h3 id="2-修改nacos依赖"><a href="#2-修改nacos依赖" class="headerlink" title="2. 修改nacos依赖"></a>2. 修改nacos依赖</h3><p>在sentinel-dashboard源码的pom文件中，nacos的依赖默认的scope是test，只能在测试时使用，这里要去除：</p>
+<p><img src="image-20210618201607831.png"></p>
+<p>将sentinel-datasource-nacos依赖的scope去掉：</p>
+<figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>com.alibaba.csp<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>sentinel-datasource-nacos<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="3-添加nacos支持"><a href="#3-添加nacos支持" class="headerlink" title="3. 添加nacos支持"></a>3. 添加nacos支持</h3><p>在sentinel-dashboard的test包下，已经编写了对nacos的支持，我们需要将其拷贝到main下。</p>
+<p><img src="image-20210618201726280.png"></p>
+<h3 id="4-修改nacos地址"><a href="#4-修改nacos地址" class="headerlink" title="4. 修改nacos地址"></a>4. 修改nacos地址</h3><p>然后，还需要修改测试代码中的NacosConfig类：</p>
+<p><img src="image-20210618201912078.png"></p>
+<p>修改其中的nacos地址，让其读取application.properties中的配置：</p>
+<p><img src="image-20210618202047575.png"></p>
+<p>在sentinel-dashboard的application.properties中添加nacos地址配置：</p>
+<figure class="highlight properties"><table><tr><td class="code"><pre><span class="line"><span class="attr">nacos.addr</span>=<span class="string">localhost:8848</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="5-配置nacos数据源"><a href="#5-配置nacos数据源" class="headerlink" title="5. 配置nacos数据源"></a>5. 配置nacos数据源</h3><p>另外，还需要修改com.alibaba.csp.sentinel.dashboard.controller.v2包下的FlowControllerV2类：</p>
+<p><img src="image-20210618202322301.png"></p>
+<p>让我们添加的Nacos数据源生效：</p>
+<p><img src="image-20210618202334536.png"></p>
+<h3 id="6-修改前端页面"><a href="#6-修改前端页面" class="headerlink" title="6. 修改前端页面"></a>6. 修改前端页面</h3><p>接下来，还要修改前端页面，添加一个支持nacos的菜单。</p>
+<p>修改src&#x2F;main&#x2F;webapp&#x2F;resources&#x2F;app&#x2F;scripts&#x2F;directives&#x2F;sidebar&#x2F;目录下的sidebar.html文件：</p>
+<p><img src="image-20210618202433356.png"></p>
+<p>将其中的这部分注释打开：</p>
+<p><img src="image-20210618202449881.png"></p>
+<p>修改其中的文本：</p>
+<p><img src="image-20210618202501928.png"></p>
+<h3 id="7-重新编译、打包项目"><a href="#7-重新编译、打包项目" class="headerlink" title="7. 重新编译、打包项目"></a>7. 重新编译、打包项目</h3><p>运行IDEA中的maven插件，编译和打包修改好的Sentinel-Dashboard：</p>
+<p><img src="image-20210618202701492.png"></p>
+<h3 id="8-启动"><a href="#8-启动" class="headerlink" title="8.启动"></a>8.启动</h3><p>启动方式跟官方一样：</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">java -jar sentinel-dashboard.jar</span><br></pre></td></tr></table></figure>
+
+<p>如果要修改nacos地址，需要添加参数：</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">java -jar -Dnacos.addr=localhost:8848 sentinel-dashboard.jar</span><br></pre></td></tr></table></figure>
+
+
+
+]]></content>
+      <categories>
+        <category>后端开发</category>
+      </categories>
+      <tags>
+        <tag>springcloud</tag>
+        <tag>sentinel</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>微服务保护：sentinel</title>
     <url>/2024/09/14/11sentinel/</url>
     <content><![CDATA[<h1 id="微服务保护"><a href="#微服务保护" class="headerlink" title="微服务保护"></a>微服务保护</h1><p><img src="image-20240917232441906.png" alt="我亲手制作的思维导图"></p>
@@ -2247,124 +2434,6 @@
       </tags>
   </entry>
   <entry>
-    <title>微服务保护：resilience4j</title>
-    <url>/2024/09/14/12Resilience4J%E7%86%94%E6%96%AD%E3%80%81%E9%99%90%E6%B5%81%E3%80%81%E9%87%8D%E8%AF%95/</url>
-    <content><![CDATA[<h1 id="resilience4j"><a href="#resilience4j" class="headerlink" title="resilience4j"></a>resilience4j</h1><p>在 Spring Cloud 中使用 Resilience4J 断路器进行配置非常直观。下面我会提供一个简单的示例，展示如何在 Spring Boot 应用程序中配置 Resilience4J 断路器。</p>
-<h1 id="一、circuitbreaker（断路器）"><a href="#一、circuitbreaker（断路器）" class="headerlink" title="一、circuitbreaker（断路器）"></a>一、circuitbreaker（断路器）</h1><h2 id="1-添加依赖"><a href="#1-添加依赖" class="headerlink" title="1. 添加依赖"></a>1. 添加依赖</h2><p>首先，确保你的项目中包含了必要的依赖。对于非响应式应用程序，你需要添加以下依赖：</p>
-<figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.cloud<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-cloud-starter-circuitbreaker-resilience4j<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>$&#123;spring-cloud.version&#125;<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
-
-<p>对于响应式应用程序，则需要使用：</p>
-<figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.cloud<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-cloud-starter-circuitbreaker-reactor-resilience4j<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>$&#123;spring-cloud.version&#125;<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
-
-<p>同时确保添加 Spring Cloud 的依赖管理：</p>
-<figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependencyManagement</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">dependencies</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.cloud<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-cloud-dependencies<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">version</span>&gt;</span>$&#123;spring-cloud.version&#125;<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">type</span>&gt;</span>pom<span class="tag">&lt;/<span class="name">type</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">scope</span>&gt;</span>import<span class="tag">&lt;/<span class="name">scope</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">dependencies</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependencyManagement</span>&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="tag">&lt;<span class="name">properties</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">spring-cloud.version</span>&gt;</span>2021.0.4<span class="tag">&lt;/<span class="name">spring-cloud.version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">properties</span>&gt;</span></span><br></pre></td></tr></table></figure>
-
-<h2 id="2-配置-Resilience4J"><a href="#2-配置-Resilience4J" class="headerlink" title="2. 配置 Resilience4J"></a>2. 配置 Resilience4J</h2><p>接下来，在 <code>application.yml</code> 或 <code>application.properties</code> 文件中添加 Resilience4J 的配置。这里以 <code>application.yml</code> 为例：</p>
-<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">cloud:</span></span><br><span class="line">    <span class="attr">gateway:</span></span><br><span class="line">      <span class="attr">routes:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">id:</span> <span class="string">product-service</span></span><br><span class="line">          <span class="attr">uri:</span> <span class="string">lb://product-service</span></span><br><span class="line">          <span class="attr">predicates:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="string">Path=/products/**</span></span><br><span class="line">          <span class="attr">filters:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">CircuitBreaker</span></span><br><span class="line">              <span class="attr">args:</span></span><br><span class="line">                <span class="attr">name:</span> <span class="string">myService</span></span><br><span class="line">                <span class="attr">fallbackUri:</span> <span class="string">forward:/fallback</span></span><br><span class="line"><span class="attr">resilience4j:</span></span><br><span class="line">  <span class="attr">circuitbreaker:</span></span><br><span class="line">    <span class="attr">configs:</span></span><br><span class="line">      <span class="attr">default:</span>	<span class="comment"># 定义默认配置</span></span><br><span class="line">        <span class="attr">failureRateThreshold:</span> <span class="number">50</span> <span class="comment"># 当失败率达到50%时打开断路器</span></span><br><span class="line">        <span class="attr">minimumNumberOfCalls:</span> <span class="number">5</span> <span class="comment"># 最小请求数量</span></span><br><span class="line">        <span class="attr">waitDurationInOpenState:</span> <span class="string">5s</span> <span class="comment"># 断路器处于打开状态等待重试的时间</span></span><br><span class="line">        <span class="attr">permittedNumberOfCallsInHalfOpenState:</span> <span class="number">2</span> <span class="comment"># 半开状态下允许尝试的请求次数</span></span><br><span class="line">        <span class="attr">automaticTransitionFromOpenToHalfOpenEnabled:</span> <span class="literal">true</span> <span class="comment"># 是否自动从打开转为半开状态</span></span><br><span class="line">        <span class="attr">eventConsumerBufferSize:</span> <span class="number">10</span> <span class="comment"># 缓冲区大小</span></span><br><span class="line">      <span class="attr">myCustomConfig:</span> <span class="comment"># 定义自定义配置</span></span><br><span class="line">        <span class="attr">failureRateThreshold:</span> <span class="number">60</span></span><br><span class="line">        <span class="attr">minimumNumberOfCalls:</span> <span class="number">10</span></span><br><span class="line">        <span class="attr">waitDurationInOpenState:</span> <span class="string">10s</span></span><br><span class="line">        <span class="attr">permittedNumberOfCallsInHalfOpenState:</span> <span class="number">3</span></span><br><span class="line">        <span class="attr">automaticTransitionFromOpenToHalfOpenEnabled:</span> <span class="literal">false</span></span><br><span class="line">        <span class="attr">eventConsumerBufferSize:</span> <span class="number">20</span></span><br><span class="line">    <span class="attr">instances:</span></span><br><span class="line">      <span class="attr">myService:</span> <span class="comment"># 应用到特定的服务实例</span></span><br><span class="line">        <span class="attr">baseConfig:</span> <span class="string">default</span></span><br><span class="line">        <span class="attr">registerHealthIndicator:</span> <span class="literal">true</span> <span class="comment"># 注册健康指标</span></span><br><span class="line">        <span class="comment"># 可以覆盖上面的默认配置</span></span><br><span class="line">        <span class="comment"># failureRateThreshold: 70</span></span><br><span class="line">        <span class="comment"># minimumNumberOfCalls: 15</span></span><br><span class="line">        <span class="comment"># waitDurationInOpenState: 15s</span></span><br><span class="line">        <span class="comment"># permittedNumberOfCallsInHalfOpenState: 4</span></span><br><span class="line">        <span class="comment"># automaticTransitionFromOpenToHalfOpenEnabled: true</span></span><br><span class="line">        <span class="comment"># eventConsumerBufferSize: 25</span></span><br><span class="line"><span class="comment"># 日志记录配置</span></span><br><span class="line"><span class="attr">logging:</span></span><br><span class="line">  <span class="attr">level:</span></span><br><span class="line">    <span class="attr">io.github.resilience4j:</span> <span class="string">DEBUG</span></span><br></pre></td></tr></table></figure>
-
-<h2 id="3-使用断路器"><a href="#3-使用断路器" class="headerlink" title="3. 使用断路器"></a>3. 使用断路器</h2><p>你可以在 Feign 客户端或 OpenFeign 中使用 Resilience4J 断路器，例如：</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@FeignClient(name = &quot;myService&quot;, configuration = MyFeignConfig.class)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">MyFeignClient</span> &#123;</span><br><span class="line">    <span class="meta">@GetMapping(&quot;/data&quot;)</span></span><br><span class="line">    String <span class="title function_">getData</span><span class="params">()</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MyFeignConfig</span> &#123;</span><br><span class="line">    <span class="meta">@Bean</span></span><br><span class="line">    <span class="keyword">public</span> Feign.Builder <span class="title function_">feignBuilder</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> Feign.builder()</span><br><span class="line">            .client(<span class="keyword">new</span> <span class="title class_">OkHttpClient</span>())</span><br><span class="line">            .encoder(<span class="keyword">new</span> <span class="title class_">JacksonEncoder</span>())</span><br><span class="line">            .decoder(<span class="keyword">new</span> <span class="title class_">JacksonDecoder</span>())</span><br><span class="line">            .contract(<span class="keyword">new</span> <span class="title class_">SpringMvcContract</span>())</span><br><span class="line">            .errorDecoder((status, response) -&gt; <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;Error: &quot;</span> + status))</span><br><span class="line">            .target(MyFeignClient.class, <span class="string">&quot;http://localhost:8080&quot;</span>);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 使用 Resilience4J 断路器</span></span><br><span class="line">        <span class="keyword">return</span> feignBuilder().requestInterceptor(<span class="keyword">new</span> <span class="title class_">Resilience4JCircuitBreakerRequestInterceptor</span>(<span class="string">&quot;myService&quot;</span>));</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h2 id="4-日志记录"><a href="#4-日志记录" class="headerlink" title="4. 日志记录"></a>4. 日志记录</h2><p>在上面的配置中，我们还设置了日志级别，这样可以查看 Resilience4J 的日志输出。</p>
-<h2 id="5-测试"><a href="#5-测试" class="headerlink" title="5. 测试"></a>5. 测试</h2><p>确保你的服务能够正常启动，并且可以通过断路器调用远程服务。你可以模拟远程服务的故障来测试断路器是否能够正确地打开和关闭。</p>
-<p>以上步骤应该可以帮助你在 Spring Cloud 项目中配置 Resilience4J 断路器。如果有任何具体的需求或者遇到问题，请随时告诉我。</p>
-<h1 id="二、Rate-Limiter（限流器）"><a href="#二、Rate-Limiter（限流器）" class="headerlink" title="二、Rate Limiter（限流器）"></a>二、Rate Limiter（限流器）</h1><p>在 Spring Cloud 中使用 Resilience4J 进行限流配置是非常直观的。下面我将向您展示如何在 Spring Boot 应用程序中配置 Resilience4J 的 Rate Limiter（限流器）。</p>
-<h2 id="1-配置-Resilience4J"><a href="#1-配置-Resilience4J" class="headerlink" title="1. 配置 Resilience4J"></a>1. 配置 Resilience4J</h2><p>接下来，在 <code>application.yml</code> 或 <code>application.properties</code> 文件中添加 Resilience4J 的配置。这里以 <code>application.yml</code> 为例：</p>
-<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">resilience4j:</span></span><br><span class="line">  <span class="attr">ratelimiter:</span></span><br><span class="line">    <span class="attr">configs:</span></span><br><span class="line">      <span class="attr">default:</span></span><br><span class="line">        <span class="attr">limitForPeriod:</span> <span class="number">10</span> <span class="comment"># 在限流周期内允许的最大请求数量</span></span><br><span class="line">        <span class="attr">limitRefreshPeriod:</span> <span class="string">5s</span> <span class="comment"># 限流周期时长</span></span><br><span class="line">        <span class="attr">timeoutDuration:</span> <span class="string">0ms</span> <span class="comment"># 超时持续时间，0 表示不限制</span></span><br><span class="line">      <span class="attr">myCustomConfig:</span> <span class="comment"># 自定义配置</span></span><br><span class="line">        <span class="attr">limitForPeriod:</span> <span class="number">20</span></span><br><span class="line">        <span class="attr">limitRefreshPeriod:</span> <span class="string">10s</span></span><br><span class="line">        <span class="attr">timeoutDuration:</span> <span class="string">500ms</span></span><br><span class="line">  <span class="comment">#rate-limiter:</span></span><br><span class="line">    <span class="attr">instances:</span></span><br><span class="line">      <span class="attr">myService:</span> <span class="comment"># 应用到特定的服务实例</span></span><br><span class="line">        <span class="attr">baseConfig:</span> <span class="string">default</span></span><br><span class="line">        <span class="comment"># 可以覆盖上面的默认配置</span></span><br><span class="line">        <span class="comment"># limitForPeriod: 15</span></span><br><span class="line">        <span class="comment"># limitRefreshPeriod: 15s</span></span><br><span class="line">        <span class="comment"># timeoutDuration: 1s</span></span><br></pre></td></tr></table></figure>
-
-<h2 id="2-使用限流器"><a href="#2-使用限流器" class="headerlink" title="2. 使用限流器"></a>2. 使用限流器</h2><p>要在代码中使用限流器，你可以通过注入 <code>RateLimiter</code> 来实现。下面是一个简单的示例：</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">import</span> io.github.resilience4j.ratelimiter.RateLimiter;</span><br><span class="line"><span class="keyword">import</span> io.github.resilience4j.ratelimiter.RateLimiterConfig;</span><br><span class="line"><span class="keyword">import</span> io.github.resilience4j.ratelimiter.RateLimiterRegistry;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> org.springframework.beans.factory.annotation.Autowired;</span><br><span class="line"><span class="keyword">import</span> org.springframework.web.bind.annotation.GetMapping;</span><br><span class="line"><span class="keyword">import</span> org.springframework.web.bind.annotation.RestController;</span><br><span class="line"></span><br><span class="line"><span class="meta">@RestController</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">RateLimiterController</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Autowired</span></span><br><span class="line">    <span class="keyword">private</span> RateLimiterRegistry rateLimiterRegistry;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@GetMapping(&quot;/data&quot;)</span></span><br><span class="line">    <span class="keyword">public</span> String <span class="title function_">getData</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="comment">// 获取名为 &quot;myService&quot; 的 RateLimiter 实例</span></span><br><span class="line">        <span class="type">RateLimiter</span> <span class="variable">rateLimiter</span> <span class="operator">=</span> rateLimiterRegistry.rateLimiter(<span class="string">&quot;myService&quot;</span>);</span><br><span class="line">        <span class="comment">// 尝试获取权限</span></span><br><span class="line">        <span class="type">boolean</span> <span class="variable">allowed</span> <span class="operator">=</span> rateLimiter.acquirePermission();</span><br><span class="line">        <span class="keyword">if</span> (!allowed) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;Rate limit exceeded&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 在这里执行业务逻辑</span></span><br><span class="line">        <span class="keyword">return</span> <span class="string">&quot;Data&quot;</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h2 id="3-请求限流"><a href="#3-请求限流" class="headerlink" title="3. 请求限流"></a>3. 请求限流</h2><p>​		在高并发的系统中，往往需要在系统中做限流，一方面是为了防止大量的请求使服务器过载，导致服务不可用，另一方面是为了防止网络攻击。</p>
-<p>​		一般开发高并发系统常见的限流有：限制总并发数（比如数据库连接池、线程池）、限制瞬时并发数（如 nginx 的 limit_conn 模块，用来限制瞬时并发连接数）、限制时间窗口内的平均速率（如 Guava 的 RateLimiter、nginx 的 limit_req 模块，限制每秒的平均速率）；其他还有如限制远程接口调用速率、限制 MQ 的消费速率。另外还可以根据网络连接数、网络流量、CPU 或内存负载等来限流。</p>
-<ul>
-<li><strong>限流算法</strong></li>
-</ul>
-<ol>
-<li>计数器</li>
-</ol>
-<p>​		简单的做法是维护一个单位时间内的 计数器，每次请求计数器加1，当单位时间内计数器累加到大于设定的阈值，则之后的请求都被拒绝，直到单位时间已经过去，再将 计数器 重置为零。此方式有个弊端：如果在单位时间1s内允许100个请求，在10ms已经通过了100个请求，那后面的990ms，只能眼巴巴的把请求拒绝，我们把这种现象称为“突刺现象”。</p>
-<p>​		常用的更平滑的限流算法有两种：<strong>漏桶算法</strong> 和 <strong>令牌桶算法</strong>。下面介绍下二者。</p>
-<ol start="2">
-<li>漏桶算法</li>
-</ol>
-<p>​		漏桶算法思路很简单，水（请求）先进入到漏桶里，漏桶以一定的速度出水（接口有响应速率），当水流入速度过大会直接溢出（访问频率超过接口响应速率），然后就拒绝请求，可以看出漏桶算法能强行限制数据的传输速率。</p>
-<p>​		可见这里有两个变量，一个是桶的大小，支持流量突发增多时可以存多少的水（burst），另一个是水桶漏洞的大小（rate）。因为漏桶的漏出速率是固定的参数，所以，即使网络中不存在资源冲突（没有发生拥塞），漏桶算法也不能使流突发（burst）到端口速率。因此，漏桶算法对于存在突发特性的流量来说缺乏效率。</p>
-<ol start="3">
-<li>令牌桶算法</li>
-</ol>
-<p>​		令牌桶算法 和漏桶算法 效果一样但方向相反的算法，更加容易理解。随着时间流逝，系统会按恒定 1&#x2F;QPS 时间间隔（如果 QPS&#x3D;100，则间隔是 10ms）往桶里加入 Token（想象和漏洞漏水相反，有个水龙头在不断的加水），如果桶已经满了就不再加了。新请求来临时，会各自拿走一个 Token，如果没有 Token 可拿了就阻塞或者拒绝服务。</p>
-<p>​		令牌桶的另外一个好处是可以方便的改变速度。一旦需要提高速率，则按需提高放入桶中的令牌的速率。一般会定时（比如 100 毫秒）往桶中增加一定数量的令牌，有些变种算法则实时的计算应该增加的令牌的数量。</p>
-<ul>
-<li><strong>限流实现</strong></li>
-</ul>
-<p>​		在 Spring Cloud Gateway 上实现限流是个不错的选择，只需要编写一个过滤器就可以了。有了前边过滤器的基础，写起来很轻松。</p>
-<p>Spring Cloud Gateway 已经内置了一个RequestRateLimiterGatewayFilterFactory，我们可以直接使用。</p>
-<ul>
-<li>pom.xml</li>
-</ul>
-<figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="comment">&lt;!-- 熔断（断路）器--&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.cloud<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-cloud-starter-circuitbreaker-reactor-resilience4j<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.boot<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifatId</span>&gt;</span>spring-boot-starter-data-redis-reactive<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
-
-<ul>
-<li>application.yml</li>
-</ul>
-<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">server:</span></span><br><span class="line">  <span class="attr">port:</span> <span class="number">8080</span></span><br><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">cloud:</span></span><br><span class="line">    <span class="attr">gateway:</span></span><br><span class="line">      <span class="attr">routes:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">id:</span> <span class="string">limit_route</span></span><br><span class="line">          <span class="attr">uri:</span> <span class="string">http://httpbin.org:80/get</span></span><br><span class="line">          <span class="attr">predicates:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="string">After=2019-02-26T00:00:00+08:00[Asia/Shanghai]</span></span><br><span class="line">          <span class="attr">filters:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">RequestRateLimiter</span></span><br><span class="line">            <span class="attr">args:</span></span><br><span class="line">              <span class="attr">key-resolver:</span> <span class="string">&#x27;#&#123;@hostAddrKeyResolver&#125;&#x27;</span></span><br><span class="line">              <span class="attr">redis-rate-limiter:</span></span><br><span class="line">              	<span class="attr">replenishRate:</span> <span class="number">1</span></span><br><span class="line">              	<span class="attr">burstCapacity:</span> <span class="number">3</span></span><br><span class="line">      <span class="attr">default-filters:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">RequestRateLimiter</span></span><br><span class="line">          <span class="attr">args:</span></span><br><span class="line">            <span class="attr">key-resolver:</span> <span class="string">&quot;#&#123;@hostAddrKeyResolver&#125;&quot;</span> <span class="comment"># SpEL,限流解析器的 Bean 对象的名字</span></span><br><span class="line">            <span class="attr">redis-rate-limiter:</span></span><br><span class="line">              <span class="attr">replenishRate:</span> <span class="number">10</span></span><br><span class="line">              <span class="attr">burstCapacity:</span> <span class="number">20</span></span><br><span class="line">  <span class="attr">application:</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">gateway-limiter</span></span><br><span class="line">  <span class="attr">redis:</span></span><br><span class="line">    <span class="attr">host:</span> <span class="string">localhost</span></span><br><span class="line">    <span class="attr">port:</span> <span class="number">6379</span></span><br><span class="line">    <span class="attr">database:</span> <span class="number">0</span></span><br></pre></td></tr></table></figure>
-
-<p>在上面的配置文件，配置了 redis的信息，并配置了RequestRateLimiter的限流过滤器，该过滤器需要配置三个参数：</p>
-<ul>
-<li>burstCapacity：令牌桶总容量。</li>
-<li>replenishRate：令牌桶每秒填充平均速率。</li>
-<li>key-resolver：用于限流的键的解析器的 Bean 对象的名字。它使用 SpEL 表达式根据#{@beanName}从 Spring 容器中获取 Bean 对象。</li>
-</ul>
-<h3 id="IP限流"><a href="#IP限流" class="headerlink" title="IP限流"></a>IP限流</h3><p>获取请求用户ip作为限流key。</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Bean</span> <span class="comment">//Bean Name: hostAddrKeyResolver</span></span><br><span class="line"><span class="keyword">public</span> KeyResolver <span class="title function_">hostAddrKeyResolver</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> exchange -&gt; Mono.just(exchange.getRequest().getRemoteAddress().getHostName());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-
-<h3 id="用户限流"><a href="#用户限流" class="headerlink" title="用户限流"></a>用户限流</h3><p>获取请求用户id作为限流key。</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Bean</span> <span class="comment">//Bean Name: userKeyResolver</span></span><br><span class="line"><span class="keyword">public</span> KeyResolver <span class="title function_">userKeyResolver</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> exchange -&gt; Mono.just(exchange.getRequest().getQueryParams().getFirst(<span class="string">&quot;userId&quot;</span>));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-
-<h3 id="接口限流"><a href="#接口限流" class="headerlink" title="接口限流"></a>接口限流</h3><p>获取请求地址的uri作为限流key。</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Bean</span> <span class="comment">//Bean Name: apiKeyResolver</span></span><br><span class="line">KeyResolver <span class="title function_">apiKeyResolver</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> exchange -&gt; Mono.just(exchange.getRequest().getPath().value());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h3 id="3-日志记录"><a href="#3-日志记录" class="headerlink" title="3. 日志记录"></a>3. 日志记录</h3><p>在上面的配置中，我们还可以设置日志级别，以便查看 Resilience4J 的日志输出：</p>
-<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">logging:</span></span><br><span class="line">  <span class="attr">level:</span></span><br><span class="line">    <span class="attr">io.github.resilience4j:</span> <span class="string">DEBUG</span></span><br></pre></td></tr></table></figure>
-
-<h3 id="4-测试"><a href="#4-测试" class="headerlink" title="4. 测试"></a>4. 测试</h3><p>确保你的服务能够正常启动，并且限流规则生效。你可以尝试发送多个请求来测试限流器是否能够阻止超出配额的请求。</p>
-<p>以上步骤应该可以帮助你在 Spring Cloud 项目中配置 Resilience4J 的限流器。如果有任何具体的需求或者遇到问题，请随时告诉我。</p>
-<h1 id="三、Retry重试"><a href="#三、Retry重试" class="headerlink" title="三、Retry重试"></a>三、Retry重试</h1><p>Spring Cloud Gateway 可以与 Resilience4j 集成来实现请求级别的重试功能。为了在 Spring Cloud Gateway 中使用 Resilience4j 的重试功能，你需要配置 Resilience4j 和相应的过滤器。</p>
-<p>以下是如何在 Spring Cloud Gateway 中配置默认过滤器（<code>DefaultFilter</code>）以启用 Resilience4j 重试功能的步骤和示例。</p>
-<h2 id="添加依赖"><a href="#添加依赖" class="headerlink" title="添加依赖"></a>添加依赖</h2><p>确保你的项目中包含了 Spring Cloud Gateway 和 Resilience4j 的相关依赖。你可能需要添加如下 Maven 依赖：</p>
-<figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.cloud<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-cloud-starter-gateway<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>io.github.resilience4j<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>resilience4j-spring-cloud-gateway<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>$&#123;resilience4j.version&#125;<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
-
-<p>其中 <code>$&#123;resilience4j.version&#125;</code> 应该替换为 Resilience4j 的实际版本号。</p>
-<h2 id="配置-Resilience4j"><a href="#配置-Resilience4j" class="headerlink" title="配置 Resilience4j"></a>配置 Resilience4j</h2><p>接下来，在你的应用配置文件（如 <code>application.yml</code> 或 <code>application.properties</code>）中配置 Resilience4j 的重试策略：</p>
-<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">resilience4j.retry:</span></span><br><span class="line">  <span class="attr">instances:</span></span><br><span class="line">    <span class="attr">default:</span></span><br><span class="line">      <span class="attr">maxRetryAttempts:</span> <span class="number">3</span></span><br><span class="line">      <span class="attr">waitDuration:</span> <span class="string">100ms</span></span><br><span class="line">      <span class="attr">exponentialBackoffMultiplier:</span> <span class="number">2</span></span><br></pre></td></tr></table></figure>
-
-<p>这里配置了一个名为 <code>default</code> 的重试实例，它将应用于所有未指定特定重试策略的服务路由。</p>
-<h2 id="配置-Spring-Cloud-Gateway"><a href="#配置-Spring-Cloud-Gateway" class="headerlink" title="配置 Spring Cloud Gateway"></a>配置 Spring Cloud Gateway</h2><p>然后，你需要在 Spring Cloud Gateway 的配置中启用 Resilience4j 的重试过滤器。这可以通过全局配置或者针对特定路由进行配置。</p>
-<h3 id="全局配置"><a href="#全局配置" class="headerlink" title="全局配置"></a>全局配置</h3><p>如果你想让所有的路由都使用默认的重试策略，可以在全局配置中启用 Resilience4j Retry 过滤器：</p>
-<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">cloud:</span></span><br><span class="line">    <span class="attr">gateway:</span></span><br><span class="line">      <span class="attr">globalcors:</span></span><br><span class="line">        <span class="attr">corsConfigurations:</span></span><br><span class="line">          <span class="string">&#x27;[/**]&#x27;</span><span class="string">:</span></span><br><span class="line">            <span class="attr">allowedOrigins:</span> <span class="string">&quot;*&quot;</span></span><br><span class="line">            <span class="attr">allowedMethods:</span> <span class="string">&quot;*&quot;</span></span><br><span class="line">      <span class="attr">default-filters:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">Retry</span></span><br><span class="line">          <span class="attr">args:</span></span><br><span class="line">            <span class="attr">RejectedExecutionHandler:</span> <span class="string">SimpleAsyncTaskExecutor</span></span><br><span class="line">            <span class="attr">Resilience4JConfigName:</span> <span class="string">default</span></span><br></pre></td></tr></table></figure>
-
-<p>这里的 <code>Resilience4JConfigName</code> 设置为 <code>default</code>，意味着使用上面配置的 <code>default</code> 实例。</p>
-<h3 id="针对特定路由配置"><a href="#针对特定路由配置" class="headerlink" title="针对特定路由配置"></a>针对特定路由配置</h3><p>如果你想只为某些路由配置重试策略，可以在路由配置中单独指定：</p>
-<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">cloud:</span></span><br><span class="line">    <span class="attr">gateway:</span></span><br><span class="line">      <span class="attr">routes:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">id:</span> <span class="string">service1</span></span><br><span class="line">          <span class="attr">uri:</span> <span class="string">lb://service1</span></span><br><span class="line">          <span class="attr">predicates:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="string">Path=/api/service1/**</span></span><br><span class="line">          <span class="attr">filters:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">Retry</span></span><br><span class="line">              <span class="attr">args:</span></span><br><span class="line">                <span class="attr">RejectedExecutionHandler:</span> <span class="string">SimpleAsyncTaskExecutor</span></span><br><span class="line">                <span class="attr">Resilience4JConfigName:</span> <span class="string">service1</span></span><br><span class="line">      <span class="attr">default-filters:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">Retry</span></span><br><span class="line">          <span class="attr">args:</span></span><br><span class="line">            <span class="attr">RejectedExecutionHandler:</span> <span class="string">SimpleAsyncTaskExecutor</span></span><br><span class="line">            <span class="attr">Resilience4JConfigName:</span> <span class="string">default</span></span><br></pre></td></tr></table></figure>
-
-<p>在这个示例中，路由 <code>service1</code> 使用了一个名为 <code>service1</code> 的重试配置实例，而其他未指定的路由将使用默认的 <code>default</code> 配置。</p>
-<p>确保在应用启动类中也启用了 Resilience4j 的自动配置：</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@SpringBootApplication</span></span><br><span class="line"><span class="meta">@EnableWebFlux</span></span><br><span class="line"><span class="meta">@EnableCircuitBreaker</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Application</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        SpringApplication.run(Application.class, args);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>以上配置将允许 Spring Cloud Gateway 使用 Resilience4j 的重试机制处理请求。你可以根据自己的需求调整配置参数。</p>
-]]></content>
-      <categories>
-        <category>后端开发</category>
-      </categories>
-      <tags>
-        <tag>springcloud</tag>
-        <tag>后端</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>Java多线程：（五）线程安全、ThreadLocal</title>
     <url>/2024/09/19/14Java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E7%BA%BF%E7%A8%8B%E5%AE%89%E5%85%A8%E5%92%8C%E6%9C%AC%E5%9C%B0%E7%BA%BF%E7%A8%8B/</url>
     <content><![CDATA[<h1 id="什么是线程安全"><a href="#什么是线程安全" class="headerlink" title="什么是线程安全"></a>什么是线程安全</h1><p>这篇博客内容很好，直接偷过来：</p>
@@ -2398,75 +2467,6 @@
       <tags>
         <tag>面试</tag>
         <tag>多线程</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>微服务保护：sentinel规则持久化</title>
-    <url>/2024/09/17/13sentinel%E8%A7%84%E5%88%99%E6%8C%81%E4%B9%85%E5%8C%96/</url>
-    <content><![CDATA[<h1 id="Sentinel-规则持久化"><a href="#Sentinel-规则持久化" class="headerlink" title="Sentinel 规则持久化"></a>Sentinel 规则持久化</h1><h2 id="一、修改order-service服务"><a href="#一、修改order-service服务" class="headerlink" title="一、修改order-service服务"></a>一、修改order-service服务</h2><p>修改OrderService，让其监听Nacos中的sentinel规则配置。</p>
-<p>具体步骤如下：</p>
-<h3 id="1-引入依赖"><a href="#1-引入依赖" class="headerlink" title="1.引入依赖"></a>1.引入依赖</h3><p>在order-service中引入sentinel监听nacos的依赖：</p>
-<figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>com.alibaba.csp<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>sentinel-datasource-nacos<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
-
-
-
-<h3 id="2-配置nacos地址"><a href="#2-配置nacos地址" class="headerlink" title="2.配置nacos地址"></a>2.配置nacos地址</h3><p>在order-service中的application.yml文件配置nacos地址及监听的配置信息：加的是datasource往下的内容。</p>
-<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">cloud:</span></span><br><span class="line">    <span class="attr">sentinel:</span></span><br><span class="line">      <span class="attr">datasource:</span></span><br><span class="line">        <span class="attr">flow:</span></span><br><span class="line">          <span class="attr">nacos:</span></span><br><span class="line">            <span class="attr">server-addr:</span> <span class="string">localhost:8848</span> <span class="comment"># nacos地址</span></span><br><span class="line">            <span class="attr">dataId:</span> <span class="string">orderservice-flow-rules</span></span><br><span class="line">            <span class="attr">groupId:</span> <span class="string">SENTINEL_GROUP</span></span><br><span class="line">            <span class="attr">rule-type:</span> <span class="string">flow</span> <span class="comment"># 还可以是：degrade、authority、param-flow</span></span><br><span class="line">        <span class="attr">degrade:</span></span><br><span class="line">          <span class="attr">nacos:</span></span><br><span class="line">            <span class="attr">server-addr:</span> <span class="string">localhost:8848</span> <span class="comment"># nacos地址</span></span><br><span class="line">            <span class="attr">dataId:</span> <span class="string">orderservice-degrade-rules</span></span><br><span class="line">            <span class="attr">groupId:</span> <span class="string">SENTINEL_GROUP</span></span><br><span class="line">            <span class="attr">rule-type:</span> <span class="string">degrade</span> <span class="comment"># 还可以是：degrade、authority、param-flow</span></span><br></pre></td></tr></table></figure>
-
-<p><strong>dataId指定了nacos的存储的配置文件，在后续跑sentinel的四个功能的时候，nacos会自动添加这个配置的</strong></p>
-<h2 id="二、修改sentinel-dashboard源码"><a href="#二、修改sentinel-dashboard源码" class="headerlink" title="二、修改sentinel-dashboard源码"></a>二、修改sentinel-dashboard源码</h2><p>SentinelDashboard默认不支持nacos的持久化，需要修改源码。</p>
-<h3 id="1-下载源码包并解压"><a href="#1-下载源码包并解压" class="headerlink" title="1. 下载源码包并解压"></a>1. 下载源码包并解压</h3><figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># github地址，版本自选</span><br><span class="line">https://github.com/alibaba/Sentinel/tags</span><br></pre></td></tr></table></figure>
-
-<p>解压sentinel源码包：</p>
-<p><img src="image-20210618201340086.png"></p>
-<p>然后并用IDEA打开这个项目，结构如下：</p>
-<p><img src="image-20210618201412878.png"></p>
-<h3 id="2-修改nacos依赖"><a href="#2-修改nacos依赖" class="headerlink" title="2. 修改nacos依赖"></a>2. 修改nacos依赖</h3><p>在sentinel-dashboard源码的pom文件中，nacos的依赖默认的scope是test，只能在测试时使用，这里要去除：</p>
-<p><img src="image-20210618201607831.png"></p>
-<p>将sentinel-datasource-nacos依赖的scope去掉：</p>
-<figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>com.alibaba.csp<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>sentinel-datasource-nacos<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
-
-
-
-<h3 id="3-添加nacos支持"><a href="#3-添加nacos支持" class="headerlink" title="3. 添加nacos支持"></a>3. 添加nacos支持</h3><p>在sentinel-dashboard的test包下，已经编写了对nacos的支持，我们需要将其拷贝到main下。</p>
-<p><img src="image-20210618201726280.png"></p>
-<h3 id="4-修改nacos地址"><a href="#4-修改nacos地址" class="headerlink" title="4. 修改nacos地址"></a>4. 修改nacos地址</h3><p>然后，还需要修改测试代码中的NacosConfig类：</p>
-<p><img src="image-20210618201912078.png"></p>
-<p>修改其中的nacos地址，让其读取application.properties中的配置：</p>
-<p><img src="image-20210618202047575.png"></p>
-<p>在sentinel-dashboard的application.properties中添加nacos地址配置：</p>
-<figure class="highlight properties"><table><tr><td class="code"><pre><span class="line"><span class="attr">nacos.addr</span>=<span class="string">localhost:8848</span></span><br></pre></td></tr></table></figure>
-
-
-
-<h3 id="5-配置nacos数据源"><a href="#5-配置nacos数据源" class="headerlink" title="5. 配置nacos数据源"></a>5. 配置nacos数据源</h3><p>另外，还需要修改com.alibaba.csp.sentinel.dashboard.controller.v2包下的FlowControllerV2类：</p>
-<p><img src="image-20210618202322301.png"></p>
-<p>让我们添加的Nacos数据源生效：</p>
-<p><img src="image-20210618202334536.png"></p>
-<h3 id="6-修改前端页面"><a href="#6-修改前端页面" class="headerlink" title="6. 修改前端页面"></a>6. 修改前端页面</h3><p>接下来，还要修改前端页面，添加一个支持nacos的菜单。</p>
-<p>修改src&#x2F;main&#x2F;webapp&#x2F;resources&#x2F;app&#x2F;scripts&#x2F;directives&#x2F;sidebar&#x2F;目录下的sidebar.html文件：</p>
-<p><img src="image-20210618202433356.png"></p>
-<p>将其中的这部分注释打开：</p>
-<p><img src="image-20210618202449881.png"></p>
-<p>修改其中的文本：</p>
-<p><img src="image-20210618202501928.png"></p>
-<h3 id="7-重新编译、打包项目"><a href="#7-重新编译、打包项目" class="headerlink" title="7. 重新编译、打包项目"></a>7. 重新编译、打包项目</h3><p>运行IDEA中的maven插件，编译和打包修改好的Sentinel-Dashboard：</p>
-<p><img src="image-20210618202701492.png"></p>
-<h3 id="8-启动"><a href="#8-启动" class="headerlink" title="8.启动"></a>8.启动</h3><p>启动方式跟官方一样：</p>
-<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">java -jar sentinel-dashboard.jar</span><br></pre></td></tr></table></figure>
-
-<p>如果要修改nacos地址，需要添加参数：</p>
-<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">java -jar -Dnacos.addr=localhost:8848 sentinel-dashboard.jar</span><br></pre></td></tr></table></figure>
-
-
-
-]]></content>
-      <categories>
-        <category>后端开发</category>
-      </categories>
-      <tags>
-        <tag>springcloud</tag>
-        <tag>sentinel</tag>
       </tags>
   </entry>
   <entry>
@@ -2722,6 +2722,307 @@
       <tags>
         <tag>docker</tag>
         <tag>软件技术</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>k8s：自动部署、扩缩和管理容器化应用程序系统</title>
+    <url>/2024/10/21/16k8s/</url>
+    <content><![CDATA[<h1 id="1-k8s架构"><a href="#1-k8s架构" class="headerlink" title="1. k8s架构"></a>1. k8s架构</h1><h2 id="整体架构图"><a href="#整体架构图" class="headerlink" title="整体架构图"></a>整体架构图</h2><p>官方提供的整体架构图如下：</p>
+<img src="85a22c87c5324f8e54df46f32c8080c1.png" alt="架构图" style="zoom:150%;">
+
+
+
+<p>主节点既可以做主节点，也可以做从节点，最小要求一主一从作为学习要求。</p>
+<p><strong>下边是对官方的结构图进行解释后的架构图：</strong></p>
+<p>通过kubectl或者可视化ui操作k8s对外开放的api-server，即从节点的kubelet去管理从节点或pod。</p>
+<img src="image-20241021145758104.png" alt="具体组件" style="zoom:150%;">
+
+
+
+<p><strong>核心组件（主节点，或者叫控制面板）：</strong></p>
+<ul>
+<li><p>api-server 提供了资源操作的唯一入口，并提供认证、授权、访问控制、API 注册和发现等机制；</p>
+</li>
+<li><p>etcd 保存了整个集群的状态；</p>
+<blockquote>
+<p>etcd是构建一个高可用的分布式键值(key-value)数据库。etcd内部采用<code>raft</code>协议作为一致性算法，etcd基于Go语言实现 ;主要用于共享配置和服务发现 ;</p>
+<p>原理动画演示：<a href="http://thesecretlivesofdata.com/raft/">http://thesecretlivesofdata.com/raft/</a></p>
+</blockquote>
+</li>
+<li><p>controller manager 负责维护集群的状态，比如故障检测、自动扩展、滚动更新等；</p>
+</li>
+<li><p>scheduler 负责资源的调度，按照预定的调度策略将 Pod 调度到相应的机器上；</p>
+</li>
+</ul>
+<p><strong>从节点的组件：</strong></p>
+<ul>
+<li>kubelet 负责维护容器的生命周期，同时也负责 Volume（CSI）和网络（CNI）的管理；</li>
+<li>Container runtime 负责镜像管理以及 Pod 和容器的真正运行（CRI）；</li>
+<li>kube-proxy 负责为 Service 提供 cluster 内部的服务发现和负载均衡，ISO提出的OSI参考模型（Open System Interconnection Reference Model）将网络通信的复杂过程分解成7层活动，这通常被称为网络通信的七层模型，而此处为4层负载；</li>
+</ul>
+<h2 id="组件间协议-分层架构图"><a href="#组件间协议-分层架构图" class="headerlink" title="组件间协议&amp;分层架构图"></a>组件间协议&amp;分层架构图</h2><p><img src="c1cdf54e23b1b85f53b4e32f88a3f7ad.jpeg" alt="组件间协议"></p>
+<p><img src="f0cbf6a3c599f618631faae58c337654.jpeg" alt="分层架构图"></p>
+<ul>
+<li><p>CNI: CNI是Container Network Interface的是一个标准的，通用的接口 ;用于连接容器管理系统和网络插件。提供一个容器所在的network namespace，将network interface插入该network namespace中（比如veth的一端），并且在宿主机做一些必要的配置（例如将veth的另一端加入bridge中），最后对namespace中的interface进行IP和路由的配置。现有解决方案：flannel，calico，weave。</p>
+<p><strong>在架构中有看到，kubelet通过api-server操作从节点，即通过网络接口来实现。</strong></p>
+<p>参考链接：<a href="https://blog.csdn.net/zhonglinzhang/article/details/82697524">https://blog.csdn.net/zhonglinzhang/article/details/82697524</a></p>
+</li>
+<li><p>CRI： 容器运行时接口(Container Runtime Interface)；CRI包含了一组protocol buffers，gRPC API，相关的库; 提供可插拔的容器运行时 ;k8s节点的底层由一个叫做“容器运行时”的软件进行支撑，它负责比如启停容器这样的事情；Docker是K8s中最常用的容器运行时。</p>
+<p><strong>docker是容器管理中较好的使用方案，而容器运行时不一定只能使用docker。</strong></p>
+<p>参考链接：<a href="https://www.kubernetes.org.cn/1079.html">https://www.kubernetes.org.cn/1079.html</a></p>
+</li>
+<li><p>CSI：CSI（Container Storage Interface）是一个用于为Kubernetes集群提供持久化存储的标准接口。它允许第三方存储供应商（如云提供商和存储厂商）创建和管理持久化存储的插件，使得这些存储解决方案能够无缝集成到Kubernetes集群中，为Pod提供持久化存储服务。</p>
+</li>
+<li><p>OCI： 围绕容器的格式和运行时制定一个开放的工业化标准,并推动这个标准,保持容器的灵活性和开放性,容器能运行在任何的硬件和系统上，容器不应该绑定到特定的客户机或编排堆栈,不应该与任何特定的供应商紧密关联,并且可以跨多种操作系统；</p>
+<p>参考链接：<a href="https://www.jianshu.com/p/c7748893ab00">https://www.jianshu.com/p/c7748893ab00</a></p>
+<p>官网：<a href="https://opencontainers.org/">https://opencontainers.org/</a></p>
+</li>
+</ul>
+<h2 id="视频介绍：什么是K8S？"><a href="#视频介绍：什么是K8S？" class="headerlink" title="视频介绍：什么是K8S？"></a>视频介绍：什么是K8S？</h2><p>参考链接1：<a href="https://www.bilibili.com/video/BV1Du4m137pK/?spm_id_from=333.337.search-card.all.click&vd_source=c97fb1b65102f7ab46e3da7760d19cd0">Kubernetes(k8s)是什么？架构是怎么样的？</a></p>
+<p>参考链接2：<a href="https://www.bilibili.com/video/BV1aA4m1w7Ew?spm_id_from=333.788.videopod.sections&vd_source=c97fb1b65102f7ab46e3da7760d19cd0">docker是什么？和kubernetes(k8s)是什么关系？_</a></p>
+<h1 id="2-k8s技术概念"><a href="#2-k8s技术概念" class="headerlink" title="2. k8s技术概念"></a>2. k8s技术概念</h1><h2 id="无状态应用与有状态应用"><a href="#无状态应用与有状态应用" class="headerlink" title="无状态应用与有状态应用"></a>无状态应用与有状态应用</h2><p>无状态应用不能具备存储数据的组件，由于再部署后会缺乏数据，因此只能是有状态应用。</p>
+<img src="image-20241021172124992.png" alt="无状态应用与有状态应用" style="zoom:150%;">
+
+
+
+
+
+<h2 id="资源分类：集群级、命名空间级、元数据级"><a href="#资源分类：集群级、命名空间级、元数据级" class="headerlink" title="资源分类：集群级、命名空间级、元数据级"></a>资源分类：集群级、命名空间级、元数据级</h2><p><img src="image-20241022093051261.png" alt="思维导图"></p>
+<p><img src="image-20241022091645153.png"></p>
+<h3 id="元数据类型"><a href="#元数据类型" class="headerlink" title="元数据类型"></a>元数据类型</h3><h4 id="Horizontal-Pod-Autoscaler（HPA）"><a href="#Horizontal-Pod-Autoscaler（HPA）" class="headerlink" title="Horizontal Pod Autoscaler（HPA）"></a>Horizontal Pod Autoscaler（HPA）</h4><p>Pod 自动扩容：可以根据 CPU 使用率或自定义指标（metrics）自动对 Pod 进行扩&#x2F;缩容。</p>
+<ul>
+<li>控制管理器每隔30s（可以通过–horizontal-pod-autoscaler-sync-period修改）查询metrics的资源使用情况</li>
+<li>支持三种metrics类型<ul>
+<li>预定义metrics（比如Pod的CPU）以利用率的方式计算</li>
+<li>自定义的Pod metrics，以原始值（raw value）的方式计算</li>
+<li>自定义的object metrics</li>
+</ul>
+</li>
+<li>支持两种metrics查询方式：Heapster和自定义的REST API</li>
+<li>支持多metrics</li>
+</ul>
+<h4 id="PodTemplate"><a href="#PodTemplate" class="headerlink" title="PodTemplate"></a>PodTemplate</h4><p>Pod Template 是关于 Pod 的定义，但是被包含在其他的 Kubernetes 对象中（例如 Deployment、StatefulSet、DaemonSet 等控制器）。控制器通过 Pod Template 信息来创建 Pod。</p>
+<h4 id="LimitRange"><a href="#LimitRange" class="headerlink" title="LimitRange"></a>LimitRange</h4><p>可以对集群内 Request 和 Limits 的配置做一个全局的统一的限制，相当于批量设置了某一个范围内（某个命名空间）的 Pod 的资源使用限制。</p>
+<h3 id="pod（命名空间级）"><a href="#pod（命名空间级）" class="headerlink" title="pod（命名空间级）"></a>pod（命名空间级）</h3><h4 id="pod介绍"><a href="#pod介绍" class="headerlink" title="pod介绍"></a>pod介绍</h4><p>pod属于命名空间级别的资源，为什么是要有pod参照上一节架构的内容。</p>
+<p><img src="image-20241022094206720.png" alt="组成图"></p>
+<p>Pod（容器组）是 Kubernetes 中最小的可部署单元。一个 Pod（容器组）包含了一个应用程序容器（某些情况下是多个容器）、存储资源、一个唯一的网络 IP 地址、以及一些确定容器该如何运行的选项。Pod 容器组代表了 Kubernetes 中一个独立的应用程序运行实例，该实例可能由单个容器或者几个紧耦合在一起的容器组成。</p>
+<p>Docker 是 Kubernetes Pod 中使用最广泛的容器引擎；Kubernetes Pod 同时也支持其他类型的容器引擎。</p>
+<p>Kubernetes 集群中的 Pod 存在如下两种使用途径：</p>
+<ul>
+<li><p>一个 Pod 中只运行一个容器。”one-container-per-pod” 是 Kubernetes 中最常见的使用方式。此时，您可以认为 Pod 容器组是该容器的 wrapper，Kubernetes 通过 Pod 管理容器，而不是直接管理容器。</p>
+</li>
+<li><p>一个 Pod 中运行多个需要互相协作的容器。您可以将多个紧密耦合、共享资源且始终在一起运行的容器编排在同一个 Pod 中。</p>
+</li>
+</ul>
+<h4 id="副本"><a href="#副本" class="headerlink" title="副本"></a>副本</h4><p>先引入“副本”的概念——一个 Pod 可以被复制成多份，每一份可被称之为一个“副本”，这些“副本”除了一些描述性的信息（Pod 的名字、uid 等）不一样以外，其它信息都是一样的，譬如 Pod 内部的容器、容器数量、容器里面运行的应用等的这些信息都是一样的，这些副本提供同样的功能。</p>
+<h4 id="控制器"><a href="#控制器" class="headerlink" title="控制器"></a>控制器</h4><p><strong>控制器就是在第一节整体架构中提到的controller manager 。</strong>controller manager 负责维护集群的状态，比如故障检测、自动扩展、滚动更新等，在本节的组成图中又有更细的划分。</p>
+<p>Pod 的<strong>“控制器”</strong>通常包含一个名为 “replicas” 的属性。“replicas”属性则指定了特定 Pod 的副本的数量，当当前集群中该 Pod 的数量与该属性指定的值不一致时，k8s 会采取一些策略去使得当前状态满足配置的要求。</p>
+<h5 id="RC"><a href="#RC" class="headerlink" title="RC"></a>RC</h5><p>Replication Controller 简称 RC，RC 是 Kubernetes 系统中的核心概念之一，简单来说，RC 可以保证在任意时间运行 Pod 的副本数量，能够保证 Pod 总是可用的。如果实际 Pod 数量比指定的多那就结束掉多余的，如果实际数量比指定的少就新启动一些Pod，当 Pod 失败、被删除或者挂掉后，RC 都会去自动创建新的 Pod 来保证副本数量，所以即使只有一个 Pod，我们也应该使用 RC 来管理我们的 Pod。可以说，通过 ReplicationController，Kubernetes 实现了 Pod 的高可用性。</p>
+<p>RC （ReplicationController ）主要的作用就是用来确保容器应用的副本数始终保持在用户定义的副本数 。即如果有容器异常退出，会自动创建新的 Pod 来替代；而如果异常多出来的容器也会自动回收（已经成为过去时），在 v1.11 版本废弃。</p>
+<p><img src="image-20241022101501201.png" alt="RC：基于系统资源动态创建pod副本"></p>
+<h5 id="RS（学习）"><a href="#RS（学习）" class="headerlink" title="RS（学习）"></a>RS（学习）</h5><p><strong>Kubernetes 官方建议使用 RS（ReplicaSet ） 替代 RC （ReplicationController ） 进行部署，RS 跟 RC 没有本质的不同，只是名字不一样，并且 RS 支持集合式的 selector。</strong></p>
+<p>label （标签）是附加到 Kubernetes 对象（比如 Pods）上的键值对，用于区分对象（比如Pod、Service）。 label 旨在用于指定对用户有意义且相关的对象的标识属性，但不直接对核心系统有语义含义。 label 可以用于组织和选择对象的子集。label 可以在创建时附加到对象，随后可以随时添加和修改。可以像 namespace 一样，使用 label 来获取某类对象，但 label 可以与 selector 一起配合使用，用表达式对条件加以限制，实现更精确、更灵活的资源查找。</p>
+<p>label 与 selector 配合，可以实现对象的“关联”，“Pod 控制器” 与 Pod 是相关联的 —— “Pod 控制器”依赖于 Pod，可以给 Pod 设置 label，然后给“控制器”设置对应的 selector，这就实现了对象的关联。</p>
+<p><strong>总结为RS在RC的基础上进行灵活性的匹配pod。</strong></p>
+<h5 id="Deployment（无状态、工作最常用）"><a href="#Deployment（无状态、工作最常用）" class="headerlink" title="Deployment（无状态、工作最常用）"></a>Deployment（无状态、工作最常用）</h5><p>Deployment 为 Pod 和 Replica Set 提供声明式更新。</p>
+<p>你只需要在 Deployment 中描述你想要的目标状态是什么，Deployment controller 就会帮你将 Pod 和 Replica Set 的实际状态改变到你的目标状态。你可以定义一个全新的 Deployment，也可以创建一个新的替换旧的 Deployment。</p>
+<p><img src="image-20241022102414572.png" alt="Deployment改进RS"></p>
+<p>同时Deployment采用灰度发布，在新的pod中逐一复制同一容器，一直处于高可用状态。</p>
+<p><img src="image-20241022102858292.png" alt="灰度发布"></p>
+<h5 id="StatefulSet（有状态应用）"><a href="#StatefulSet（有状态应用）" class="headerlink" title="StatefulSet（有状态应用）"></a>StatefulSet（有状态应用）</h5><blockquote>
+<p>Headless Service</p>
+</blockquote>
+<ol>
+<li><strong>没有Cluster IP</strong>：Headless Service在创建时，通过将<code>spec.clusterIP</code>设置为<code>None</code>，来表明它不需要一个集群内部的固定IP地址。</li>
+<li><strong>为Pod提供稳定的网络标识</strong>：在StatefulSet中，Headless Service为每个Pod提供一个基于其序号索引的稳定DNS名称。例如，如果StatefulSet名称为<code>my-service</code>，Pod的序号为0，那么Pod的DNS名称将是<code>my-service-0.my-service.namespace.svc.cluster.local</code>。</li>
+<li><strong>支持DNS解析</strong>：Kubernetes的DNS服务会为Headless Service中的每个Pod返回一个DNS A记录（Address Record），这些记录指向Pod的实际IP地址。这样，即使Pod的IP地址发生变化，通过DNS名称仍然可以访问到正确的Pod。</li>
+<li><strong>支持负载均衡</strong>：虽然Headless Service不提供像Cluster IP那样的内置负载均衡，但它可以通过DNS返回多个A记录，客户端可以自行实现负载均衡逻辑。</li>
+<li><strong>适用于有状态服务</strong>：Headless Service通常与StatefulSet一起使用，因为StatefulSet需要为每个Pod提供稳定的网络标识，而Headless Service正好满足这一需求。</li>
+<li><strong>支持端口映射</strong>：就像常规的Service一样，Headless Service也可以定义端口映射，将服务的端口映射到Pod的端口。</li>
+</ol>
+<blockquote>
+<p>volumeClaimTemplate</p>
+</blockquote>
+<p><strong>持久化存储</strong>：通过<code>volumeClaimTemplates</code>，StatefulSet为每个Pod创建独立的PersistentVolumeClaim（PVC），确保每个Pod都有自己的存储空间，数据不会因为Pod的重启而丢失。</p>
+<h5 id="DaemonSet（守护进程）"><a href="#DaemonSet（守护进程）" class="headerlink" title="DaemonSet（守护进程）"></a>DaemonSet（守护进程）</h5><p>DaemonSet 保证在每个 Node 上都运行一个容器副本，常用来部署一些集群的日志、监控或者其他系统管理应用。典型的应用包括：</p>
+<ul>
+<li>日志收集，比如 fluentd，logstash 等</li>
+<li>系统监控，比如 Prometheus Node Exporter，collectd，New Relic agent，Ganglia gmond 等</li>
+<li>系统程序，比如 kube-proxy, kube-dns, glusterd, ceph 等</li>
+<li><img src="image-20241022110230919.png" alt="守护进程的应用"></li>
+</ul>
+<h4 id="pod与docker间的对比"><a href="#pod与docker间的对比" class="headerlink" title="pod与docker间的对比"></a>pod与docker间的对比</h4><p><img src="image-20241022093706078.png" alt="pod与docker容器对比"></p>
+<p>在pod中，pause是pod的初始容器，访问其他具体的容器都是通过pause容器进行访问的。</p>
+<h2 id="为什么需要pod？"><a href="#为什么需要pod？" class="headerlink" title="为什么需要pod？"></a>为什么需要pod？</h2><p>视频中提到的Pod包含多个容器，那么为什么需要使用多个容器？为何需要pod这种容器？为何不直接使用容器？为何甚至需要同时运行多个容器？难道不能简单地把所有进程都放在一个单独的容器中吗？</p>
+<p><img src="image-20241021161014090.png" alt="为什么需要pod"></p>
+<blockquote>
+<p>为什么多个容器比单个容器中包含多个进程要好？</p>
+</blockquote>
+<p>想象一个由多个进程组成的应用程序，无论是通过ipc（进程间通信）还是本地存储文件进行通信，都要求它们运行于同一台机器上。在Kubernetes中，我们经常在容器中运行进程，由于每一个容器都非常像一台独立的机器，此时你可能认为在单个容器中运行多个进程是合乎逻辑的，然而在实践中这种做法并不合理。</p>
+<p><strong>容器被设计为每个容器只运行一个进程（除非进程本身产生子进程）。</strong>如果在单个容器中运行多个不相关的进程，那么保持所有进程运行、管理它们的日志等将会是我们的责任。例如，我们需要包含一种在进程崩溃时能够自动重启的机制。同时这些进程都将记录到相同的标准输出中，而此时我们将很难确定每个进程分别记录了什么。</p>
+<p><strong>pod设计为多个容器的集合。</strong>由于不能将多个进程聚集在一个单独的容器中，我们需要另一种更高级的结构来将容器绑定在一起，并将它们作为一个单元进行管理，这就是pod背后的根本原理。</p>
+<p>在包含容器的pod下，我们可以同时运行一些密切相关的进程，并为它们提供（几乎）相同的环境，此时这些进程就好像全部运行于单个容器中一样，同时又保持着一定的隔离。这样一来，我们便能全面地利用容器所提供的特性，同时对这些进程来说它们就像运行在一起一样，实现两全其美。</p>
+<p>pod实际在docker中是docker compose的概念，参考视频：<a href="https://www.bilibili.com/video/BV1aA4m1w7Ew?spm_id_from=333.788.videopod.sections&vd_source=c97fb1b65102f7ab46e3da7760d19cd0">docker是什么？和kubernetes(k8s)是什么关系？_</a></p>
+<h3 id="服务发现"><a href="#服务发现" class="headerlink" title="服务发现"></a>服务发现</h3><h4 id="service"><a href="#service" class="headerlink" title="service"></a>service</h4><p>“Service” 简写 “svc”。Pod 不能直接提供给外网访问，而是应该使用 service。Service 就是把 Pod 暴露出来提供服务，Service 才是真正的“服务”，它的中文名就叫“服务”。</p>
+<p>可以说 Service 是一个应用服务的抽象，定义了 Pod 逻辑集合和访问这个 Pod 集合的策略。Service 代理 Pod 集合，对外表现为一个访问入口，访问该入口的请求将经过负载均衡，转发到后端 Pod 中的容器。</p>
+<p><strong>类似微服务的eureka和nacos的概念。</strong>nacos负责微服务之间的调用，而service负责k8s集群内节点之间的调用，是横向流量。</p>
+<h4 id="Ingress"><a href="#Ingress" class="headerlink" title="Ingress"></a>Ingress</h4><p>Ingress 是 Kubernetes 的一种管理外部访问应用的资源对象，它允许用户通过一组规则来管理进入集群的 HTTP 和 HTTPS 流量。</p>
+<p>Ingress 可以提供外网访问 Service 的能力。可以把某个请求地址映射、路由到特定的 service（ingress-nginx进行路由）。</p>
+<p>ingress 需要配合 ingress controller 一起使用才能发挥作用，ingress 只是相当于路由规则的集合而已，真正实现路由功能的，是 Ingress Controller，ingress controller 和其它 k8s 组件一样，也是在 Pod 中运行。</p>
+<p>ingress类似nginx进行路由和负载均衡，从用户访问具体服务的时候进行代理、负载均衡、路由跳转等，是纵向流量。</p>
+<img src="image-20241022111232484.png" alt="service和ingress" style="zoom:120%;">
+
+
+
+
+
+<img src="image-20241022113426063.png" style="zoom:150%;">
+
+
+
+
+
+<h1 id="3-搭建k8s集群"><a href="#3-搭建k8s集群" class="headerlink" title="3. 搭建k8s集群"></a>3. 搭建k8s集群</h1><h2 id="环境准备"><a href="#环境准备" class="headerlink" title="环境准备"></a>环境准备</h2><p>使用centos7.6版本部署k8s。</p>
+<table>
+<thead>
+<tr>
+<th>主机名</th>
+<th>ip</th>
+<th>安装工具</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>master（cpu核心数要求大于2）</td>
+<td>192.168.88.101</td>
+<td>docker、kubeadm、kubelet、kubectl、flannel</td>
+</tr>
+<tr>
+<td>node1</td>
+<td>192.168.88.129</td>
+<td>docker、kubeadm、kubelet、kubectl、flannel</td>
+</tr>
+<tr>
+<td>node2</td>
+<td>192.168.88.103</td>
+<td>docker、kubeadm、kubelet、kubectl、flannel</td>
+</tr>
+<tr>
+<td>Harbor节点（hub.jzm.com）</td>
+<td>192.168.80.13</td>
+<td>docker、docker-compose、harbor-offline-v1.2.2</td>
+</tr>
+</tbody></table>
+<p><strong>如果虚拟机是克隆的，ip会一样，需要修改ip地址。</strong></p>
+<h3 id="master节点"><a href="#master节点" class="headerlink" title="master节点"></a>master节点</h3><p><strong>关闭防火墙、关闭swap分区，加载 ip_vs 模块，直接全部复制</strong></p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 关闭防火墙</span></span><br><span class="line">systemctl stop firewalld</span><br><span class="line">systemctl <span class="built_in">disable</span> firewalld</span><br><span class="line"></span><br><span class="line"><span class="comment"># 永久关闭selinux</span></span><br><span class="line">sed -i <span class="string">&#x27;s/enforcing/disabled/&#x27;</span> /etc/selinux/config  </span><br><span class="line"></span><br><span class="line"><span class="comment"># 永久关闭swap</span></span><br><span class="line">sed -ri <span class="string">&#x27;s/.*swap.*/#&amp;/&#x27;</span> /etc/fstab  </span><br><span class="line"></span><br><span class="line">iptables -F &amp;&amp; iptables -t nat -F &amp;&amp; iptables -t mangle -F &amp;&amp; iptables -X</span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> i <span class="keyword">in</span> $(<span class="built_in">ls</span> /usr/lib/modules/$(<span class="built_in">uname</span> -r)/kernel/net/netfilter/ipvs|grep -o <span class="string">&quot;^[^.]*&quot;</span>);<span class="keyword">do</span> <span class="built_in">echo</span> <span class="variable">$i</span>; /sbin/modinfo -F filename <span class="variable">$i</span> &gt;/dev/null 2&gt;&amp;1 &amp;&amp; /sbin/modprobe <span class="variable">$i</span>;<span class="keyword">done</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>修改节点ip</strong></p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">vim /etc/sysconfig/network-scripts/ifcfg-ens33</span><br></pre></td></tr></table></figure>
+
+<p>文件添加的内容，此处设置master的ip为192.168.88.101。</p>
+<p>子网掩码参考vmware的虚拟网络编辑器（编辑页面打开，选择VMent8后找到NAT设置），想要统一的话可以设置此处的子网掩码和网关，或者用自己的</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">IPADDR=<span class="string">&quot;192.168.88.101&quot;</span></span><br><span class="line">NETMASK=<span class="string">&quot;255.255.255.0&quot;</span></span><br><span class="line">GATEWAY=<span class="string">&quot;192.168.88.2&quot;</span></span><br><span class="line">DNS1=<span class="string">&quot;192.168.88.2&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p><img src="image-20241022170410255.png"></p>
+<p><strong>重启网卡</strong></p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">systemctl restart network</span><br></pre></td></tr></table></figure>
+
+<p>可以看到ip已经更新了</p>
+<p><img src="image-20241022170816212.png"></p>
+<p><strong>修改主机名</strong></p>
+<p>切换root用户才有修改主机名的权限，su root修改即可，然后执行：</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">hostnamectl set-hostname k8s-master</span><br></pre></td></tr></table></figure>
+
+<p>执行后使用bash命令刷新一下就行了</p>
+<h3 id="node从节点"><a href="#node从节点" class="headerlink" title="node从节点"></a>node从节点</h3><p>和master同理操作，需要完成主从节点的配置再往下做</p>
+<h3 id="所有节点修改hosts文件"><a href="#所有节点修改hosts文件" class="headerlink" title="所有节点修改hosts文件"></a>所有节点修改hosts文件</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">vim /etc/hosts</span><br></pre></td></tr></table></figure>
+
+<p>打开后添加内容，k8s-master，node1，node2是我给主节点和从节点取的主机名，改成自己取的</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">192.168.88.101 k8s-master</span><br><span class="line">192.168.88.129 k8s-node1</span><br><span class="line">192.168.88.103 k8s-node2</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="调整内核参数"><a href="#调整内核参数" class="headerlink" title="调整内核参数"></a>调整内核参数</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="built_in">cat</span> &gt; /etc/sysctl.d/kubernetes.conf &lt;&lt; <span class="string">EOF</span></span><br><span class="line"><span class="string">#开启网桥模式，可将网桥的流量传递给iptables链</span></span><br><span class="line"><span class="string">net.bridge.bridge-nf-call-ip6tables=1</span></span><br><span class="line"><span class="string">net.bridge.bridge-nf-call-iptables=1</span></span><br><span class="line"><span class="string">#关闭ipv6协议</span></span><br><span class="line"><span class="string">net.ipv6.conf.all.disable_ipv6=1</span></span><br><span class="line"><span class="string">net.ipv4.ip_forward=1</span></span><br><span class="line"><span class="string">EOF</span></span><br><span class="line">sysctl --system</span><br><span class="line"></span><br><span class="line"><span class="comment"># 时间同步</span></span><br><span class="line">yum install ntpdate -y</span><br><span class="line">ntpte time.windows.comda</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<h3 id="其他问题（finalshell无法远程连接VMware）"><a href="#其他问题（finalshell无法远程连接VMware）" class="headerlink" title="其他问题（finalshell无法远程连接VMware）"></a>其他问题（finalshell无法远程连接VMware）</h3><h4 id="VMware中VMnet1或VMnet8-都无法勾选下方的”将主机虚拟适配器连接到此网络“"><a href="#VMware中VMnet1或VMnet8-都无法勾选下方的”将主机虚拟适配器连接到此网络“" class="headerlink" title="VMware中VMnet1或VMnet8 都无法勾选下方的”将主机虚拟适配器连接到此网络“"></a>VMware中VMnet1或VMnet8 都无法勾选下方的”将主机虚拟适配器连接到此网络“</h4><p><img src="image-20241022173548644.png" alt="VMware配置"></p>
+<p>参考文档：<a href="https://blog.csdn.net/MerryMaking7946/article/details/120555787">解决！！！VMware中VMnet1或VMnet8 都无法勾选下方的–” 将主机虚拟适配器连接到此网络“或 勾选成功却安装主机虚拟适配器失败等问题_将主机虚拟适配器连接到此网络无法勾选-CSDN博客</a></p>
+<h2 id="安装docker"><a href="#安装docker" class="headerlink" title="安装docker"></a>安装docker</h2><p>需要先装docker，后续配置kubeadm、kubelet和kubectl时还需要修改docker的配置文件</p>
+<p>这里建议即使装过了也重新装，不用担心镜像丢失</p>
+<p>参考博客：<a href="https://rengoku.top/2024/07/06/centOS%E9%83%A8%E7%BD%B2docker/">CentOS7部署docker</a></p>
+<h2 id="所有节点安装kubeadm、kubelet和kubectl"><a href="#所有节点安装kubeadm、kubelet和kubectl" class="headerlink" title="所有节点安装kubeadm、kubelet和kubectl"></a>所有节点安装kubeadm、kubelet和kubectl</h2><h3 id="使用阿里云镜像定义kubernetes源安装镜像"><a href="#使用阿里云镜像定义kubernetes源安装镜像" class="headerlink" title="使用阿里云镜像定义kubernetes源安装镜像"></a>使用阿里云镜像定义kubernetes源安装镜像</h3><p>运行命令前要切换root用户</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 定义kubernetes源</span></span><br><span class="line"><span class="built_in">cat</span> &gt; /etc/yum.repos.d/kubernetes.repo &lt;&lt; <span class="string">EOF</span></span><br><span class="line"><span class="string">[kubernetes]</span></span><br><span class="line"><span class="string">name=Kubernetes</span></span><br><span class="line"><span class="string">baseurl=https://mirrors.aliyun.com/kubernetes/yum/repos/kubernetes-el7-x86_64</span></span><br><span class="line"><span class="string">enabled=1</span></span><br><span class="line"><span class="string">gpgcheck=0</span></span><br><span class="line"><span class="string">repo_gpgcheck=0</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">gpgkey=https://mirrors.aliyun.com/kubernetes/yum/doc/yum-key.gpg https://mirrors.aliyun.com/kubernetes/yum/doc/rpm-package-key.gpg</span></span><br><span class="line"><span class="string">EOF</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">yum install -y kubelet-1.23.6 kubeadm-1.23.6 kubectl-1.23.6</span><br><span class="line"></span><br><span class="line"><span class="comment">#开机自启kubelet</span></span><br><span class="line"><span class="comment">#K8S通过kubeadm安装出来以后都是以Pod方式存在，即底层是以容器方式运行，所以kubelet必须设置开机自启</span></span><br><span class="line">systemctl <span class="built_in">enable</span> kubelet</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># 配置关闭 Docker 的 cgroups，修改 /etc/docker/daemon.json，加入以下内容。另外请看下文注意事项。</span></span><br><span class="line"><span class="string">&quot;exec-opts&quot;</span>: [<span class="string">&quot;native.cgroupdriver=systemd&quot;</span>]</span><br><span class="line"></span><br><span class="line"><span class="comment"># 重启 docker</span></span><br><span class="line">systemctl daemon-reload</span><br><span class="line">systemctl restart docker</span><br></pre></td></tr></table></figure>
+
+<h3 id="注意事项"><a href="#注意事项" class="headerlink" title="注意事项"></a><strong>注意事项</strong></h3><p><strong>如果漏掉了docker是无法启动的</strong></p>
+<p><img src="image-20241022195939641.png"></p>
+<h2 id="部署k8s-master（搭建k8s集群）"><a href="#部署k8s-master（搭建k8s集群）" class="headerlink" title="部署k8s-master（搭建k8s集群）"></a>部署k8s-master（搭建k8s集群）</h2><h3 id="正常部署流程"><a href="#正常部署流程" class="headerlink" title="正常部署流程"></a>正常部署流程</h3><p><strong>注意这里不要清屏，要记录token！！</strong></p>
+<p><strong>注意这里不要清屏，要记录token！！</strong></p>
+<p><strong>注意这里不要清屏，要记录token！！</strong></p>
+<p>master节点运行，注意修改地址为master节点的ip，我的master的ip是<code>192.168.88.101</code></p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">kubeadm init \</span><br><span class="line">      --apiserver-advertise-address=192.168.88.101 \</span><br><span class="line">      --image-repository registry.aliyuncs.com/google_containers \</span><br><span class="line">      --kubernetes-version v1.23.6 \</span><br><span class="line">      --service-cidr=10.96.0.0/12 \</span><br><span class="line">      --pod-network-cidr=10.244.0.0/16</span><br><span class="line">      </span><br><span class="line"><span class="comment"># 安装成功后，复制如下配置并执行</span></span><br><span class="line"><span class="built_in">mkdir</span> -p <span class="variable">$HOME</span>/.kube</span><br><span class="line">sudo <span class="built_in">cp</span> -i /etc/kubernetes/admin.conf <span class="variable">$HOME</span>/.kube/config</span><br><span class="line">sudo <span class="built_in">chown</span> $(<span class="built_in">id</span> -u):$(<span class="built_in">id</span> -g) <span class="variable">$HOME</span>/.kube/config</span><br><span class="line">kubectl get nodes</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p><strong>1）下载页面</strong></p>
+<p><img src="image-20241023102802542.png" alt="下载页面"></p>
+<p>安装成功后应该有如下提示：</p>
+<p><img src="image-20241023105723531.png" alt="安装成功"></p>
+<p><strong>可以看到下载成功后有如下信息，此处需要记录</strong></p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">Then you can <span class="built_in">join</span> any number of worker nodes by running the following on each as root:</span><br><span class="line"></span><br><span class="line">kubeadm <span class="built_in">join</span> 192.168.88.101:6443 --token gq4f07.hob8gno3h21g6cr7 \</span><br><span class="line">	--discovery-token-ca-cert-hash sha256:2925810701eed275ed43c451336301336be5b435b495a95d145cc5c016ef8be5 </span><br><span class="line"></span><br><span class="line"><span class="comment"># 这是我第二次初始化的内容，可忽略</span></span><br><span class="line">kubeadm <span class="built_in">join</span> 192.168.88.101:6443 --token fql59f.yy70z80u0foym5xq \</span><br><span class="line">	--discovery-token-ca-cert-hash sha256:e1c6fa61ea4281fe0b57c0b3b740ee90a8a1c2d699c7c168d266b7763a6a5d88</span><br></pre></td></tr></table></figure>
+
+<p><strong>2）运行界面</strong></p>
+<p><img src="image-20241023104141122.png" alt="运行界面"></p>
+<h3 id="下载失败的解决方案"><a href="#下载失败的解决方案" class="headerlink" title="下载失败的解决方案"></a>下载失败的解决方案</h3><p>类似于如下报错信息：阿里源拉取镜像失败（总之都是由于镜像仓库的问题拉取失败，下边的报错信息并非我亲自遇到的，因为虚拟机的报错信息被刷掉了）</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">[preflight] Pulling images required <span class="keyword">for</span> setting up a Kubernetes cluster</span><br><span class="line">[preflight] This might take a minute or two, depending on the speed of your internet connection</span><br><span class="line">[preflight] You can also perform this action <span class="keyword">in</span> beforehand using <span class="string">&#x27;kubeadm config images pull&#x27;</span></span><br><span class="line">error execution phase preflight: [preflight] Some fatal errors occurred:</span><br><span class="line">        [ERROR ImagePull]: failed to pull image registry.aliyuncs.com/google_containers/coredns:v1.8.0: output: Error response from daemon: manifest <span class="keyword">for</span> registry.aliyuncs.com/google_containers/coredns:v1.8.0 not found: manifest unknown: manifest unknown</span><br><span class="line">, error: <span class="built_in">exit</span> status 1</span><br><span class="line">[preflight] If you know what you are doing, you can make a check non-fatal with `--ignore-preflight-errors=...`</span><br><span class="line">To see the stack trace of this error execute with --v=5 or higher</span><br></pre></td></tr></table></figure>
+
+<p><strong>如果下载失败，这里提供两个解决方案：</strong></p>
+<p>第一种，复制命令一直重试，直到下载成功。我用的是这个方案，可能阿里的镜像不稳定。</p>
+<p>第二种，失败后查看docker的镜像和kubeadm的镜像，可以看到还差了什么</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 查看kubeadm所需要镜像</span></span><br><span class="line">kubeadm config images list --kubernetes-version 1.23.6</span><br><span class="line"></span><br><span class="line"><span class="comment"># 查看docker镜像</span></span><br><span class="line">docker images</span><br></pre></td></tr></table></figure>
+
+<p><img src="image-20241023103433741.png" alt="失败"></p>
+<p>后续可参考博客：<a href="https://blog.csdn.net/a749227859/article/details/118732605">初始化 Kubernetes 主节点 failed to pull image registry.aliyuncs.com&#x2F;google_containers&#x2F;coredns:v1.8.0-CSDN博客</a></p>
+<p>主要是使用dokcer再拉取一下缺少的镜像。</p>
+<h2 id="加入-Kubernetes-Node（从节点操作）"><a href="#加入-Kubernetes-Node（从节点操作）" class="headerlink" title="加入 Kubernetes Node（从节点操作）"></a>加入 Kubernetes Node（从节点操作）</h2><p>在master安装成功后我们都会有一个token，比如我的是<code>gq4f07.hob8gno3h21g6cr</code>，此处需要修改成自己的token和master的IP。</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">Then you can <span class="built_in">join</span> any number of worker nodes by running the following on each as root:</span><br><span class="line"></span><br><span class="line">kubeadm <span class="built_in">join</span> 192.168.88.101:6443 --token gq4f07.hob8gno3h21g6cr7 \</span><br><span class="line">	--discovery-token-ca-cert-hash sha256:2925810701eed275ed43c451336301336be5b435b495a95d145cc5c016ef8be5 </span><br></pre></td></tr></table></figure>
+
+<h3 id="获取Master节点的token和证书"><a href="#获取Master节点的token和证书" class="headerlink" title="获取Master节点的token和证书"></a>获取Master节点的token和证书</h3><p> 如果初始化的 token 不小心清空了，可以通过如下命令获取或者重新申请</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 如果 token 已经过期，就重新申请</span></span><br><span class="line">kubeadm token create</span><br><span class="line"></span><br><span class="line"><span class="comment"># token 没有过期可以通过如下命令获取</span></span><br><span class="line">kubeadm token list</span><br></pre></td></tr></table></figure>
+
+<p>获取 –discovery-token-ca-cert-hash 值，得到值后需要在前面拼接上 sha256</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">openssl x509 -pubkey -<span class="keyword">in</span> /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2&gt;/dev/null | \</span><br><span class="line">openssl dgst -sha256 -hex | sed <span class="string">&#x27;s/^.* //&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="正常流程"><a href="#正常流程" class="headerlink" title="正常流程"></a>正常流程</h3><p>执行命令：</p>
+<p><img src="image-20241023111518529.png"></p>
+<p>master节点执行命令<code>kubectl get nodes</code>可以看到node1已经添加成功了</p>
+<p><img src="image-20241023111555058.png"></p>
+<h2 id="部署-CNI-网络插件（k8s部署flannel）"><a href="#部署-CNI-网络插件（k8s部署flannel）" class="headerlink" title="部署 CNI 网络插件（k8s部署flannel）"></a>部署 CNI 网络插件（k8s部署flannel）</h2><p><img src="image-20241023112331110.png"></p>
+<p>为了让三个节点ready起来，三个东西不可少，文件可以找我要.flannel.tar包解压后用docker把镜像拿到手，解压出来有这些</p>
+<p><img src="image-20241024135620085.png"></p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 解压文件，解压得到的东西如上图，一个flannel.tar包含flannel.tar,flannel-cni-plugin.tar文件，yml文件不在里面</span></span><br><span class="line">tar -zxvf flannel.tar</span><br><span class="line"></span><br><span class="line"><span class="comment"># docker获取镜像</span></span><br><span class="line">docker load -i flannel.tar</span><br><span class="line">docker load -i flannel-cni-plungin.tar</span><br></pre></td></tr></table></figure>
+
+<p><img src="image-20241024135921585.png"></p>
+<p>弄出来以后运行yml文件即可</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">kubectl apply -f kube-flannel.yml</span><br></pre></td></tr></table></figure>
+
+<p>三个节点重复上述工作，正常结果如图：</p>
+<p><img src="image-20241024140200256.png" alt="flannel部署成功"></p>
+<h2 id="集群测试"><a href="#集群测试" class="headerlink" title="集群测试"></a>集群测试</h2><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 两个节点操作</span></span><br><span class="line"><span class="comment"># 1. 将 master 节点中 /etc/kubernetes/admin.conf 拷贝到需要运行的服务器的 /etc/kubernetes 目录中</span></span><br><span class="line">scp /etc/kubernetes/admin.conf root@k8s-node1:/etc/kubernetes</span><br><span class="line"></span><br><span class="line"><span class="comment"># 2. 在对应的服务器上配置环境变量</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;export KUBECONFIG=/etc/kubernetes/admin.conf&quot;</span> &gt;&gt; ~/.bash_profile</span><br><span class="line"><span class="built_in">source</span> ~/.bash_profile</span><br><span class="line"></span><br><span class="line"><span class="comment"># 创建部署</span></span><br><span class="line">kubectl create deployment nginx --image=nginx</span><br><span class="line"></span><br><span class="line"><span class="comment"># 暴露端口</span></span><br><span class="line">kubectl expose deployment nginx --port=80 --<span class="built_in">type</span>=NodePort</span><br><span class="line"></span><br><span class="line"><span class="comment"># 查看 pod 以及服务信息，如果镜像不是running，需要配镜像</span></span><br><span class="line">kubectl get pod,svc</span><br><span class="line"></span><br><span class="line"><span class="comment"># 后续访问虚拟机ip和暴露端口测试nginx是否可以访问，如果不能访问通过命令排查</span></span><br><span class="line"><span class="comment"># 由于docker被墙的原因，我测试基本都是拉取不下来的，如果本地有镜像，可以结合yml文件和镜像创建部署（deploy）</span></span><br><span class="line">kubectl describe pod &lt;pod-name&gt;</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<h1 id="4-Kubectl命令行工具常用命令"><a href="#4-Kubectl命令行工具常用命令" class="headerlink" title="4. Kubectl命令行工具常用命令"></a>4. Kubectl命令行工具常用命令</h1><p><a href="https://cloud.tencent.com/developer/article/2405730">Kubernetes（K8s）常用命令大全：熟练编排更完美-腾讯云开发者社区-腾讯云</a></p>
+<h1 id="5-Pod"><a href="#5-Pod" class="headerlink" title="5. Pod"></a>5. Pod</h1><p>持续更新中….</p>
+]]></content>
+      <categories>
+        <category>软件技术</category>
+      </categories>
+      <tags>
+        <tag>软件技术</tag>
+        <tag>kubernetes</tag>
       </tags>
   </entry>
   <entry>
@@ -3702,6 +4003,31 @@
       </tags>
   </entry>
   <entry>
+    <title>MySQL：（五）分库分表</title>
+    <url>/2024/08/20/MySQL-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8/</url>
+    <content><![CDATA[<h1 id="为什么要进行分库分表"><a href="#为什么要进行分库分表" class="headerlink" title="为什么要进行分库分表"></a>为什么要进行分库分表</h1><p><img src="Snipaste_2024-08-20_16-32-57.png"></p>
+<p>来解释一下IO瓶颈：</p>
+<p>在介绍innodb存储引擎<a href="https://rengoku.top/2024/08/15/MySQL-%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E/">MySQL：（二）存储引擎 | 颓废市民黄先生 (rengoku.top)</a>的时候，曾经说过，内存架构中大部分的组件都分配给了缓存。如果内存不足，缓存就不够，那么就要使用后台线程和磁盘进行io，这样效率就会低</p>
+<h1 id="拆分策略"><a href="#拆分策略" class="headerlink" title="拆分策略"></a>拆分策略</h1><p><img src="Snipaste_2024-08-20_16-40-42.png" alt="拆分策略"></p>
+<h2 id="垂直拆分"><a href="#垂直拆分" class="headerlink" title="垂直拆分"></a>垂直拆分</h2><ul>
+<li>垂直分表：局限于单个数据库内部，不涉及跨数据库操作。</li>
+<li>垂直分库：跨越多个数据库，甚至可能跨越不同的服务器，涉及跨数据库的数据访问和管理。</li>
+</ul>
+<p><img src="Snipaste_2024-08-20_16-43-58.png" alt="垂直拆分"></p>
+<h2 id="水平拆分"><a href="#水平拆分" class="headerlink" title="水平拆分"></a>水平拆分</h2><p>和垂直拆分一样，水平分库会涉及跨数据库，而水平分表不跨数据库。</p>
+<p><img src="Snipaste_2024-08-20_16-51-01.png" alt="水平拆分"></p>
+<h1 id="MyCat"><a href="#MyCat" class="headerlink" title="MyCat"></a>MyCat</h1><p><a href="https://blog.csdn.net/liuerchong/article/details/107887804">mycat详细介绍及实战-CSDN博客</a></p>
+<p>mycat实现分库分表，读写分离。</p>
+]]></content>
+      <categories>
+        <category>数据库</category>
+      </categories>
+      <tags>
+        <tag>mysql</tag>
+        <tag>面试</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>MySQL：（四）事务隔离级别和MVCC</title>
     <url>/2024/08/16/MySQL-MVCC/</url>
     <content><![CDATA[<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>MVCC是面试重灾区，网上的内容我发现并不全面，只有生搬硬套下来的原理却不解释过程，让我看的云里雾里。我写这篇MVCC的内容目的是能更好了理解MVCC如何实现，结合一些八股的内容和实际的案例进行介绍，全程干货。</p>
@@ -3854,31 +4180,6 @@
       </tags>
   </entry>
   <entry>
-    <title>MySQL：（五）分库分表</title>
-    <url>/2024/08/20/MySQL-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8/</url>
-    <content><![CDATA[<h1 id="为什么要进行分库分表"><a href="#为什么要进行分库分表" class="headerlink" title="为什么要进行分库分表"></a>为什么要进行分库分表</h1><p><img src="Snipaste_2024-08-20_16-32-57.png"></p>
-<p>来解释一下IO瓶颈：</p>
-<p>在介绍innodb存储引擎<a href="https://rengoku.top/2024/08/15/MySQL-%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E/">MySQL：（二）存储引擎 | 颓废市民黄先生 (rengoku.top)</a>的时候，曾经说过，内存架构中大部分的组件都分配给了缓存。如果内存不足，缓存就不够，那么就要使用后台线程和磁盘进行io，这样效率就会低</p>
-<h1 id="拆分策略"><a href="#拆分策略" class="headerlink" title="拆分策略"></a>拆分策略</h1><p><img src="Snipaste_2024-08-20_16-40-42.png" alt="拆分策略"></p>
-<h2 id="垂直拆分"><a href="#垂直拆分" class="headerlink" title="垂直拆分"></a>垂直拆分</h2><ul>
-<li>垂直分表：局限于单个数据库内部，不涉及跨数据库操作。</li>
-<li>垂直分库：跨越多个数据库，甚至可能跨越不同的服务器，涉及跨数据库的数据访问和管理。</li>
-</ul>
-<p><img src="Snipaste_2024-08-20_16-43-58.png" alt="垂直拆分"></p>
-<h2 id="水平拆分"><a href="#水平拆分" class="headerlink" title="水平拆分"></a>水平拆分</h2><p>和垂直拆分一样，水平分库会涉及跨数据库，而水平分表不跨数据库。</p>
-<p><img src="Snipaste_2024-08-20_16-51-01.png" alt="水平拆分"></p>
-<h1 id="MyCat"><a href="#MyCat" class="headerlink" title="MyCat"></a>MyCat</h1><p><a href="https://blog.csdn.net/liuerchong/article/details/107887804">mycat详细介绍及实战-CSDN博客</a></p>
-<p>mycat实现分库分表，读写分离。</p>
-]]></content>
-      <categories>
-        <category>数据库</category>
-      </categories>
-      <tags>
-        <tag>mysql</tag>
-        <tag>面试</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>MySQL：（二）存储引擎</title>
     <url>/2024/08/15/MySQL-%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E/</url>
     <content><![CDATA[<h1 id="一、存储引擎"><a href="#一、存储引擎" class="headerlink" title="一、存储引擎"></a>一、存储引擎</h1><h2 id="1-InnoDB"><a href="#1-InnoDB" class="headerlink" title="1. InnoDB"></a>1. InnoDB</h2><p>在MySQL现版本，默认的存储引擎是InnoDB，这个不用多说了，另外常见的还有MyISAM，Memory，CSV等，这里就InnoDB进行介绍。</p>
@@ -3937,6 +4238,145 @@
 </ol>
 <h2 id="2-undo-log"><a href="#2-undo-log" class="headerlink" title="2. undo log"></a>2. undo log</h2><p><img src="Snipaste_2024-08-17_19-10-31.png" alt="undo log"></p>
 <p>MVCC：<a href="https://rengoku.top/2024/08/16/MySQL-MVCC/">MySQL：（四）事务隔离级别和MVCC | 颓废市民黄先生 (rengoku.top)</a></p>
+]]></content>
+      <categories>
+        <category>数据库</category>
+      </categories>
+      <tags>
+        <tag>mysql</tag>
+        <tag>面试</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>MySQL：（三）全局锁、表级锁、行级锁</title>
+    <url>/2024/08/15/MySQL-%E9%94%81/</url>
+    <content><![CDATA[<p>MySQL中的锁，按照锁的粒度分，分为：</p>
+<ol>
+<li>全局锁：锁定数据库中所有表</li>
+<li>表级锁：每次操作锁整张表</li>
+<li>行级锁：每次操作锁住对应行数据</li>
+</ol>
+<h1 id="一、全局锁"><a href="#一、全局锁" class="headerlink" title="一、全局锁"></a>一、全局锁</h1><p><img src="Snipaste_2024-08-16_15-45-59.png" alt="全局锁"></p>
+<blockquote>
+<p>mysqldump相信大家都听说过，这是用来进行数据库备份的工具，除此以外也可以采用数据库主从复制机制进行数据库备份，这同时也是异地容灾、备份等内容。</p>
+</blockquote>
+<p><strong>数据库备份操作：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># 加锁操作</span><br><span class="line">flush tables with read lock;</span><br><span class="line"></span><br><span class="line"># 数据备份</span><br><span class="line">mysqldump -uroot -p1234 databases &gt; database.sql</span><br><span class="line"># 加端口的数据备份</span><br><span class="line">mysqldump -h192.168.xx.xx -uroot -p1234 databases &gt; database.sql</span><br><span class="line"></span><br><span class="line"># 解锁操作</span><br><span class="line">unlock tables;</span><br></pre></td></tr></table></figure>
+
+<p>这里附上一篇<code>flush操作</code>的博客，用的是博客中的第4条：<a href="https://blog.csdn.net/a772304419/article/details/138797621">MySQL flush命令详解-CSDN博客</a></p>
+<blockquote>
+<p><strong>FLUSH TABLES</strong>: 关闭所有表并清空表缓存（如查询缓存），或者指定特定表进行刷新。这对于解决锁问题、确保数据一致性或在没有重启MySQL服务的情况下应用表结构更改很有用。加上<code>WITH READ LOCK</code>选项可以全局锁定所有表，以便进行安全的备份。</p>
+</blockquote>
+<p><strong>全局锁存在的问题：</strong></p>
+<p><img src="Snipaste_2024-08-16_16-22-46.png" alt="全局锁存在的问题"></p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># 数据备份</span><br><span class="line">mysqldump --single-transaction -uroot -p1234 databases &gt; database.sql</span><br></pre></td></tr></table></figure>
+
+<p>加上这个参数以后，就是通过快照读而不加全局锁了，快照读在上一篇博客有介绍，可以戳链接看看：<a href="https://rengoku.top/2024/08/15/MySQL-MVCC/">MySQL：MVCC与事务 | 颓废市民黄先生 (rengoku.top)</a></p>
+<h1 id="二、表级锁"><a href="#二、表级锁" class="headerlink" title="二、表级锁"></a>二、表级锁</h1><p><img src="Snipaste_2024-08-16_16-29-40.png" alt="表级锁分类"></p>
+<h2 id="1-表锁"><a href="#1-表锁" class="headerlink" title="1. 表锁"></a>1. 表锁</h2><p>对于表锁，分为两类</p>
+<ul>
+<li>表共享读锁（read lock）</li>
+<li>表独占写锁（write lock）</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># 加锁</span><br><span class="line">lock tables 表名... read/write</span><br><span class="line"></span><br><span class="line"># 解锁</span><br><span class="line">unlock tables</span><br></pre></td></tr></table></figure>
+
+<p><img src="Snipaste_2024-08-16_16-41-58.png" alt="表锁"></p>
+<p>我相信看到这里大家肯定非常熟悉，其实表锁和<strong>读写锁</strong>很类似，都是读共享，写独占。</p>
+<p><strong>读的时候会阻塞写操作，例如DDL，DML，写的时候只能让拿到锁的客户端或者线程进行读写操作。</strong></p>
+<p>读写锁可以参考另外一篇博客：<a href="https://rengoku.top/2024/08/05/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E9%94%81/">Java多线程：三、多线程锁、java锁的实现 | 颓废市民黄先生 (rengoku.top)</a></p>
+<p><strong>演示读锁：</strong></p>
+<p><img src="Snipaste_2024-08-16_16-37-24.png" alt="表锁演示"></p>
+<p>首先左边的客户端1（线程1）对表score加了一个读锁，然后两个客户端做select操作，发现都是可以读出来的；客户端1（线程1）如果进行写操作（update）则会报错，客户端2（线程2）进行修改操作会阻塞。</p>
+<p>通过演示得到的结论：<strong>读锁不会阻塞读操作，而会阻塞其他客户端的写操作。</strong></p>
+<p><strong>演示写锁：</strong></p>
+<p><img src="Snipaste_2024-08-16_16-44-42.png" alt="写锁演示"></p>
+<h2 id="2-元数据锁"><a href="#2-元数据锁" class="headerlink" title="2. 元数据锁"></a>2. 元数据锁</h2><p><img src="Snipaste_2024-08-16_16-55-26.png" alt="元数据锁"></p>
+<p>简单来说，<strong>如果某一张表存在未提交的事务，那么元数据锁是不允许对表结构进行修改操作的。</strong></p>
+<p>下面我提出两个问题，需要重点理解：</p>
+<h3 id="（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？"><a href="#（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？" class="headerlink" title="（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？"></a>（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？</h3><p><strong>DML操作与MDL读锁</strong></p>
+<p><strong>DML（Data Manipulation Language）</strong> 包括INSERT、UPDATE、DELETE等语句，这些语句用于修改数据库中的数据，但不涉及数据库结构的变更。当执行DML操作时，数据库需要访问表的元数据以了解表的结构（如列的类型、是否存在索引等），以便正确地执行数据修改。</p>
+<p>为了保证在DML操作期间表的结构不会被其他事务修改（例如，通过DDL语句），数据库会对表的元数据加上一个<strong>MDL读锁</strong>。MDL读锁允许多个事务同时读取元数据，但阻止任何事务修改元数据。这样，DML操作可以安全地执行，因为它们知道在它们执行期间，表的结构是稳定的。</p>
+<p><strong>DDL操作与MDL写锁</strong></p>
+<p><strong>DDL（Data Definition Language）</strong> 包括CREATE TABLE、ALTER TABLE、DROP TABLE等语句，这些语句用于定义或修改数据库的结构。由于DDL操作直接改变数据库的结构，因此它们需要更高的访问权限和更严格的并发控制。</p>
+<p>当执行DDL操作时，数据库会对涉及的表的元数据加上一个<strong>MDL写锁</strong>。MDL写锁是排他的，意味着当一个事务持有表的MDL写锁时，其他任何事务（无论是想读取还是修改元数据）都必须等待该锁被释放。这种锁定机制确保了DDL操作的原子性和一致性，防止了在DDL操作执行期间表的结构被意外修改或访问。</p>
+<blockquote>
+<p>“元数据”指的是描述数据的数据，它是关于数据本身的信息，包括但不限于数据的结构、属性、关系、存储位置、模型定义、生命周期等。</p>
+</blockquote>
+<h3 id="（2）如何理解兼容性？"><a href="#（2）如何理解兼容性？" class="headerlink" title="（2）如何理解兼容性？"></a>（2）如何理解兼容性？</h3><ul>
+<li><strong>shared_read与shared_write的兼容性</strong>：在元数据锁的层面上，shared_read锁和shared_write锁是兼容的，因为它们都不涉及修改元数据。这意味着，当多个事务同时执行SELECT查询或DML操作时，它们可以并发地访问表的元数据。</li>
+<li><strong>与排他锁的互斥性</strong>：然而，无论是shared_read锁还是shared_write锁，都与DDL操作所需的MDL排他锁互斥。这是因为DDL操作需要修改表的元数据，而修改元数据时必须确保没有其他事务正在访问或修改该元数据。</li>
+</ul>
+<h2 id="3-意向锁"><a href="#3-意向锁" class="headerlink" title="3. 意向锁"></a>3. 意向锁</h2><p>假设线程1已经对某行数据加了行锁，现在线程2想要加一个表锁，那么线程2可以直接加锁吗？<strong>实际上是不行的，这样行锁和表锁会冲突，此时线程2需要对整个表进行逐行遍历，判断是否添加了行锁，没有行锁才能加表锁。</strong>这样一看，加表锁的的效率是不是十分的低？于是为了优化这个加锁的机制，现在引入了意向锁。</p>
+<p><img src="Snipaste_2024-08-16_17-19-08.png" alt="意向锁概述"></p>
+<p>意向锁优化：<strong>如果线程A添加行锁的时候，添加的意向锁和接下来线程B添加的表锁是兼容的，那么线程B添加表锁成功，反之线程B添加处于阻塞。</strong></p>
+<blockquote>
+<p>线程A添加行锁的时候，可以添加意向锁。</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">SELECT ... LOCK IN SHARE MODE</span><br></pre></td></tr></table></figure>
+
+<p>这样在加共享锁时候会添加IS。</p>
+</blockquote>
+<p><strong>意向锁分为两类：意向共享锁（IS）和意向排他所（IX）。</strong></p>
+<p><img src="Snipaste_2024-08-16_17-32-45.png" alt="意向锁分类"></p>
+<p>意向共享锁：</p>
+<p>如果线程A添加了行锁的时候添加了IS，那么线程B添加表锁的读锁可以添加成功，添加表锁的写锁失败</p>
+<p>意向排它锁：</p>
+<p>如果线程A添加了行锁的时候添加了XS，那么线程B添加表锁的读锁或者写锁都会失败。</p>
+<h1 id="三、行级锁"><a href="#三、行级锁" class="headerlink" title="三、行级锁"></a>三、行级锁</h1><p><img src="Snipaste_2024-08-16_18-00-25.png" alt="行级锁"></p>
+<p><strong>划重点：如果不走索引，那么行级锁就失效了</strong></p>
+<p><strong>划重点：如果不走索引，那么行级锁就失效了</strong></p>
+<p><strong>划重点：如果不走索引，那么行级锁就失效了</strong></p>
+<p>在RR的事务隔离级别下，MySQL InnoDB存储引擎默认使用的是<strong>临键锁（Next-Key Lock）</strong>，但也会根据具体的查询条件和索引情况来决定是否退化为间隙锁（Gap Lock）或行锁（Record Lock）。</p>
+<h2 id="1-行锁"><a href="#1-行锁" class="headerlink" title="1. 行锁"></a>1. 行锁</h2><p>InnoDB使用多种类型的行锁，包括共享锁（S锁）和排他锁（X锁）：</p>
+<ul>
+<li><p><strong>共享锁（S锁）</strong>：允许事务读取一行数据，但不允许其他事务修改它。共享锁不会阻止其他事务获取同一行的共享锁，<strong>但会阻止排他锁的获取。</strong></p>
+<blockquote>
+<p>什么叫阻止排他锁的获取？</p>
+<p>当一个事务对数据库中的某个资源（如一行数据）加上了共享锁（Shared Lock）时，这个共享锁允许其他事务也对该资源加上共享锁进行读取操作，但会阻止其他事务对该资源加上排他锁（Exclusive Lock）进行写入或修改操作。</p>
+</blockquote>
+</li>
+<li><p><strong>排他锁（X锁）</strong>：允许事务读取和修改一行数据，同时阻止其他事务获取该行的任何类型的锁。当事务需要修改一行数据时，它会尝试获取该行的排他锁。如果成功，其他事务将无法读取或修改该行，直到锁被释放。</p>
+</li>
+</ul>
+<p><img src="Snipaste_2024-08-16_18-09-19.png" alt="增删改查的加锁情况"></p>
+<p><strong>可以看到，DML语句默认是会加上行锁的。刚刚在意向锁中也有介绍，后面两个方式会同时添加意向锁。</strong></p>
+<p><img src="Snipaste_2024-08-16_18-12-15.png"></p>
+<p><strong>刚刚说了，不走索引的话行锁就失效，此时会自动升级为表锁</strong></p>
+<h2 id="2-间隙锁-临键锁"><a href="#2-间隙锁-临键锁" class="headerlink" title="2. 间隙锁&amp;临键锁"></a>2. 间隙锁&amp;临键锁</h2><p><img src="Snipaste_2024-08-16_18-47-46.png" alt="间隙锁概述"></p>
+<p><strong>演示第一种情况：索引上的等值查询(唯一索引), 给不存在的记录加锁时,优化为间隙锁。</strong></p>
+<p><img src="Snipaste_2024-08-16_18-43-35.png" alt="间隙锁演示1"></p>
+<p>线程A使用begin开启事务以后，可以在线程B中的lock_data中可以看到8之前的数据被间隙锁锁上了（3-8，不包含3和8），此时在线程B执行插入操作是会被阻塞的：</p>
+<p><img src="Snipaste_2024-08-16_18-52-24.png" alt="间隙锁阻塞插入操作"></p>
+<p>如果线程A将事务commit后，线程B才能执行插入操作。</p>
+<p><strong>演示第二种情况：索引上的等值查询(普通索引)，向右遍历时最后一个值不满足查询需求时, next-key lock退化为间隙锁。</strong></p>
+<p>我们来慢慢分析这段话，现在这段话针对的是<strong>普通索引</strong>。普通索引不是唯一的，这个<strong>B+树的叶子结点形成的双向链表是可以有重复的节点的。</strong></p>
+<p>假设我们有一个表<code>students</code>，其中有一个非唯一普通索引<code>age</code>，表中的数据如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">+----+-----+  </span><br><span class="line">| id | age |  </span><br><span class="line">+----+-----+  </span><br><span class="line">|  1 |  18 |  </span><br><span class="line">|  2 |  18 |  </span><br><span class="line">|  3 |  18 |  </span><br><span class="line">|  4 |  20 |  </span><br><span class="line">|  5 |  22 |  </span><br><span class="line">+----+-----+</span><br></pre></td></tr></table></figure>
+
+<p>现在，我们执行一个等值查询，试图找到<code>age</code>为19的记录，但显然这样的记录不存在：</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">BEGIN</span>; <span class="comment">-- 开始一个事务  </span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> students <span class="keyword">WHERE</span> age <span class="operator">=</span> <span class="number">19</span> <span class="keyword">FOR</span> <span class="keyword">UPDATE</span>; <span class="comment">-- 使用FOR UPDATE来触发锁</span></span><br></pre></td></tr></table></figure>
+
+<p>在这个查询中，InnoDB会利用<code>age</code>索引来查找<code>age</code>为19的记录。由于索引是排序的，查询会向右遍历索引树，直到找到一个不满足查询条件（即<code>age</code>不等于19）的值为止。在这个例子中，查询会遍历到<code>age</code>为20的记录，因为20是第一个大于19的值。</p>
+<p><strong>加锁行为：</strong></p>
+<ul>
+<li><strong>在遍历过程中</strong>：由于查询是等值查询，并且索引是非唯一的，InnoDB原本会为每个可能满足条件的记录（如果存在的话）加上next-key lock。但是，在这个例子中，没有记录满足条件。</li>
+<li><strong>当遍历到最后一个不满足条件的值时</strong>：在这个例子中，是<code>age</code>为20的记录。由于查询没有找到任何满足条件的记录，InnoDB不会在这个记录上加上行锁（因为行锁是针对满足查询条件的记录的）。但是，为了防止其他事务在这个间隙（即<code>age</code>为18和20之间的间隙）中插入<code>age</code>为19的记录，InnoDB会在这个间隙上加上间隙锁。</li>
+</ul>
+<p><strong>结果：</strong></p>
+<p>因此，尽管查询没有找到任何满足条件的记录，但InnoDB仍然在<code>age</code>为18和20之间的间隙上加了间隙锁。这意味着，在这个事务提交之前，其他事务无法在这个间隙中插入<code>age</code>为19的记录，从而防止了幻读的发生。</p>
+<p><strong>这里存在的理解误区：</strong></p>
+<p>现在是基于age索引进行的，所以id走唯一索引不一样，现在的间隙锁锁住的是age&#x3D;18和age&#x3D;20之间的间隙，而非age&#x3D;18或者age&#x3D;20的哪条具体的记录。</p>
+<p><strong>情景三：索引上的范围查询(唯一索引)– 会访问到不满足条件的第一个值为止。</strong></p>
+<ul>
+<li><p><strong>查询执行</strong>：当执行一个范围查询（如<code>SELECT * FROM table WHERE index_column BETWEEN value1 AND value2 FOR UPDATE;</code>）时，InnoDB会利用索引来加速查询过程。</p>
+</li>
+<li><p><strong>锁定行为</strong>：</p>
+<p>对于唯一索引，由于索引值是唯一的，因此查询会逐一访问索引中的记录，直到找到不满足条件的第一个值为止。</p>
+<p>在这个过程中，InnoDB会为每个满足条件的记录加上临键锁。这意味着，它锁定了这些记录本身以及它们之前的间隙（实际上，对于唯一索引的最后一个满足条件的记录，它可能只锁定间隙部分，因为后面没有更多的记录来形成临键锁的行锁部分）。</p>
+<p>当查询到达不满足条件的第一个值时，InnoDB会在这个值之前的间隙上加上间隙锁（如果之前还没有加上的话），但不会锁定这个值本身，因为它不满足查询条件。</p>
+</li>
+<li><p><strong>防止幻读</strong>：通过这种方式，临键锁确保了即使在可重复读事务隔离级别下，其他事务也无法在查询范围内插入新的记录，从而防止了幻读的发生。</p>
+</li>
+</ul>
 ]]></content>
       <categories>
         <category>数据库</category>
@@ -4156,145 +4596,6 @@
 </ol>
 <p>可以参考博客：<a href="https://blog.csdn.net/qq_39746820/article/details/123796252">mysql数据库哪些情况不适合使用索引_mysql重复值过多的字段适合做索引吗-CSDN博客</a></p>
 <h2 id="附上一篇美团讲解的索引内容"><a href="#附上一篇美团讲解的索引内容" class="headerlink" title="附上一篇美团讲解的索引内容"></a>附上一篇美团讲解的索引内容</h2><p><a href="https://tech.meituan.com/2014/06/30/mysql-index.html">美团：MySQL索引原理及慢查询优化</a></p>
-]]></content>
-      <categories>
-        <category>数据库</category>
-      </categories>
-      <tags>
-        <tag>mysql</tag>
-        <tag>面试</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>MySQL：（三）全局锁、表级锁、行级锁</title>
-    <url>/2024/08/15/MySQL-%E9%94%81/</url>
-    <content><![CDATA[<p>MySQL中的锁，按照锁的粒度分，分为：</p>
-<ol>
-<li>全局锁：锁定数据库中所有表</li>
-<li>表级锁：每次操作锁整张表</li>
-<li>行级锁：每次操作锁住对应行数据</li>
-</ol>
-<h1 id="一、全局锁"><a href="#一、全局锁" class="headerlink" title="一、全局锁"></a>一、全局锁</h1><p><img src="Snipaste_2024-08-16_15-45-59.png" alt="全局锁"></p>
-<blockquote>
-<p>mysqldump相信大家都听说过，这是用来进行数据库备份的工具，除此以外也可以采用数据库主从复制机制进行数据库备份，这同时也是异地容灾、备份等内容。</p>
-</blockquote>
-<p><strong>数据库备份操作：</strong></p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># 加锁操作</span><br><span class="line">flush tables with read lock;</span><br><span class="line"></span><br><span class="line"># 数据备份</span><br><span class="line">mysqldump -uroot -p1234 databases &gt; database.sql</span><br><span class="line"># 加端口的数据备份</span><br><span class="line">mysqldump -h192.168.xx.xx -uroot -p1234 databases &gt; database.sql</span><br><span class="line"></span><br><span class="line"># 解锁操作</span><br><span class="line">unlock tables;</span><br></pre></td></tr></table></figure>
-
-<p>这里附上一篇<code>flush操作</code>的博客，用的是博客中的第4条：<a href="https://blog.csdn.net/a772304419/article/details/138797621">MySQL flush命令详解-CSDN博客</a></p>
-<blockquote>
-<p><strong>FLUSH TABLES</strong>: 关闭所有表并清空表缓存（如查询缓存），或者指定特定表进行刷新。这对于解决锁问题、确保数据一致性或在没有重启MySQL服务的情况下应用表结构更改很有用。加上<code>WITH READ LOCK</code>选项可以全局锁定所有表，以便进行安全的备份。</p>
-</blockquote>
-<p><strong>全局锁存在的问题：</strong></p>
-<p><img src="Snipaste_2024-08-16_16-22-46.png" alt="全局锁存在的问题"></p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># 数据备份</span><br><span class="line">mysqldump --single-transaction -uroot -p1234 databases &gt; database.sql</span><br></pre></td></tr></table></figure>
-
-<p>加上这个参数以后，就是通过快照读而不加全局锁了，快照读在上一篇博客有介绍，可以戳链接看看：<a href="https://rengoku.top/2024/08/15/MySQL-MVCC/">MySQL：MVCC与事务 | 颓废市民黄先生 (rengoku.top)</a></p>
-<h1 id="二、表级锁"><a href="#二、表级锁" class="headerlink" title="二、表级锁"></a>二、表级锁</h1><p><img src="Snipaste_2024-08-16_16-29-40.png" alt="表级锁分类"></p>
-<h2 id="1-表锁"><a href="#1-表锁" class="headerlink" title="1. 表锁"></a>1. 表锁</h2><p>对于表锁，分为两类</p>
-<ul>
-<li>表共享读锁（read lock）</li>
-<li>表独占写锁（write lock）</li>
-</ul>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># 加锁</span><br><span class="line">lock tables 表名... read/write</span><br><span class="line"></span><br><span class="line"># 解锁</span><br><span class="line">unlock tables</span><br></pre></td></tr></table></figure>
-
-<p><img src="Snipaste_2024-08-16_16-41-58.png" alt="表锁"></p>
-<p>我相信看到这里大家肯定非常熟悉，其实表锁和<strong>读写锁</strong>很类似，都是读共享，写独占。</p>
-<p><strong>读的时候会阻塞写操作，例如DDL，DML，写的时候只能让拿到锁的客户端或者线程进行读写操作。</strong></p>
-<p>读写锁可以参考另外一篇博客：<a href="https://rengoku.top/2024/08/05/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E9%94%81/">Java多线程：三、多线程锁、java锁的实现 | 颓废市民黄先生 (rengoku.top)</a></p>
-<p><strong>演示读锁：</strong></p>
-<p><img src="Snipaste_2024-08-16_16-37-24.png" alt="表锁演示"></p>
-<p>首先左边的客户端1（线程1）对表score加了一个读锁，然后两个客户端做select操作，发现都是可以读出来的；客户端1（线程1）如果进行写操作（update）则会报错，客户端2（线程2）进行修改操作会阻塞。</p>
-<p>通过演示得到的结论：<strong>读锁不会阻塞读操作，而会阻塞其他客户端的写操作。</strong></p>
-<p><strong>演示写锁：</strong></p>
-<p><img src="Snipaste_2024-08-16_16-44-42.png" alt="写锁演示"></p>
-<h2 id="2-元数据锁"><a href="#2-元数据锁" class="headerlink" title="2. 元数据锁"></a>2. 元数据锁</h2><p><img src="Snipaste_2024-08-16_16-55-26.png" alt="元数据锁"></p>
-<p>简单来说，<strong>如果某一张表存在未提交的事务，那么元数据锁是不允许对表结构进行修改操作的。</strong></p>
-<p>下面我提出两个问题，需要重点理解：</p>
-<h3 id="（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？"><a href="#（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？" class="headerlink" title="（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？"></a>（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？</h3><p><strong>DML操作与MDL读锁</strong></p>
-<p><strong>DML（Data Manipulation Language）</strong> 包括INSERT、UPDATE、DELETE等语句，这些语句用于修改数据库中的数据，但不涉及数据库结构的变更。当执行DML操作时，数据库需要访问表的元数据以了解表的结构（如列的类型、是否存在索引等），以便正确地执行数据修改。</p>
-<p>为了保证在DML操作期间表的结构不会被其他事务修改（例如，通过DDL语句），数据库会对表的元数据加上一个<strong>MDL读锁</strong>。MDL读锁允许多个事务同时读取元数据，但阻止任何事务修改元数据。这样，DML操作可以安全地执行，因为它们知道在它们执行期间，表的结构是稳定的。</p>
-<p><strong>DDL操作与MDL写锁</strong></p>
-<p><strong>DDL（Data Definition Language）</strong> 包括CREATE TABLE、ALTER TABLE、DROP TABLE等语句，这些语句用于定义或修改数据库的结构。由于DDL操作直接改变数据库的结构，因此它们需要更高的访问权限和更严格的并发控制。</p>
-<p>当执行DDL操作时，数据库会对涉及的表的元数据加上一个<strong>MDL写锁</strong>。MDL写锁是排他的，意味着当一个事务持有表的MDL写锁时，其他任何事务（无论是想读取还是修改元数据）都必须等待该锁被释放。这种锁定机制确保了DDL操作的原子性和一致性，防止了在DDL操作执行期间表的结构被意外修改或访问。</p>
-<blockquote>
-<p>“元数据”指的是描述数据的数据，它是关于数据本身的信息，包括但不限于数据的结构、属性、关系、存储位置、模型定义、生命周期等。</p>
-</blockquote>
-<h3 id="（2）如何理解兼容性？"><a href="#（2）如何理解兼容性？" class="headerlink" title="（2）如何理解兼容性？"></a>（2）如何理解兼容性？</h3><ul>
-<li><strong>shared_read与shared_write的兼容性</strong>：在元数据锁的层面上，shared_read锁和shared_write锁是兼容的，因为它们都不涉及修改元数据。这意味着，当多个事务同时执行SELECT查询或DML操作时，它们可以并发地访问表的元数据。</li>
-<li><strong>与排他锁的互斥性</strong>：然而，无论是shared_read锁还是shared_write锁，都与DDL操作所需的MDL排他锁互斥。这是因为DDL操作需要修改表的元数据，而修改元数据时必须确保没有其他事务正在访问或修改该元数据。</li>
-</ul>
-<h2 id="3-意向锁"><a href="#3-意向锁" class="headerlink" title="3. 意向锁"></a>3. 意向锁</h2><p>假设线程1已经对某行数据加了行锁，现在线程2想要加一个表锁，那么线程2可以直接加锁吗？<strong>实际上是不行的，这样行锁和表锁会冲突，此时线程2需要对整个表进行逐行遍历，判断是否添加了行锁，没有行锁才能加表锁。</strong>这样一看，加表锁的的效率是不是十分的低？于是为了优化这个加锁的机制，现在引入了意向锁。</p>
-<p><img src="Snipaste_2024-08-16_17-19-08.png" alt="意向锁概述"></p>
-<p>意向锁优化：<strong>如果线程A添加行锁的时候，添加的意向锁和接下来线程B添加的表锁是兼容的，那么线程B添加表锁成功，反之线程B添加处于阻塞。</strong></p>
-<blockquote>
-<p>线程A添加行锁的时候，可以添加意向锁。</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">SELECT ... LOCK IN SHARE MODE</span><br></pre></td></tr></table></figure>
-
-<p>这样在加共享锁时候会添加IS。</p>
-</blockquote>
-<p><strong>意向锁分为两类：意向共享锁（IS）和意向排他所（IX）。</strong></p>
-<p><img src="Snipaste_2024-08-16_17-32-45.png" alt="意向锁分类"></p>
-<p>意向共享锁：</p>
-<p>如果线程A添加了行锁的时候添加了IS，那么线程B添加表锁的读锁可以添加成功，添加表锁的写锁失败</p>
-<p>意向排它锁：</p>
-<p>如果线程A添加了行锁的时候添加了XS，那么线程B添加表锁的读锁或者写锁都会失败。</p>
-<h1 id="三、行级锁"><a href="#三、行级锁" class="headerlink" title="三、行级锁"></a>三、行级锁</h1><p><img src="Snipaste_2024-08-16_18-00-25.png" alt="行级锁"></p>
-<p><strong>划重点：如果不走索引，那么行级锁就失效了</strong></p>
-<p><strong>划重点：如果不走索引，那么行级锁就失效了</strong></p>
-<p><strong>划重点：如果不走索引，那么行级锁就失效了</strong></p>
-<p>在RR的事务隔离级别下，MySQL InnoDB存储引擎默认使用的是<strong>临键锁（Next-Key Lock）</strong>，但也会根据具体的查询条件和索引情况来决定是否退化为间隙锁（Gap Lock）或行锁（Record Lock）。</p>
-<h2 id="1-行锁"><a href="#1-行锁" class="headerlink" title="1. 行锁"></a>1. 行锁</h2><p>InnoDB使用多种类型的行锁，包括共享锁（S锁）和排他锁（X锁）：</p>
-<ul>
-<li><p><strong>共享锁（S锁）</strong>：允许事务读取一行数据，但不允许其他事务修改它。共享锁不会阻止其他事务获取同一行的共享锁，<strong>但会阻止排他锁的获取。</strong></p>
-<blockquote>
-<p>什么叫阻止排他锁的获取？</p>
-<p>当一个事务对数据库中的某个资源（如一行数据）加上了共享锁（Shared Lock）时，这个共享锁允许其他事务也对该资源加上共享锁进行读取操作，但会阻止其他事务对该资源加上排他锁（Exclusive Lock）进行写入或修改操作。</p>
-</blockquote>
-</li>
-<li><p><strong>排他锁（X锁）</strong>：允许事务读取和修改一行数据，同时阻止其他事务获取该行的任何类型的锁。当事务需要修改一行数据时，它会尝试获取该行的排他锁。如果成功，其他事务将无法读取或修改该行，直到锁被释放。</p>
-</li>
-</ul>
-<p><img src="Snipaste_2024-08-16_18-09-19.png" alt="增删改查的加锁情况"></p>
-<p><strong>可以看到，DML语句默认是会加上行锁的。刚刚在意向锁中也有介绍，后面两个方式会同时添加意向锁。</strong></p>
-<p><img src="Snipaste_2024-08-16_18-12-15.png"></p>
-<p><strong>刚刚说了，不走索引的话行锁就失效，此时会自动升级为表锁</strong></p>
-<h2 id="2-间隙锁-临键锁"><a href="#2-间隙锁-临键锁" class="headerlink" title="2. 间隙锁&amp;临键锁"></a>2. 间隙锁&amp;临键锁</h2><p><img src="Snipaste_2024-08-16_18-47-46.png" alt="间隙锁概述"></p>
-<p><strong>演示第一种情况：索引上的等值查询(唯一索引), 给不存在的记录加锁时,优化为间隙锁。</strong></p>
-<p><img src="Snipaste_2024-08-16_18-43-35.png" alt="间隙锁演示1"></p>
-<p>线程A使用begin开启事务以后，可以在线程B中的lock_data中可以看到8之前的数据被间隙锁锁上了（3-8，不包含3和8），此时在线程B执行插入操作是会被阻塞的：</p>
-<p><img src="Snipaste_2024-08-16_18-52-24.png" alt="间隙锁阻塞插入操作"></p>
-<p>如果线程A将事务commit后，线程B才能执行插入操作。</p>
-<p><strong>演示第二种情况：索引上的等值查询(普通索引)，向右遍历时最后一个值不满足查询需求时, next-key lock退化为间隙锁。</strong></p>
-<p>我们来慢慢分析这段话，现在这段话针对的是<strong>普通索引</strong>。普通索引不是唯一的，这个<strong>B+树的叶子结点形成的双向链表是可以有重复的节点的。</strong></p>
-<p>假设我们有一个表<code>students</code>，其中有一个非唯一普通索引<code>age</code>，表中的数据如下：</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">+----+-----+  </span><br><span class="line">| id | age |  </span><br><span class="line">+----+-----+  </span><br><span class="line">|  1 |  18 |  </span><br><span class="line">|  2 |  18 |  </span><br><span class="line">|  3 |  18 |  </span><br><span class="line">|  4 |  20 |  </span><br><span class="line">|  5 |  22 |  </span><br><span class="line">+----+-----+</span><br></pre></td></tr></table></figure>
-
-<p>现在，我们执行一个等值查询，试图找到<code>age</code>为19的记录，但显然这样的记录不存在：</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">BEGIN</span>; <span class="comment">-- 开始一个事务  </span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> students <span class="keyword">WHERE</span> age <span class="operator">=</span> <span class="number">19</span> <span class="keyword">FOR</span> <span class="keyword">UPDATE</span>; <span class="comment">-- 使用FOR UPDATE来触发锁</span></span><br></pre></td></tr></table></figure>
-
-<p>在这个查询中，InnoDB会利用<code>age</code>索引来查找<code>age</code>为19的记录。由于索引是排序的，查询会向右遍历索引树，直到找到一个不满足查询条件（即<code>age</code>不等于19）的值为止。在这个例子中，查询会遍历到<code>age</code>为20的记录，因为20是第一个大于19的值。</p>
-<p><strong>加锁行为：</strong></p>
-<ul>
-<li><strong>在遍历过程中</strong>：由于查询是等值查询，并且索引是非唯一的，InnoDB原本会为每个可能满足条件的记录（如果存在的话）加上next-key lock。但是，在这个例子中，没有记录满足条件。</li>
-<li><strong>当遍历到最后一个不满足条件的值时</strong>：在这个例子中，是<code>age</code>为20的记录。由于查询没有找到任何满足条件的记录，InnoDB不会在这个记录上加上行锁（因为行锁是针对满足查询条件的记录的）。但是，为了防止其他事务在这个间隙（即<code>age</code>为18和20之间的间隙）中插入<code>age</code>为19的记录，InnoDB会在这个间隙上加上间隙锁。</li>
-</ul>
-<p><strong>结果：</strong></p>
-<p>因此，尽管查询没有找到任何满足条件的记录，但InnoDB仍然在<code>age</code>为18和20之间的间隙上加了间隙锁。这意味着，在这个事务提交之前，其他事务无法在这个间隙中插入<code>age</code>为19的记录，从而防止了幻读的发生。</p>
-<p><strong>这里存在的理解误区：</strong></p>
-<p>现在是基于age索引进行的，所以id走唯一索引不一样，现在的间隙锁锁住的是age&#x3D;18和age&#x3D;20之间的间隙，而非age&#x3D;18或者age&#x3D;20的哪条具体的记录。</p>
-<p><strong>情景三：索引上的范围查询(唯一索引)– 会访问到不满足条件的第一个值为止。</strong></p>
-<ul>
-<li><p><strong>查询执行</strong>：当执行一个范围查询（如<code>SELECT * FROM table WHERE index_column BETWEEN value1 AND value2 FOR UPDATE;</code>）时，InnoDB会利用索引来加速查询过程。</p>
-</li>
-<li><p><strong>锁定行为</strong>：</p>
-<p>对于唯一索引，由于索引值是唯一的，因此查询会逐一访问索引中的记录，直到找到不满足条件的第一个值为止。</p>
-<p>在这个过程中，InnoDB会为每个满足条件的记录加上临键锁。这意味着，它锁定了这些记录本身以及它们之前的间隙（实际上，对于唯一索引的最后一个满足条件的记录，它可能只锁定间隙部分，因为后面没有更多的记录来形成临键锁的行锁部分）。</p>
-<p>当查询到达不满足条件的第一个值时，InnoDB会在这个值之前的间隙上加上间隙锁（如果之前还没有加上的话），但不会锁定这个值本身，因为它不满足查询条件。</p>
-</li>
-<li><p><strong>防止幻读</strong>：通过这种方式，临键锁确保了即使在可重复读事务隔离级别下，其他事务也无法在查询范围内插入新的记录，从而防止了幻读的发生。</p>
-</li>
-</ul>
 ]]></content>
       <categories>
         <category>数据库</category>
@@ -4734,6 +5035,49 @@
       </tags>
   </entry>
   <entry>
+    <title>Java多线程：（四）详解ConcurrentHashMap构成</title>
+    <url>/2024/08/06/java%EF%BC%9A%E8%AF%A6%E8%A7%A3ConcurrentHashMap/</url>
+    <content><![CDATA[<h1 id="一、JDK-1-7"><a href="#一、JDK-1-7" class="headerlink" title="一、JDK 1.7"></a>一、JDK 1.7</h1><h2 id="1-1-加锁机制"><a href="#1-1-加锁机制" class="headerlink" title="1.1 加锁机制"></a>1.1 加锁机制</h2><p>ConcurrentHashMap 在 JDK 1.7 中，提供了一种粒度更细的加锁机制，这种机制叫分段锁「Lock Striping」。整个哈希表被分为多个段，每个段都独立锁定。读取操作不需要锁，写入操作仅锁定相关的段。这减小了锁冲突的几率，从而提高了并发性能。</p>
+<p>这种机制的优点：在并发环境下将实现更高的吞吐量，而在单线程环境下只损失非常小的性能。</p>
+<p>可以这样理解分段锁，就是<strong>将数据分段，对每一段数据分配一把锁</strong>。当一个线程占用锁访问其中一个段数据的时候，其他段的数据也能被其他线程访问。</p>
+<p>有些方法需要跨段，比如 <code>size()</code>、<code>isEmpty()</code>、<code>containsValue()</code>，它们可能需要锁定整个表而不仅仅是某个段，这需要按顺序锁定所有段，操作完后，再按顺序释放所有段的锁。如下图：</p>
+<p><img src="map-20230816155810.png" alt="jdk1.7之前的构成图"></p>
+<h2 id="1-2-jdk1-7之前的结构"><a href="#1-2-jdk1-7之前的结构" class="headerlink" title="1.2 jdk1.7之前的结构"></a>1.2 jdk1.7之前的结构</h2><p>ConcurrentHashMap 是由 <strong>Segment 数组结构和 HashEntry 数组+链表</strong>构成的。Segment 是一种可重入的锁 <code>ReentrantLock</code>，HashEntry 则用于存储键值对数据。</p>
+<p><img src="dce9c78a9f186cb318a31f41ea791db3.png"></p>
+<p>一个 ConcurrentHashMap 里包含<strong>一个 Segment 数组，数组中都是segment对象</strong>，Segment 的结构和 HashMap 类似，是一种数组和链表结构，一个 Segment 里包含一个 <strong>HashEntry 数组</strong>，每个 HashEntry元素 是一个链表结构的元素，每个 Segment 守护着一个 HashEntry 数组里的元素，当对 HashEntry 数组的数据进行修改时，必须首先获得它对应的 Segment 锁（可重入锁）。</p>
+<p><code>ConcurrentHashMap</code>使用链表来存储这些具有相同索引值的键值对。具体来说，每个数组位置（在JDK 1.7中实际上是<code>Segment</code>内部的数组，而在JDK 1.8及以后是<code>Node</code>数组）存储的是链表的头节点。如果发生哈希冲突，新的键值对会被添加到这个链表的末尾。</p>
+<p>接下来看看Segment的结构组成：</p>
+<p>单一的 Segment 结构如下：</p>
+<p><img src="map-20230816160155.png"></p>
+<p>像这样的 Segment 对象，在 ConcurrentHashMap 集合中有多少个呢？有 2 的 N 次方个，共同保存在一个名为 segments 的数组当中。 因此整个 ConcurrentHashMap 的结构如下：</p>
+<p><img src="map-20230816160223.png"></p>
+<p>可以说，ConcurrentHashMap 是一个二级哈希表。在一个总的哈希表下面，有若干个子哈希表。</p>
+<p>Case1：不同 Segment 的并发写入（可以并发执行）</p>
+<p><img src="map-20230816160301.png"></p>
+<p>Case2：同一 Segment 的一写一读（可以并发执行）</p>
+<p><img src="map-20230816160316.png"></p>
+<p>Case3：同一 Segment 的并发写入</p>
+<p><img src="map-20230816160331.png"></p>
+<h1 id="二、JDK1-8往后"><a href="#二、JDK1-8往后" class="headerlink" title="二、JDK1.8往后"></a>二、JDK1.8往后</h1><p>而在 JDK 1.8 中，ConcurrentHashMap 主要做了两个优化：</p>
+<ul>
+<li>同<code>HashMap</code> 一样，链表也会在长度达到 8 的时候转化为红黑树，这样可以提升大量冲突时候的查询效率；</li>
+<li>以某个位置的头结点（链表的头结点或红黑树的 root 结点）为锁，**配合自旋+CAS(乐观锁)**避免不必要的锁开销，进一步提升并发性能。</li>
+</ul>
+<p><img src="map-20230816155924.png"></p>
+<p>相比 JDK1.7 中的 ConcurrentHashMap，JDK1.8 中的 ConcurrentHashMap 取消了 Segment 分段锁，采用 CAS + synchronized 来保证并发安全性，整个容器只分为一个 Segment，即 table 数组。</p>
+<p><img src="c4785c1403a4b4dbbc08fb027033c825.png"></p>
+<p>JDK1.8 中的 ConcurrentHashMap 对节点 Node 类中的共享变量，和 JDK1.7 一样，使用 volatile 关键字，保证多线程操作时，变量的可见性。</p>
+<p><a href="https://blog.csdn.net/chenwendangding/article/details/99065623">HashMap与ConcurrentHashMap工作原理、区别和总结_hashmap和concurrentmap实现原理区别-CSDN博客</a></p>
+]]></content>
+      <categories>
+        <category>Java开发</category>
+      </categories>
+      <tags>
+        <tag>面试</tag>
+        <tag>多线程</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>Java多线程：（三）多线程锁、JUC锁的实现</title>
     <url>/2024/08/05/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E9%94%81/</url>
     <content><![CDATA[<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>大部分内容由网上搜索，有直接复制粘贴的内容，本篇博客整理我查找的内容，且加入我个人的理解和个人需要了解的知识进行搜索得到的内容，有错误请在评论区留言</p>
@@ -5142,49 +5486,6 @@
 <p><code>StampedLock</code> 类是 Java 8 才发布的，也是 Doug Lea 大神所写，有人称它为锁的性能之王。</p>
 <p>StampedLock 没有实现 Lock 接口和 ReadWriteLock 接口，但它实现了“读写锁”的功能，并且性能比 ReentrantReadWriteLock 更高。StampedLock 还把读锁分为了“乐观读锁”和“悲观读锁”两种。</p>
 <p>感兴趣可以自行搜索，在这里的博客就只介绍面向八股的比较常见的锁啦</p>
-]]></content>
-      <categories>
-        <category>Java开发</category>
-      </categories>
-      <tags>
-        <tag>面试</tag>
-        <tag>多线程</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>Java多线程：（四）详解ConcurrentHashMap构成</title>
-    <url>/2024/08/06/java%EF%BC%9A%E8%AF%A6%E8%A7%A3ConcurrentHashMap/</url>
-    <content><![CDATA[<h1 id="一、JDK-1-7"><a href="#一、JDK-1-7" class="headerlink" title="一、JDK 1.7"></a>一、JDK 1.7</h1><h2 id="1-1-加锁机制"><a href="#1-1-加锁机制" class="headerlink" title="1.1 加锁机制"></a>1.1 加锁机制</h2><p>ConcurrentHashMap 在 JDK 1.7 中，提供了一种粒度更细的加锁机制，这种机制叫分段锁「Lock Striping」。整个哈希表被分为多个段，每个段都独立锁定。读取操作不需要锁，写入操作仅锁定相关的段。这减小了锁冲突的几率，从而提高了并发性能。</p>
-<p>这种机制的优点：在并发环境下将实现更高的吞吐量，而在单线程环境下只损失非常小的性能。</p>
-<p>可以这样理解分段锁，就是<strong>将数据分段，对每一段数据分配一把锁</strong>。当一个线程占用锁访问其中一个段数据的时候，其他段的数据也能被其他线程访问。</p>
-<p>有些方法需要跨段，比如 <code>size()</code>、<code>isEmpty()</code>、<code>containsValue()</code>，它们可能需要锁定整个表而不仅仅是某个段，这需要按顺序锁定所有段，操作完后，再按顺序释放所有段的锁。如下图：</p>
-<p><img src="map-20230816155810.png" alt="jdk1.7之前的构成图"></p>
-<h2 id="1-2-jdk1-7之前的结构"><a href="#1-2-jdk1-7之前的结构" class="headerlink" title="1.2 jdk1.7之前的结构"></a>1.2 jdk1.7之前的结构</h2><p>ConcurrentHashMap 是由 <strong>Segment 数组结构和 HashEntry 数组+链表</strong>构成的。Segment 是一种可重入的锁 <code>ReentrantLock</code>，HashEntry 则用于存储键值对数据。</p>
-<p><img src="dce9c78a9f186cb318a31f41ea791db3.png"></p>
-<p>一个 ConcurrentHashMap 里包含<strong>一个 Segment 数组，数组中都是segment对象</strong>，Segment 的结构和 HashMap 类似，是一种数组和链表结构，一个 Segment 里包含一个 <strong>HashEntry 数组</strong>，每个 HashEntry元素 是一个链表结构的元素，每个 Segment 守护着一个 HashEntry 数组里的元素，当对 HashEntry 数组的数据进行修改时，必须首先获得它对应的 Segment 锁（可重入锁）。</p>
-<p><code>ConcurrentHashMap</code>使用链表来存储这些具有相同索引值的键值对。具体来说，每个数组位置（在JDK 1.7中实际上是<code>Segment</code>内部的数组，而在JDK 1.8及以后是<code>Node</code>数组）存储的是链表的头节点。如果发生哈希冲突，新的键值对会被添加到这个链表的末尾。</p>
-<p>接下来看看Segment的结构组成：</p>
-<p>单一的 Segment 结构如下：</p>
-<p><img src="map-20230816160155.png"></p>
-<p>像这样的 Segment 对象，在 ConcurrentHashMap 集合中有多少个呢？有 2 的 N 次方个，共同保存在一个名为 segments 的数组当中。 因此整个 ConcurrentHashMap 的结构如下：</p>
-<p><img src="map-20230816160223.png"></p>
-<p>可以说，ConcurrentHashMap 是一个二级哈希表。在一个总的哈希表下面，有若干个子哈希表。</p>
-<p>Case1：不同 Segment 的并发写入（可以并发执行）</p>
-<p><img src="map-20230816160301.png"></p>
-<p>Case2：同一 Segment 的一写一读（可以并发执行）</p>
-<p><img src="map-20230816160316.png"></p>
-<p>Case3：同一 Segment 的并发写入</p>
-<p><img src="map-20230816160331.png"></p>
-<h1 id="二、JDK1-8往后"><a href="#二、JDK1-8往后" class="headerlink" title="二、JDK1.8往后"></a>二、JDK1.8往后</h1><p>而在 JDK 1.8 中，ConcurrentHashMap 主要做了两个优化：</p>
-<ul>
-<li>同<code>HashMap</code> 一样，链表也会在长度达到 8 的时候转化为红黑树，这样可以提升大量冲突时候的查询效率；</li>
-<li>以某个位置的头结点（链表的头结点或红黑树的 root 结点）为锁，**配合自旋+CAS(乐观锁)**避免不必要的锁开销，进一步提升并发性能。</li>
-</ul>
-<p><img src="map-20230816155924.png"></p>
-<p>相比 JDK1.7 中的 ConcurrentHashMap，JDK1.8 中的 ConcurrentHashMap 取消了 Segment 分段锁，采用 CAS + synchronized 来保证并发安全性，整个容器只分为一个 Segment，即 table 数组。</p>
-<p><img src="c4785c1403a4b4dbbc08fb027033c825.png"></p>
-<p>JDK1.8 中的 ConcurrentHashMap 对节点 Node 类中的共享变量，和 JDK1.7 一样，使用 volatile 关键字，保证多线程操作时，变量的可见性。</p>
-<p><a href="https://blog.csdn.net/chenwendangding/article/details/99065623">HashMap与ConcurrentHashMap工作原理、区别和总结_hashmap和concurrentmap实现原理区别-CSDN博客</a></p>
 ]]></content>
       <categories>
         <category>Java开发</category>
