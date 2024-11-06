@@ -195,6 +195,176 @@
       </tags>
   </entry>
   <entry>
+    <title>Redis：（二）Redis集群</title>
+    <url>/2024/08/30/03Redis%EF%BC%9A%EF%BC%88%E4%BA%8C%EF%BC%89%E7%BC%93%E5%AD%98%E9%97%AE%E9%A2%98/</url>
+    <content><![CDATA[<h1 id="Redis集群"><a href="#Redis集群" class="headerlink" title="Redis集群"></a>Redis集群</h1><p>搭建一个高可用集群有以下内容：主从复制，哨兵模式，切片集群。</p>
+<h2 id="主从复制"><a href="#主从复制" class="headerlink" title="主从复制"></a>主从复制</h2><p>虽然使用 AOF 和 RDB 可以保证持久化，但是如果单点暴毙了，那么两个持久化文件也就没有意义了。</p>
+<p>因此，可以通过集群的方式，避免单点暴毙的问题。通过一主多从的集群方式，保证服务的可使用。</p>
+<p>主从复制是 Redis 高可用服务的最基础的保证，实现方案就是将从前的一台 Redis 服务器，同步数据到多台从 Redis 服务器上，即一主多从的模式，且主从服务器之间采用的是「读写分离」的方式。</p>
+<p>主服务器可以进行读写操作，当发生写操作时自动将写操作同步给从服务器，而从服务器一般是只读，并接受主服务器同步过来写操作命令，然后执行这条命令。</p>
+<p><img src="2b7231b6aabb9a9a2e2390ab3a280b2d.png" alt="主从复制"></p>
+<p>也就是说，所有的数据修改只在主服务器上进行，然后将最新的数据同步给从服务器，这样就使得主从服务器的数据是一致的。</p>
+<p>注意，主从服务器之间的命令复制是<strong>异步</strong>进行的。所以，无法实现强一致性保证（主从数据时时刻刻保持一致），数据不一致是难以避免的。</p>
+<h3 id="全量同步：第一次同步"><a href="#全量同步：第一次同步" class="headerlink" title="全量同步：第一次同步"></a>全量同步：第一次同步</h3><p><img src="Snipaste_2024-09-01_20-20-52.png" alt="全量同步"></p>
+<blockquote>
+<p>在第一阶段中，如何判断从节点是不是第一次同步？</p>
+</blockquote>
+<p>执行了 <code>replicaof</code> 命令后，图中的1.1阶段请求数据同步，从服务器就会给主服务器发送 <code>psync</code> 命令，表示要进行数据同步。</p>
+<p>psync 命令包含两个参数，分别是<strong>主服务器的 Replid</strong> 和<strong>复制进度 offset</strong>。</p>
+<p><img src="Snipaste_2024-09-01_20-29-06.png" alt="psync命令参数"></p>
+<p>也就是说，如果从节点的replid和主节点的不一致，说明从节点是第一次和主节点进行数据同步的。</p>
+<blockquote>
+<p>第二阶段中，使用的 RDB 快照文件为什么还需要repl_baklog日志（缓冲区）？</p>
+</blockquote>
+<p>因为 RDB 持久化是异步操作，也就是说，主节点进行 RDB 快照的时候，仍然允许客户端进行写操作，然而 RDB 是快照文件，因此需要将打快照后新写的数据暂存在日志中，在第三阶段发送给从节点。</p>
+<h3 id="增量同步"><a href="#增量同步" class="headerlink" title="增量同步"></a>增量同步</h3><p><img src="Snipaste_2024-09-01_20-35-49.png" alt="增量复制"></p>
+<blockquote>
+<p>什么时候会进行增量同步？</p>
+</blockquote>
+<p>比如从节点重启，由于暂时的网络波动，使得主节点和从节点断开，重连以后，只需要续写主节点中新增的命令就可以了。</p>
+<blockquote>
+<p>续写规则是什么？</p>
+</blockquote>
+<p>在全量复制中提到，repl_baklog 缓冲区是记录主节点生成 RDB 快照以后的数据，这个缓冲区实际上是一个环形的数据结构。</p>
+<p>在图中，左边的环形就是repl_baklog 缓冲区。假设主节点打RDB快照以后，主节点在repl_baklog 缓冲区的数据写了一部分。那么从节点在恢复连接后，将根据<strong>offset 值（记录repl_baklog偏移量，说白了就是从节点复制主节点的时候复制到repl_baklog的哪了，继续复制）</strong>，从repl_baklog 缓冲区中续写数据。图中圆环上的绿色和红色部分就是offset指向的地方，也就是说，从节点复制到这个位置了，继续顺时针方向把这个圆复制下去。</p>
+<p><img src="Snipaste_2024-09-01_20-48-58.png"></p>
+<blockquote>
+<p>当圆形复制满一圈，但是从节点还有没有复制数据怎么办？</p>
+</blockquote>
+<p><img src="Snipaste_2024-09-01_20-56-51.png"></p>
+<p>此时只能做全量复制了。</p>
+<blockquote>
+<p>优化方案</p>
+</blockquote>
+<p><img src="Snipaste_2024-09-01_20-59-07.png"></p>
+<p>方案一采用网络传输的方式。因为 RDB 文件是写入磁盘的，然后从节点从磁盘拿到 RDB 文件，这个增加了磁盘IO。如果网络快的情况下可以使用网络传输，反之网络阻塞的情况下会更慢。</p>
+<h2 id="哨兵机制"><a href="#哨兵机制" class="headerlink" title="哨兵机制"></a>哨兵机制</h2><p>在使用 Redis 主从服务的时候，会有一个问题，就是当 Redis 的主从服务器出现故障宕机时，需要手动进行恢复。</p>
+<p>为了解决这个问题，Redis 增加了哨兵模式（<strong>Redis Sentinel</strong>），因为哨兵模式做到了可以监控主从服务器，并且提供<strong>主从节点故障转移的功能。</strong></p>
+<p><img src="26f88373d8454682b9e0c1d4fd1611b4.png" alt="哨兵机制"></p>
+<blockquote>
+<p>为什么要有哨兵机制？</p>
+</blockquote>
+<p>在 Redis 的主从架构中，由于主从模式是读写分离的，如果主节点（master）挂了，那么将没有主节点来服务客户端的写操作请求，也没有主节点给从节点（slave）进行数据同步了。</p>
+<p>哨兵其实是一个运行在特殊模式下的 Redis 进程，<strong>所以它也是一个节点。</strong>从“哨兵”这个名字也可以看得出来，它相当于是“观察者节点”，观察的对象是主从节点。<strong>为了实现监控功能，哨兵节点往往也会做成集群。</strong></p>
+<p>当然，它不仅仅是观察那么简单，在它观察到有异常的状况下，会做出一些“动作”，来修复异常状态。</p>
+<p>哨兵节点主要负责三件事情：<strong>监控、选主、通知</strong>。</p>
+<p>所以，我们重点要学习这三件事情：</p>
+<ul>
+<li>哨兵节点是如何监控节点的？又是如何判断主节点是否真的故障了？</li>
+<li>根据什么规则选择一个从节点切换为主节点？</li>
+<li>怎么把新主节点的相关信息通知给从节点和客户端呢？</li>
+</ul>
+<h3 id="监控：主节点下线"><a href="#监控：主节点下线" class="headerlink" title="监控：主节点下线"></a>监控：主节点下线</h3><p>监控就是哨兵节点对集群的实时监控，哨兵节点对于主节点下线的类型有两种：<strong>主观下线和客观下线。</strong></p>
+<h4 id="主观下线"><a href="#主观下线" class="headerlink" title="主观下线"></a>主观下线</h4><p>如果主节点和从节点在规定的时间内没有响应哨兵节点的 <code>ping 命令</code>，则这个哨兵节点认为主节点主观下线。这个「规定的时间」是配置项 <code>down-after-milliseconds</code> 参数设定的，单位是毫秒。</p>
+<p><img src="26f88373d8454682b9e0c1d4fd1611b4-17250140826045.png" alt="哨兵监控主从节点"></p>
+<h4 id="客观下线"><a href="#客观下线" class="headerlink" title="客观下线"></a>客观下线</h4><p><strong>客观下线只适用于主节点。</strong></p>
+<p>之所以针对「主节点」设计「主观下线」和「客观下线」两个状态，是因为有可能「主节点」其实并没有故障，可能只是因为主节点的系统压力比较大或者网络发送了拥塞，导致主节点没有在规定时间内响应哨兵的 PING 命令。</p>
+<p>所以，为了减少误判的情况，哨兵在部署的时候不会只部署一个节点，而是用多个节点部署成<strong>哨兵集群</strong>（<em>最少需要三台机器来部署哨兵集群</em>），<strong>通过多个哨兵节点一起判断，就可以就可以避免单个哨兵因为自身网络状况不好，而误判主节点下线的情况</strong>。同时，多个哨兵的网络同时不稳定的概率较小，由它们一起做决策，误判率也能降低。</p>
+<p><img src="13e4361407ba46979e802eaa654dcf67.png" alt="客观下线"></p>
+<p>当一个哨兵节点判断主节点客观下线以后，会通过<strong>发布&#x2F;订阅模式（下文介绍）</strong>与其他哨兵节点进行通信，询问它们是否也观察到相同的主节点不可达状态。如果同意发起主节点主观下线的哨兵节点，那么则【同意】这个哨兵节点的判断。<strong>当达到哨兵配置文件中<code>quorum</code>（法定人数）指定的哨兵节点数量都认为主节点为主观下线时，主节点会被标记为客观下线。</strong></p>
+<blockquote>
+<p>quorum 是一个关键参数，它决定了需要多少哨兵节点的同意才能确认主节点的客观下线状态。</p>
+</blockquote>
+<h3 id="选主：哨兵-Leader"><a href="#选主：哨兵-Leader" class="headerlink" title="选主：哨兵 Leader"></a>选主：哨兵 Leader</h3><p><strong>由哪个哨兵进行主从故障转移？</strong></p>
+<p>进行主从故障转移的哨兵就是一个「Leader」，成为Leader之前还得是一个「候选者」。</p>
+<p><strong>成为候选者：</strong></p>
+<p>认为主节点主观下线的同时得的赞同票数达到一半以上且大于等于哨兵配置文件中<code>quorum</code>。</p>
+<blockquote>
+<p>判断主节点主观下线的时候，只能是一个哨兵节点发起判断命令，候选者只能是一个节点吗？</p>
+<p>不是的，并不是只能是一个哨兵节点发起判断命令。我们说过判断主观下线的时候有一个规定的时间，这个「规定的时间」是配置项 <code>down-after-milliseconds</code> 参数设定的，单位是毫秒。那么在规定的时间内判断主节点主观下线的哨兵节点都可以成为候选者。</p>
+</blockquote>
+<p><strong>候选者如何选举成为 Leader：</strong></p>
+<p>候选者会向其他哨兵发送命令，表明希望成为 Leader 来执行主从切换，并让所有其他哨兵对它进行投票。</p>
+<p>每个哨兵只有一次投票机会，如果用完后就不能参与投票了，可以投给自己或投给别人，但是只有候选者才能把票投给自己。</p>
+<p>那么在投票过程中，任何一个「候选者」，要满足两个条件：</p>
+<ul>
+<li>第一，拿到半数以上的赞成票；</li>
+<li>第二，拿到的票数同时还需要大于等于哨兵配置文件中的 quorum 值。</li>
+</ul>
+<p>每位候选者都会先给自己投一票，然后向其他哨兵发起投票请求。如果投票者先收到「候选者 A」的投票请求，就会先投票给它，如果投票者用完投票机会后，收到「候选者 B」的投票请求后，就会拒绝投票。这时，候选者 A 先满足了上面的那两个条件，所以「候选者 A」就会被选举为 Leader。</p>
+<h3 id="通知：主从故障转移"><a href="#通知：主从故障转移" class="headerlink" title="通知：主从故障转移"></a>通知：主从故障转移</h3><p>主从故障转移操作包含以下四个步骤：</p>
+<blockquote>
+<p>第一步：在已下线主节点（旧主节点）属下的所有「从节点」里面，挑选出一个从节点，并将其转换为主节点。</p>
+</blockquote>
+<p>第一轮考察：优先级最高的从节点胜出。</p>
+<p>第二轮考察：复制进度最靠前的从节点胜出。</p>
+<blockquote>
+<p>第二步：让已下线主节点属下的所有「从节点」修改复制目标，修改为复制「新主节点」。</p>
+</blockquote>
+<p>当新主节点出现之后，哨兵 leader 下一步要做的就是，让已下线主节点属下的所有「从节点」指向「新主节点」，这一动作可以通过向「从节点」发送 <code>SLAVEOF</code> 命令来实现。</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">redis-cli SLAVEOF 新主节点的IP地址 新主节点的端口号</span><br></pre></td></tr></table></figure>
+
+
+
+<blockquote>
+<p>第三步：将新主节点的 IP 地址和信息，通过「发布者&#x2F;订阅者机制」通知给客户端；</p>
+</blockquote>
+<p><strong>通过 Redis 的发布者&#x2F;订阅者机制来实现</strong></p>
+<p><img src="%E5%93%A8%E5%85%B5%E9%A2%91%E9%81%93.webp" alt="发布订阅模式"></p>
+<p>客户端和哨兵建立连接后，客户端会订阅哨兵提供的频道。<strong>主从切换完成后，哨兵就会向 <code>+switch-master</code> 频道发布新主节点的 IP 地址和端口的消息，这个时候客户端就可以收到这条信息，然后用这里面的新主节点的 IP 地址和端口进行通信了</strong>。</p>
+<p>通过发布者&#x2F;订阅者机制机制，有了这些事件通知，客户端不仅可以在主从切换后得到新主节点的连接信息，还可以监控到主从节点切换过程中发生的各个重要事件。这样，客户端就可以知道主从切换进行到哪一步了，有助于了解切换进度。</p>
+<blockquote>
+<p>第四步：继续监视旧主节点，当这个旧主节点重新上线时，将它设置为新主节点的从节点。</p>
+</blockquote>
+<p>同样采用<code>SLAVEOF</code> 命令来实现。</p>
+<p><strong>设置从服务器</strong>：假设你有一个主服务器运行在 <code>192.168.1.100</code> 的 <code>6379</code> 端口上，你想将当前 Redis 实例设置为这个主服务器的从服务器，你可以执行：</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">SLAVEOF 192.168.1.100 6379</span><br></pre></td></tr></table></figure>
+
+<h3 id="发布者-订阅者模式"><a href="#发布者-订阅者模式" class="headerlink" title="发布者&#x2F;订阅者模式"></a>发布者&#x2F;订阅者模式</h3><p>哨兵如何构成哨兵集群的？哨兵之间如何互相感知对方？</p>
+<p><strong>哨兵节点之间是通过 Redis 的发布者&#x2F;订阅者机制来相互发现的</strong>。</p>
+<p>在主从集群中，主节点上有一个名为<code>__sentinel__:hello</code>的频道，不同哨兵就是通过它来相互发现，实现互相通信的。</p>
+<p><img src="a6286053c6884cf58bf397d01674fe80.png" alt="发布订阅者模式"></p>
+<blockquote>
+<p>哨兵如何感知从节点？</p>
+</blockquote>
+<p>在主观下线中提到，哨兵对主节点是通过PING命令感知主节点的。而哨兵对从节点的感知则是通过 <strong>INFO命令</strong>。</p>
+<p>主节点知道所有「从节点」的信息，所以哨兵会每 10 秒一次的频率向主节点发送 INFO 命令来获取所有「从节点」的信息。</p>
+<p>如下图所示，哨兵 B 给主节点发送 INFO 命令，主节点接受到这个命令后，就会把从节点列表返回给哨兵。接着，哨兵就可以根据从节点列表中的连接信息，和每个从节点建立连接，并在这个连接上持续地对从节点进行监控。哨兵 A 和 C 可以通过相同的方法和从节点建立连接。</p>
+<p><img src="fdd5f695bb3643258662886f9fba0aab.png" alt="哨兵之间互相感知"></p>
+<h2 id="切片集群模式"><a href="#切片集群模式" class="headerlink" title="切片集群模式"></a>切片集群模式</h2><p>当 Redis 缓存数据量大到一台服务器无法缓存时，就需要使用 <strong>Redis 切片集群</strong>（Redis Cluster ）方案，它将数据分布在不同的服务器上，以此来降低系统对单主节点的依赖，从而提高 Redis 服务的读写性能。</p>
+<p>Redis Cluster 方案采用哈希槽（Hash Slot），来处理数据和节点之间的映射关系。在 Redis Cluster 方案中，<strong>一个切片集群共有 16384 个哈希槽</strong>，这些哈希槽类似于数据分区，每个键值对都会根据它的 key，被映射到一个哈希槽中，具体执行过程分为两大步：</p>
+<ul>
+<li>根据键值对的 key，按照<a href="https://www.cnblogs.com/skullboyer/p/8342167.html">CRC16算法</a>计算一个 16 bit 的值。</li>
+<li>再用 16bit 值对 16384 取模，得到 0~16383 范围内的模数，每个模数代表一个相应编号的哈希槽。</li>
+</ul>
+<p>接下来的问题就是，这些哈希槽怎么被映射到具体的 Redis 节点上的呢？有两种方案：</p>
+<ul>
+<li><strong>平均分配：</strong> 在使用 cluster create 命令创建 Redis 集群时，Redis 会自动把所有哈希槽平均分布到集群节点上。比如集群中有 9 个节点，则每个节点上槽的个数为 16384&#x2F;9 个。</li>
+<li><strong>手动分配：</strong> 可以使用 cluster meet 命令手动建立节点间的连接，组成集群，再使用 cluster addslots 命令，指定每个节点上的哈希槽个数。</li>
+</ul>
+<p>假设集群中有 2 个 redis 节点，哈希槽有 4 个（正常是16384），我采用手动分配的方式将slot 0，slot 1分配给 redis实例1 ，将slot 2，slot 3分配给 redis实例2：</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">redis-cli -h 192.168.1.10 –p 6379 cluster addslots 0,1</span><br><span class="line">redis-cli -h 192.168.1.11 –p 6379 cluster addslots 2,3</span><br></pre></td></tr></table></figure>
+
+<p>此时插入方式如下：如果键通过CRC16算法然后对哈希槽个数（4）取余得到1 ，那么就将数据插入slot 1中，slot对应的是redis 实例1，其他哈希槽同理。</p>
+<p><img src="redis%E5%88%87%E7%89%87%E9%9B%86%E7%BE%A4%E6%98%A0%E5%B0%84%E5%88%86%E5%B8%83%E5%85%B3%E7%B3%BB.jpg" alt="哈希槽"></p>
+<h3 id="集群脑裂"><a href="#集群脑裂" class="headerlink" title="集群脑裂"></a>集群脑裂</h3><p>在哨兵机制中提到，如果主节点被客观下线以后，哨兵节点（Leader）会重新选举一个从节点作为新的主节点。</p>
+<blockquote>
+<p>假设如下场景：客户端和主节点连接正常，主节点和 redis 集群连接不正常，此时会发生什么？</p>
+</blockquote>
+<p><strong>客户端和主节点连接正常</strong></p>
+<p>此时客户端正常向主节点执行写操作和部分读操作。</p>
+<p><strong>主节点和 redis 集群连接不正常</strong></p>
+<p>主节点和 redis 集群之间可能发生网络波动，导致哨兵集群认为主节点客观下线，哨兵节点（Leader）会重新选举一个从节点作为新的主节点。</p>
+<p>此时，选举出来的主节点和原来的主节点一共就有两个主节点了，这就是脑裂。</p>
+<p><strong>脑裂问题</strong></p>
+<p>之后网络波动的主节点恢复正常后，新的主节点则会把原来的主节点降为从节点，此时进行全量复制时，会清空之前客户端正常向网络波动的主节点执行写操作的数据，然后再进行全量复制这就是脑裂带来的问题。</p>
+<p><strong>解决方案</strong></p>
+<p>在 Redis 的配置文件中有两个参数我们可以设置：</p>
+<ul>
+<li>min-slaves-to-write x，主节点必须要有至少 x 个从节点连接，如果小于这个数，主节点会禁止写数据。</li>
+<li>min-slaves-max-lag x，主从数据复制和同步的延迟不能超过 x 秒，如果超过，主节点会禁止写数据。</li>
+</ul>
+<p>通过指定这两个参数，使得旧的主节点无法写数据，让新的主节点上线时再进行写操作。</p>
+]]></content>
+      <categories>
+        <category>后端开发</category>
+      </categories>
+      <tags>
+        <tag>面试</tag>
+        <tag>redis</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>Redis：（一）内存数据结构存储</title>
     <url>/2024/08/28/02Redis%EF%BC%9A%EF%BC%88%E4%B8%80%EF%BC%89%E5%86%85%E5%AD%98%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E5%AD%98%E5%82%A8/</url>
     <content><![CDATA[<h1 id="Redis"><a href="#Redis" class="headerlink" title="Redis"></a>Redis</h1><h2 id="Redis简介"><a href="#Redis简介" class="headerlink" title="Redis简介"></a>Redis简介</h2><p><strong>Redis 官方文档：</strong></p>
@@ -402,176 +572,6 @@
 <p><strong>volatile-lfu：</strong></p>
 <p>volatile-lfu是基于频率，在键还没有被淘汰时，这个键在一定时间内被访问的次数和这段时间的比值就构成了频率，淘汰后如果是lfu算法，则比较的是这个频率。</p>
 <p>LFU 算法是根据数据访问次数来淘汰数据的，它的核心思想是“如果数据过去被访问多次，那么将来被访问的频率也更高”。</p>
-]]></content>
-      <categories>
-        <category>后端开发</category>
-      </categories>
-      <tags>
-        <tag>面试</tag>
-        <tag>redis</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>Redis：（二）Redis集群</title>
-    <url>/2024/08/30/03Redis%EF%BC%9A%EF%BC%88%E4%BA%8C%EF%BC%89%E7%BC%93%E5%AD%98%E9%97%AE%E9%A2%98/</url>
-    <content><![CDATA[<h1 id="Redis集群"><a href="#Redis集群" class="headerlink" title="Redis集群"></a>Redis集群</h1><p>搭建一个高可用集群有以下内容：主从复制，哨兵模式，切片集群。</p>
-<h2 id="主从复制"><a href="#主从复制" class="headerlink" title="主从复制"></a>主从复制</h2><p>虽然使用 AOF 和 RDB 可以保证持久化，但是如果单点暴毙了，那么两个持久化文件也就没有意义了。</p>
-<p>因此，可以通过集群的方式，避免单点暴毙的问题。通过一主多从的集群方式，保证服务的可使用。</p>
-<p>主从复制是 Redis 高可用服务的最基础的保证，实现方案就是将从前的一台 Redis 服务器，同步数据到多台从 Redis 服务器上，即一主多从的模式，且主从服务器之间采用的是「读写分离」的方式。</p>
-<p>主服务器可以进行读写操作，当发生写操作时自动将写操作同步给从服务器，而从服务器一般是只读，并接受主服务器同步过来写操作命令，然后执行这条命令。</p>
-<p><img src="2b7231b6aabb9a9a2e2390ab3a280b2d.png" alt="主从复制"></p>
-<p>也就是说，所有的数据修改只在主服务器上进行，然后将最新的数据同步给从服务器，这样就使得主从服务器的数据是一致的。</p>
-<p>注意，主从服务器之间的命令复制是<strong>异步</strong>进行的。所以，无法实现强一致性保证（主从数据时时刻刻保持一致），数据不一致是难以避免的。</p>
-<h3 id="全量同步：第一次同步"><a href="#全量同步：第一次同步" class="headerlink" title="全量同步：第一次同步"></a>全量同步：第一次同步</h3><p><img src="Snipaste_2024-09-01_20-20-52.png" alt="全量同步"></p>
-<blockquote>
-<p>在第一阶段中，如何判断从节点是不是第一次同步？</p>
-</blockquote>
-<p>执行了 <code>replicaof</code> 命令后，图中的1.1阶段请求数据同步，从服务器就会给主服务器发送 <code>psync</code> 命令，表示要进行数据同步。</p>
-<p>psync 命令包含两个参数，分别是<strong>主服务器的 Replid</strong> 和<strong>复制进度 offset</strong>。</p>
-<p><img src="Snipaste_2024-09-01_20-29-06.png" alt="psync命令参数"></p>
-<p>也就是说，如果从节点的replid和主节点的不一致，说明从节点是第一次和主节点进行数据同步的。</p>
-<blockquote>
-<p>第二阶段中，使用的 RDB 快照文件为什么还需要repl_baklog日志（缓冲区）？</p>
-</blockquote>
-<p>因为 RDB 持久化是异步操作，也就是说，主节点进行 RDB 快照的时候，仍然允许客户端进行写操作，然而 RDB 是快照文件，因此需要将打快照后新写的数据暂存在日志中，在第三阶段发送给从节点。</p>
-<h3 id="增量同步"><a href="#增量同步" class="headerlink" title="增量同步"></a>增量同步</h3><p><img src="Snipaste_2024-09-01_20-35-49.png" alt="增量复制"></p>
-<blockquote>
-<p>什么时候会进行增量同步？</p>
-</blockquote>
-<p>比如从节点重启，由于暂时的网络波动，使得主节点和从节点断开，重连以后，只需要续写主节点中新增的命令就可以了。</p>
-<blockquote>
-<p>续写规则是什么？</p>
-</blockquote>
-<p>在全量复制中提到，repl_baklog 缓冲区是记录主节点生成 RDB 快照以后的数据，这个缓冲区实际上是一个环形的数据结构。</p>
-<p>在图中，左边的环形就是repl_baklog 缓冲区。假设主节点打RDB快照以后，主节点在repl_baklog 缓冲区的数据写了一部分。那么从节点在恢复连接后，将根据<strong>offset 值（记录repl_baklog偏移量，说白了就是从节点复制主节点的时候复制到repl_baklog的哪了，继续复制）</strong>，从repl_baklog 缓冲区中续写数据。图中圆环上的绿色和红色部分就是offset指向的地方，也就是说，从节点复制到这个位置了，继续顺时针方向把这个圆复制下去。</p>
-<p><img src="Snipaste_2024-09-01_20-48-58.png"></p>
-<blockquote>
-<p>当圆形复制满一圈，但是从节点还有没有复制数据怎么办？</p>
-</blockquote>
-<p><img src="Snipaste_2024-09-01_20-56-51.png"></p>
-<p>此时只能做全量复制了。</p>
-<blockquote>
-<p>优化方案</p>
-</blockquote>
-<p><img src="Snipaste_2024-09-01_20-59-07.png"></p>
-<p>方案一采用网络传输的方式。因为 RDB 文件是写入磁盘的，然后从节点从磁盘拿到 RDB 文件，这个增加了磁盘IO。如果网络快的情况下可以使用网络传输，反之网络阻塞的情况下会更慢。</p>
-<h2 id="哨兵机制"><a href="#哨兵机制" class="headerlink" title="哨兵机制"></a>哨兵机制</h2><p>在使用 Redis 主从服务的时候，会有一个问题，就是当 Redis 的主从服务器出现故障宕机时，需要手动进行恢复。</p>
-<p>为了解决这个问题，Redis 增加了哨兵模式（<strong>Redis Sentinel</strong>），因为哨兵模式做到了可以监控主从服务器，并且提供<strong>主从节点故障转移的功能。</strong></p>
-<p><img src="26f88373d8454682b9e0c1d4fd1611b4.png" alt="哨兵机制"></p>
-<blockquote>
-<p>为什么要有哨兵机制？</p>
-</blockquote>
-<p>在 Redis 的主从架构中，由于主从模式是读写分离的，如果主节点（master）挂了，那么将没有主节点来服务客户端的写操作请求，也没有主节点给从节点（slave）进行数据同步了。</p>
-<p>哨兵其实是一个运行在特殊模式下的 Redis 进程，<strong>所以它也是一个节点。</strong>从“哨兵”这个名字也可以看得出来，它相当于是“观察者节点”，观察的对象是主从节点。<strong>为了实现监控功能，哨兵节点往往也会做成集群。</strong></p>
-<p>当然，它不仅仅是观察那么简单，在它观察到有异常的状况下，会做出一些“动作”，来修复异常状态。</p>
-<p>哨兵节点主要负责三件事情：<strong>监控、选主、通知</strong>。</p>
-<p>所以，我们重点要学习这三件事情：</p>
-<ul>
-<li>哨兵节点是如何监控节点的？又是如何判断主节点是否真的故障了？</li>
-<li>根据什么规则选择一个从节点切换为主节点？</li>
-<li>怎么把新主节点的相关信息通知给从节点和客户端呢？</li>
-</ul>
-<h3 id="监控：主节点下线"><a href="#监控：主节点下线" class="headerlink" title="监控：主节点下线"></a>监控：主节点下线</h3><p>监控就是哨兵节点对集群的实时监控，哨兵节点对于主节点下线的类型有两种：<strong>主观下线和客观下线。</strong></p>
-<h4 id="主观下线"><a href="#主观下线" class="headerlink" title="主观下线"></a>主观下线</h4><p>如果主节点和从节点在规定的时间内没有响应哨兵节点的 <code>ping 命令</code>，则这个哨兵节点认为主节点主观下线。这个「规定的时间」是配置项 <code>down-after-milliseconds</code> 参数设定的，单位是毫秒。</p>
-<p><img src="26f88373d8454682b9e0c1d4fd1611b4-17250140826045.png" alt="哨兵监控主从节点"></p>
-<h4 id="客观下线"><a href="#客观下线" class="headerlink" title="客观下线"></a>客观下线</h4><p><strong>客观下线只适用于主节点。</strong></p>
-<p>之所以针对「主节点」设计「主观下线」和「客观下线」两个状态，是因为有可能「主节点」其实并没有故障，可能只是因为主节点的系统压力比较大或者网络发送了拥塞，导致主节点没有在规定时间内响应哨兵的 PING 命令。</p>
-<p>所以，为了减少误判的情况，哨兵在部署的时候不会只部署一个节点，而是用多个节点部署成<strong>哨兵集群</strong>（<em>最少需要三台机器来部署哨兵集群</em>），<strong>通过多个哨兵节点一起判断，就可以就可以避免单个哨兵因为自身网络状况不好，而误判主节点下线的情况</strong>。同时，多个哨兵的网络同时不稳定的概率较小，由它们一起做决策，误判率也能降低。</p>
-<p><img src="13e4361407ba46979e802eaa654dcf67.png" alt="客观下线"></p>
-<p>当一个哨兵节点判断主节点客观下线以后，会通过<strong>发布&#x2F;订阅模式（下文介绍）</strong>与其他哨兵节点进行通信，询问它们是否也观察到相同的主节点不可达状态。如果同意发起主节点主观下线的哨兵节点，那么则【同意】这个哨兵节点的判断。<strong>当达到哨兵配置文件中<code>quorum</code>（法定人数）指定的哨兵节点数量都认为主节点为主观下线时，主节点会被标记为客观下线。</strong></p>
-<blockquote>
-<p>quorum 是一个关键参数，它决定了需要多少哨兵节点的同意才能确认主节点的客观下线状态。</p>
-</blockquote>
-<h3 id="选主：哨兵-Leader"><a href="#选主：哨兵-Leader" class="headerlink" title="选主：哨兵 Leader"></a>选主：哨兵 Leader</h3><p><strong>由哪个哨兵进行主从故障转移？</strong></p>
-<p>进行主从故障转移的哨兵就是一个「Leader」，成为Leader之前还得是一个「候选者」。</p>
-<p><strong>成为候选者：</strong></p>
-<p>认为主节点主观下线的同时得的赞同票数达到一半以上且大于等于哨兵配置文件中<code>quorum</code>。</p>
-<blockquote>
-<p>判断主节点主观下线的时候，只能是一个哨兵节点发起判断命令，候选者只能是一个节点吗？</p>
-<p>不是的，并不是只能是一个哨兵节点发起判断命令。我们说过判断主观下线的时候有一个规定的时间，这个「规定的时间」是配置项 <code>down-after-milliseconds</code> 参数设定的，单位是毫秒。那么在规定的时间内判断主节点主观下线的哨兵节点都可以成为候选者。</p>
-</blockquote>
-<p><strong>候选者如何选举成为 Leader：</strong></p>
-<p>候选者会向其他哨兵发送命令，表明希望成为 Leader 来执行主从切换，并让所有其他哨兵对它进行投票。</p>
-<p>每个哨兵只有一次投票机会，如果用完后就不能参与投票了，可以投给自己或投给别人，但是只有候选者才能把票投给自己。</p>
-<p>那么在投票过程中，任何一个「候选者」，要满足两个条件：</p>
-<ul>
-<li>第一，拿到半数以上的赞成票；</li>
-<li>第二，拿到的票数同时还需要大于等于哨兵配置文件中的 quorum 值。</li>
-</ul>
-<p>每位候选者都会先给自己投一票，然后向其他哨兵发起投票请求。如果投票者先收到「候选者 A」的投票请求，就会先投票给它，如果投票者用完投票机会后，收到「候选者 B」的投票请求后，就会拒绝投票。这时，候选者 A 先满足了上面的那两个条件，所以「候选者 A」就会被选举为 Leader。</p>
-<h3 id="通知：主从故障转移"><a href="#通知：主从故障转移" class="headerlink" title="通知：主从故障转移"></a>通知：主从故障转移</h3><p>主从故障转移操作包含以下四个步骤：</p>
-<blockquote>
-<p>第一步：在已下线主节点（旧主节点）属下的所有「从节点」里面，挑选出一个从节点，并将其转换为主节点。</p>
-</blockquote>
-<p>第一轮考察：优先级最高的从节点胜出。</p>
-<p>第二轮考察：复制进度最靠前的从节点胜出。</p>
-<blockquote>
-<p>第二步：让已下线主节点属下的所有「从节点」修改复制目标，修改为复制「新主节点」。</p>
-</blockquote>
-<p>当新主节点出现之后，哨兵 leader 下一步要做的就是，让已下线主节点属下的所有「从节点」指向「新主节点」，这一动作可以通过向「从节点」发送 <code>SLAVEOF</code> 命令来实现。</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">redis-cli SLAVEOF 新主节点的IP地址 新主节点的端口号</span><br></pre></td></tr></table></figure>
-
-
-
-<blockquote>
-<p>第三步：将新主节点的 IP 地址和信息，通过「发布者&#x2F;订阅者机制」通知给客户端；</p>
-</blockquote>
-<p><strong>通过 Redis 的发布者&#x2F;订阅者机制来实现</strong></p>
-<p><img src="%E5%93%A8%E5%85%B5%E9%A2%91%E9%81%93.webp" alt="发布订阅模式"></p>
-<p>客户端和哨兵建立连接后，客户端会订阅哨兵提供的频道。<strong>主从切换完成后，哨兵就会向 <code>+switch-master</code> 频道发布新主节点的 IP 地址和端口的消息，这个时候客户端就可以收到这条信息，然后用这里面的新主节点的 IP 地址和端口进行通信了</strong>。</p>
-<p>通过发布者&#x2F;订阅者机制机制，有了这些事件通知，客户端不仅可以在主从切换后得到新主节点的连接信息，还可以监控到主从节点切换过程中发生的各个重要事件。这样，客户端就可以知道主从切换进行到哪一步了，有助于了解切换进度。</p>
-<blockquote>
-<p>第四步：继续监视旧主节点，当这个旧主节点重新上线时，将它设置为新主节点的从节点。</p>
-</blockquote>
-<p>同样采用<code>SLAVEOF</code> 命令来实现。</p>
-<p><strong>设置从服务器</strong>：假设你有一个主服务器运行在 <code>192.168.1.100</code> 的 <code>6379</code> 端口上，你想将当前 Redis 实例设置为这个主服务器的从服务器，你可以执行：</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">SLAVEOF 192.168.1.100 6379</span><br></pre></td></tr></table></figure>
-
-<h3 id="发布者-订阅者模式"><a href="#发布者-订阅者模式" class="headerlink" title="发布者&#x2F;订阅者模式"></a>发布者&#x2F;订阅者模式</h3><p>哨兵如何构成哨兵集群的？哨兵之间如何互相感知对方？</p>
-<p><strong>哨兵节点之间是通过 Redis 的发布者&#x2F;订阅者机制来相互发现的</strong>。</p>
-<p>在主从集群中，主节点上有一个名为<code>__sentinel__:hello</code>的频道，不同哨兵就是通过它来相互发现，实现互相通信的。</p>
-<p><img src="a6286053c6884cf58bf397d01674fe80.png" alt="发布订阅者模式"></p>
-<blockquote>
-<p>哨兵如何感知从节点？</p>
-</blockquote>
-<p>在主观下线中提到，哨兵对主节点是通过PING命令感知主节点的。而哨兵对从节点的感知则是通过 <strong>INFO命令</strong>。</p>
-<p>主节点知道所有「从节点」的信息，所以哨兵会每 10 秒一次的频率向主节点发送 INFO 命令来获取所有「从节点」的信息。</p>
-<p>如下图所示，哨兵 B 给主节点发送 INFO 命令，主节点接受到这个命令后，就会把从节点列表返回给哨兵。接着，哨兵就可以根据从节点列表中的连接信息，和每个从节点建立连接，并在这个连接上持续地对从节点进行监控。哨兵 A 和 C 可以通过相同的方法和从节点建立连接。</p>
-<p><img src="fdd5f695bb3643258662886f9fba0aab.png" alt="哨兵之间互相感知"></p>
-<h2 id="切片集群模式"><a href="#切片集群模式" class="headerlink" title="切片集群模式"></a>切片集群模式</h2><p>当 Redis 缓存数据量大到一台服务器无法缓存时，就需要使用 <strong>Redis 切片集群</strong>（Redis Cluster ）方案，它将数据分布在不同的服务器上，以此来降低系统对单主节点的依赖，从而提高 Redis 服务的读写性能。</p>
-<p>Redis Cluster 方案采用哈希槽（Hash Slot），来处理数据和节点之间的映射关系。在 Redis Cluster 方案中，<strong>一个切片集群共有 16384 个哈希槽</strong>，这些哈希槽类似于数据分区，每个键值对都会根据它的 key，被映射到一个哈希槽中，具体执行过程分为两大步：</p>
-<ul>
-<li>根据键值对的 key，按照<a href="https://www.cnblogs.com/skullboyer/p/8342167.html">CRC16算法</a>计算一个 16 bit 的值。</li>
-<li>再用 16bit 值对 16384 取模，得到 0~16383 范围内的模数，每个模数代表一个相应编号的哈希槽。</li>
-</ul>
-<p>接下来的问题就是，这些哈希槽怎么被映射到具体的 Redis 节点上的呢？有两种方案：</p>
-<ul>
-<li><strong>平均分配：</strong> 在使用 cluster create 命令创建 Redis 集群时，Redis 会自动把所有哈希槽平均分布到集群节点上。比如集群中有 9 个节点，则每个节点上槽的个数为 16384&#x2F;9 个。</li>
-<li><strong>手动分配：</strong> 可以使用 cluster meet 命令手动建立节点间的连接，组成集群，再使用 cluster addslots 命令，指定每个节点上的哈希槽个数。</li>
-</ul>
-<p>假设集群中有 2 个 redis 节点，哈希槽有 4 个（正常是16384），我采用手动分配的方式将slot 0，slot 1分配给 redis实例1 ，将slot 2，slot 3分配给 redis实例2：</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">redis-cli -h 192.168.1.10 –p 6379 cluster addslots 0,1</span><br><span class="line">redis-cli -h 192.168.1.11 –p 6379 cluster addslots 2,3</span><br></pre></td></tr></table></figure>
-
-<p>此时插入方式如下：如果键通过CRC16算法然后对哈希槽个数（4）取余得到1 ，那么就将数据插入slot 1中，slot对应的是redis 实例1，其他哈希槽同理。</p>
-<p><img src="redis%E5%88%87%E7%89%87%E9%9B%86%E7%BE%A4%E6%98%A0%E5%B0%84%E5%88%86%E5%B8%83%E5%85%B3%E7%B3%BB.jpg" alt="哈希槽"></p>
-<h3 id="集群脑裂"><a href="#集群脑裂" class="headerlink" title="集群脑裂"></a>集群脑裂</h3><p>在哨兵机制中提到，如果主节点被客观下线以后，哨兵节点（Leader）会重新选举一个从节点作为新的主节点。</p>
-<blockquote>
-<p>假设如下场景：客户端和主节点连接正常，主节点和 redis 集群连接不正常，此时会发生什么？</p>
-</blockquote>
-<p><strong>客户端和主节点连接正常</strong></p>
-<p>此时客户端正常向主节点执行写操作和部分读操作。</p>
-<p><strong>主节点和 redis 集群连接不正常</strong></p>
-<p>主节点和 redis 集群之间可能发生网络波动，导致哨兵集群认为主节点客观下线，哨兵节点（Leader）会重新选举一个从节点作为新的主节点。</p>
-<p>此时，选举出来的主节点和原来的主节点一共就有两个主节点了，这就是脑裂。</p>
-<p><strong>脑裂问题</strong></p>
-<p>之后网络波动的主节点恢复正常后，新的主节点则会把原来的主节点降为从节点，此时进行全量复制时，会清空之前客户端正常向网络波动的主节点执行写操作的数据，然后再进行全量复制这就是脑裂带来的问题。</p>
-<p><strong>解决方案</strong></p>
-<p>在 Redis 的配置文件中有两个参数我们可以设置：</p>
-<ul>
-<li>min-slaves-to-write x，主节点必须要有至少 x 个从节点连接，如果小于这个数，主节点会禁止写数据。</li>
-<li>min-slaves-max-lag x，主从数据复制和同步的延迟不能超过 x 秒，如果超过，主节点会禁止写数据。</li>
-</ul>
-<p>通过指定这两个参数，使得旧的主节点无法写数据，让新的主节点上线时再进行写操作。</p>
 ]]></content>
       <categories>
         <category>后端开发</category>
@@ -1034,111 +1034,6 @@
       </tags>
   </entry>
   <entry>
-    <title>Java高级：动态代理、反射</title>
-    <url>/2024/09/12/09%E5%8A%A8%E6%80%81%E4%BB%A3%E7%90%86%E5%92%8C%E5%8F%8D%E5%B0%84/</url>
-    <content><![CDATA[<h1 id="动态代理"><a href="#动态代理" class="headerlink" title="动态代理"></a>动态代理</h1><h2 id="什么是动态代理"><a href="#什么是动态代理" class="headerlink" title="什么是动态代理"></a>什么是动态代理</h2><p>为了避免代码侵入式的修改，在程序运行时，目标对象不变，对目标对象生成代理对象，代理对象中的方法是目标对象方法的增强方法，最终达到目标对象增强的效果。</p>
-<h2 id="Java中动态代理的实现"><a href="#Java中动态代理的实现" class="headerlink" title="Java中动态代理的实现"></a>Java中动态代理的实现</h2><p>第一种：基于接口实现动态代理</p>
-<p>基于接口的动态代理，用到的类是Proxy的newProxyInstance静态方法创建，<strong>要求</strong>被代理对象至少实现一个接口，如果没有，则不能创建代理对象。</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">import</span> java.lang.reflect.InvocationHandler;  </span><br><span class="line"><span class="keyword">import</span> java.lang.reflect.Method;  </span><br><span class="line"><span class="keyword">import</span> java.lang.reflect.Proxy;  </span><br><span class="line">  </span><br><span class="line"><span class="keyword">interface</span> <span class="title class_">MyInterface</span> &#123;  </span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">doSomething</span><span class="params">()</span>;  </span><br><span class="line">&#125;  </span><br><span class="line">  </span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">DynamicProxyDemo</span> &#123;  </span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;  </span><br><span class="line">   <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 生成对象的代理对象，对被代理对象进行所有方法日志增强</span></span><br><span class="line"><span class="comment">     * 参数：原始对象</span></span><br><span class="line"><span class="comment">     * 返回值：被代理的对象</span></span><br><span class="line"><span class="comment">     * JDK 动态代理</span></span><br><span class="line"><span class="comment">     *  基于接口的动态代理</span></span><br><span class="line"><span class="comment">     *  被代理类必须实现接口</span></span><br><span class="line"><span class="comment">     *  JDK提供的</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">        <span class="type">MyInterface</span> <span class="variable">proxyInstance</span> <span class="operator">=</span> (MyInterface) Proxy.newProxyInstance(  </span><br><span class="line">       <span class="comment">/**</span></span><br><span class="line"><span class="comment">         * 创建对象的代理对象</span></span><br><span class="line"><span class="comment">         * 参数一：类加载器</span></span><br><span class="line"><span class="comment">         * 参数二：对象的接口</span></span><br><span class="line"><span class="comment">         * 参数三：调用处理器，代理对象中的方法被调用，都会在执行方法。对所有被代理对象的方法进行拦截</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">            MyInterface.class.getClassLoader(),  </span><br><span class="line">            MyInterface.getClass().getInterface(),  <span class="comment">//new Class[] &#123; MyInterface.class &#125;,多个接口的情况</span></span><br><span class="line">            <span class="keyword">new</span> <span class="title class_">InvocationHandler</span>() &#123;  </span><br><span class="line">                <span class="meta">@Override</span>  </span><br><span class="line">                <span class="keyword">public</span> Object <span class="title function_">invoke</span><span class="params">(Object proxy, Method method, Object[] args)</span> <span class="keyword">throws</span> Throwable &#123;  </span><br><span class="line">                    System.out.println(<span class="string">&quot;Before method: &quot;</span> + method.getName());  </span><br><span class="line">                    <span class="type">Object</span> <span class="variable">result</span> <span class="operator">=</span> method.invoke(<span class="keyword">new</span> <span class="title class_">MyInterfaceTarget</span>(), args); <span class="comment">//假设MyInterfaceTarget是实现MyInterface的类 </span></span><br><span class="line">                    System.out.println(<span class="string">&quot;After method: &quot;</span> + method.getName());  </span><br><span class="line">                    <span class="keyword">return</span> result;  </span><br><span class="line">                &#125;  </span><br><span class="line">            &#125;  </span><br><span class="line">        );  </span><br><span class="line">  </span><br><span class="line">        proxyInstance.doSomething(); <span class="comment">// 调用代理实例的方法  </span></span><br><span class="line">    &#125;  </span><br><span class="line">  </span><br><span class="line">    <span class="comment">// 假设的实现类  </span></span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">MyInterfaceTarget</span> <span class="keyword">implements</span> <span class="title class_">MyInterface</span> &#123;  </span><br><span class="line">        <span class="meta">@Override</span>  </span><br><span class="line">        <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">doSomething</span><span class="params">()</span> &#123;  </span><br><span class="line">            System.out.println(<span class="string">&quot;Doing something...&quot;</span>);  </span><br><span class="line">        &#125;  </span><br><span class="line">    &#125;  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>可以看到，参数三InvocationHandler是一个函数式接口，这里采用匿名内部类的形式重写方法，这个方法中的这行代码：</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">Object</span> <span class="variable">result</span> <span class="operator">=</span> method.invoke(<span class="keyword">new</span> <span class="title class_">MyInterfaceTarget</span>(), args);</span><br></pre></td></tr></table></figure>
-
-<p>就是利用反射，拿到目标对象的方法，而上下两行的打印语句就是被增强的地方。</p>
-<p>方法返回原始方法method。</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">return</span> result;  </span><br></pre></td></tr></table></figure>
-
-<p>最终返回结果是原始方法，因为增强的功能已经执行了。</p>
-<p>第二种：基于第三方库CGLib</p>
-<p><strong>要导入cglib第三方库</strong>，使用的类是Enhancer的create静态方法创建，<strong>要求</strong>被代理类不能是最终类，即不能用final修饰，如String类。</p>
-<p>CGLib 实现步骤</p>
-<ol>
-<li>创建一个实现接口 MethodInterceptor 的代理类，重写 intercept 方法；</li>
-<li>创建获取被代理类的方法 getInstance(Object target);</li>
-<li>获取代理类，通过代理调用方法。</li>
-</ol>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> Object <span class="title function_">getObjectByCGLib</span><span class="params">(<span class="keyword">final</span> Object obj)</span>&#123;</span><br><span class="line">       <span class="comment">/**</span></span><br><span class="line"><span class="comment">        * 使用CGLib的Enhancer创建代理对象</span></span><br><span class="line"><span class="comment">        * 参数一：对象的字节码文件</span></span><br><span class="line"><span class="comment">        * 参数二：方法的拦截器</span></span><br><span class="line"><span class="comment">        */</span></span><br><span class="line">       <span class="type">Object</span> <span class="variable">proxyObj</span> <span class="operator">=</span> Enhancer.create(obj.getClass(), <span class="keyword">new</span> <span class="title class_">MethodInterceptor</span>() &#123;</span><br><span class="line">           <span class="keyword">public</span> Object <span class="title function_">intercept</span><span class="params">(Object o, Method method, Object[] objects, MethodProxy methodProxy)</span> <span class="keyword">throws</span> Throwable &#123;</span><br><span class="line">               <span class="comment">//方法执行前</span></span><br><span class="line">               <span class="type">long</span> <span class="variable">startTime</span> <span class="operator">=</span> System.currentTimeMillis();</span><br><span class="line"></span><br><span class="line">               <span class="type">Object</span> <span class="variable">invokeObject</span> <span class="operator">=</span> method.invoke(obj, objects);<span class="comment">//执行方法的调用</span></span><br><span class="line"></span><br><span class="line">               <span class="comment">//方法执行后</span></span><br><span class="line">               <span class="type">long</span> <span class="variable">endTime</span> <span class="operator">=</span> System.currentTimeMillis();</span><br><span class="line">               <span class="type">SimpleDateFormat</span> <span class="variable">sdf</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">SimpleDateFormat</span>();</span><br><span class="line">               System.out.printf(String.format(<span class="string">&quot;%s方法执行结束时间：%%s ；方法执行耗时：%%d%%n&quot;</span></span><br><span class="line">                       , method.getName()), sdf.format(endTime), endTime - startTime);</span><br><span class="line">               <span class="keyword">return</span> invokeObject;</span><br><span class="line">           &#125;</span><br><span class="line">       &#125;);</span><br><span class="line">       <span class="keyword">return</span> proxyObj;</span><br><span class="line">   &#125;</span><br><span class="line">   <span class="comment">// 注意：这个方法返回的是代理对象的实例，但它与被代理对象（obj）在内存中是两个不同的实例。</span></span><br><span class="line">   <span class="comment">// 如果你需要代理对象和被代理对象在某些场景下是同一个实例（比如单例模式），这种方法就不适用了。</span></span><br></pre></td></tr></table></figure>
-
-<h2 id="两者区别"><a href="#两者区别" class="headerlink" title="两者区别"></a>两者区别</h2><p>JDK Proxy 和 CGLib 的区别主要体现在以下方面：</p>
-<ul>
-<li>JDK Proxy 是 Java 语言自带的功能，无需通过加载第三方类实现；</li>
-<li>Java 对 JDK Proxy 提供了稳定的支持，并且会持续的升级和更新，Java 8 版本中的 JDK Proxy 性能相比于之前版本提升了很多；</li>
-<li>JDK Proxy 是通过拦截器加反射的方式实现的；</li>
-<li>JDK Proxy 只能代理实现接口的类；</li>
-<li>JDK Proxy 实现和调用起来比较简单；</li>
-<li>CGLib 是第三方提供的工具，基于 ASM 实现的，性能比较高；</li>
-<li>CGLib 无需通过接口来实现，它是针对类实现代理，主要是对指定的类生成一个子类，它是通过实现子类的方式来完成调用的。</li>
-</ul>
-<h2 id="ASM"><a href="#ASM" class="headerlink" title="ASM"></a>ASM</h2><p>ASM是一个Java字节码操作和分析框架，它提供了一套直接操作Java字节码的API。与Java反射机制相比，ASM通过直接操作字节码来避免了许多反射带来的性能开销，因此能够显著提高应用程序的性能。ASM的API设计得非常灵活且强大，它允许开发者在类被加载到Java虚拟机之前动态地修改类的行为，包括添加、删除或修改方法、字段等。</p>
-<p>具体来说，当CGLib需要创建一个代理对象时，它会利用ASM来动态生成这个代理类的字节码。这个过程中，CGLib会根据被代理类的结构、需要增强的方法等信息，生成相应的字节码，并加载到Java虚拟机中。这样，CGLib就能够在运行时动态地创建代理类，而无需编写大量的模板代码。</p>
-<h1 id="反射"><a href="#反射" class="headerlink" title="反射"></a>反射</h1><p>Reflection 是 Java 程序开发语言的特征之一，它允许运行中的 Java 程序对自身进行检查，或者说“自审”，并能直接操作程序的内部属性、方法、构造函数、访问修饰符等信息。例如，使用它能获得 Java 类中各成员的名称并显示出来。在运行时动态加载类等。第三方主流的框架如：spring, springMVC, mybatis 等内部都大量的使用反射技术。</p>
-<blockquote>
-<p>面试官问你什么是反射</p>
-</blockquote>
-<p>只需要答出来，<strong>反射机制指的是在程序运行时（JVM时期）可以获取自身的信息。在Java中只需要给定类名，就可以通过反射机制获取该类所有的属性和方法。</strong></p>
-<ol>
-<li><p>JAVA反射机制是在运行状态中，对于任意一个类，都能够知道这个类的所有属性和方法；对于任意一个对象，都能够调用它的任意一个方法；这种动态获取的信息以及动态调用对象的方法的功能称为java语言的反射机制。</p>
-</li>
-<li><p>Java反射机制主要提供了以下功能： </p>
-<ol>
-<li>在运行时判断任意一个对象所属的类；</li>
-</ol>
-<ol start="2">
-<li>在运行时构造任意一个类的对象；</li>
-<li>在运行时判断任意一个类所具有的成员变量和方法；</li>
-<li>在运行时调用任意一个对象的方法；</li>
-<li>生成动态代理。</li>
-</ol>
-<ul>
-<li>反射 <code>java.lang.Class</code> 实例：表示正在运行的类的信息</li>
-<li>通过 <code>java.lang.Class</code>反射<code>Constructor</code><em>（构造函数）</em>实例</li>
-<li>通过 <code>java.lang.Class</code>反射<code>Field</code><em>（字段、属性）</em>实例</li>
-<li>通过 <code>java.lang.Class</code>反射<code>Method</code><em>（方法）</em>实例</li>
-</ul>
-</li>
-</ol>
-<h2 id="Java代码实现反射"><a href="#Java代码实现反射" class="headerlink" title="Java代码实现反射"></a>Java代码实现反射</h2><h3 id="反射-Class"><a href="#反射-Class" class="headerlink" title="反射 Class"></a>反射 Class</h3><p><img src="image-20240912164039483.png"></p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ReflectionConstructor</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="comment">//反射类</span></span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">//方式1.</span></span><br><span class="line">            <span class="comment">//获得 Employee类在JVM 中运行时的java.lang.Class实例</span></span><br><span class="line">            java.lang.<span class="type">Class</span> <span class="variable">clazz</span> <span class="operator">=</span> Class.forName(<span class="string">&quot;com.lanqiao.reflect.Employee&quot;</span>);</span><br><span class="line"></span><br><span class="line">            <span class="comment">//如果Class&lt;Employee&gt;使用了泛型，则创建实例直接返回实际的类型</span></span><br><span class="line">            <span class="comment">// Employee employee = clazz.newInstance();</span></span><br><span class="line">            <span class="comment">// System.out.println(employee);</span></span><br><span class="line"></span><br><span class="line">            <span class="comment">//方式2.</span></span><br><span class="line">            java.lang.Class&lt;?&gt; clazz2 = Employee.class;</span><br><span class="line">            <span class="comment">//System.out.println(Employee.class.getName());</span></span><br><span class="line">            </span><br><span class="line">            </span><br><span class="line">            <span class="comment">//方式3.</span></span><br><span class="line">            <span class="type">Employee</span> <span class="variable">e</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Employee</span>();</span><br><span class="line">            Class&lt;? extends ?&gt; aClass = e.getClass();</span><br><span class="line">            </span><br><span class="line">            </span><br><span class="line">        &#125; <span class="keyword">catch</span> (ClassNotFoundException e) &#123; <span class="comment">//找不到类的异常(字符串类名错误)</span></span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125; </span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h3 id="反射构造方法"><a href="#反射构造方法" class="headerlink" title="反射构造方法"></a>反射构造方法</h3><p><img src="image-20240912164101219.png"></p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ReflectionConstructor</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">//方式1.</span></span><br><span class="line">            <span class="comment">//获得 Employee类在JVM 中运行时的java.lang.Class实例</span></span><br><span class="line">            <span class="type">Class</span> <span class="variable">clazz</span> <span class="operator">=</span> Class.forName(<span class="string">&quot;com.lanqiao.reflect.Employee&quot;</span>);</span><br><span class="line">            <span class="comment">//反射构造函数</span></span><br><span class="line">            <span class="comment">//getDeclaredConstructors(...)得到类中声明的所有构造函数，包括private,public,default</span></span><br><span class="line">            Constructor[] constructors = clazz.getDeclaredConstructors();</span><br><span class="line">            <span class="comment">//仅得到public 声明的构造函数</span></span><br><span class="line">            constructors = clazz.getConstructors();</span><br><span class="line">          </span><br><span class="line">            <span class="keyword">for</span> (Constructor constructor : constructors) &#123;</span><br><span class="line">                System.out.println(constructor);</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="comment">//得到指定参数列表的构造函数</span></span><br><span class="line">            <span class="type">Constructor</span> <span class="variable">constructor</span> <span class="operator">=</span> clazz.getDeclaredConstructor(String.class, <span class="type">int</span>.class);</span><br><span class="line">            System.out.println(constructor);</span><br><span class="line"></span><br><span class="line">            <span class="comment">//修改构造函数的访问性为可访问,即 public</span></span><br><span class="line">            constructor.setAccessible(<span class="literal">true</span>);</span><br><span class="line"></span><br><span class="line">            <span class="comment">//通过构造函数创建实例（反射调用构造）</span></span><br><span class="line">            <span class="comment">//调用 private Employee(String ename, int month)</span></span><br><span class="line">            <span class="type">Object</span> <span class="variable">emp</span> <span class="operator">=</span> constructor.newInstance(<span class="string">&quot;james&quot;</span>, <span class="number">11</span>);</span><br><span class="line">            System.out.println(emp);</span><br><span class="line"></span><br><span class="line">            <span class="comment">//调用 Employee(String ename, Double sal, int month)</span></span><br><span class="line">            constructor = clazz.getDeclaredConstructor(String.class, Double.class, <span class="type">int</span>.class);</span><br><span class="line">            emp = constructor.newInstance(<span class="string">&quot;mike&quot;</span>, <span class="number">999.9</span>, <span class="number">11</span>);</span><br><span class="line">            System.out.println(emp);</span><br><span class="line"></span><br><span class="line">        &#125; <span class="keyword">catch</span> (ClassNotFoundException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (NoSuchMethodException e) &#123; <span class="comment">// 找不到方法或构造函数的异常</span></span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (IllegalAccessException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (InstantiationException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (InvocationTargetException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h3 id="反射成员属性"><a href="#反射成员属性" class="headerlink" title="反射成员属性"></a>反射成员属性</h3><p><img src="image-20240912164113399.png"></p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ReflectionField</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">//获得 Employee类在JVM 中运行时的java.lang.Class实例</span></span><br><span class="line">            <span class="type">Class</span> <span class="variable">clazz</span> <span class="operator">=</span> Class.forName(<span class="string">&quot;com.lanqiao.reflect.Employee&quot;</span>);</span><br><span class="line">            <span class="comment">//通过默认构造函数创建 Employee实例</span></span><br><span class="line">            <span class="type">Object</span> <span class="variable">instance</span> <span class="operator">=</span> clazz.newInstance();</span><br><span class="line"></span><br><span class="line">             <span class="comment">//public声明的字段</span></span><br><span class="line">            Field[] fields = clazz.getFields();</span><br><span class="line">            <span class="comment">//反射所有字段（属性）</span></span><br><span class="line">            fields = clazz.getDeclaredFields();</span><br><span class="line">            <span class="keyword">for</span> (Field field : fields) &#123;</span><br><span class="line">                System.out.println(field);</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="comment">//得到指定字段</span></span><br><span class="line">            <span class="type">Field</span> <span class="variable">field</span> <span class="operator">=</span> clazz.getDeclaredField(<span class="string">&quot;ename&quot;</span>);</span><br><span class="line">          	<span class="comment">//修改属性的可访问性为 public</span></span><br><span class="line">            field.setAccessible(<span class="literal">true</span>);</span><br><span class="line">            <span class="comment">//给name字段赋值</span></span><br><span class="line">            field.set(instance, <span class="string">&quot;jerry&quot;</span>); <span class="comment">//等价于：instance.ename= &quot;jerry&quot;;</span></span><br><span class="line"></span><br><span class="line">            field = clazz.getDeclaredField(<span class="string">&quot;sal&quot;</span>);</span><br><span class="line">            field.setAccessible(<span class="literal">true</span>);</span><br><span class="line">            field.set(instance, <span class="number">999.88</span>);</span><br><span class="line"></span><br><span class="line">            System.out.println(instance);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (ClassNotFoundException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (NoSuchFieldException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (IllegalAccessException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (InstantiationException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-
-
-<h3 id="反射成员方法"><a href="#反射成员方法" class="headerlink" title="反射成员方法"></a>反射成员方法</h3><p><img src="image-20240912164149773.png"></p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ReflectionMethod</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">//获得 Employee类在JVM 中运行时的java.lang.Class实例</span></span><br><span class="line">            <span class="type">Class</span> <span class="variable">clazz</span> <span class="operator">=</span> Class.forName(<span class="string">&quot;com.lanqiao.reflect.Employee&quot;</span>);</span><br><span class="line">            <span class="comment">//通过默认构造函数创建 Employee实例</span></span><br><span class="line">            <span class="type">Object</span> <span class="variable">instance</span> <span class="operator">=</span> clazz.newInstance();</span><br><span class="line"></span><br><span class="line">            <span class="comment">//得到所有 public 的方法，包括类声明的和从父类继承的</span></span><br><span class="line">            Method[] methods = clazz.getMethods();</span><br><span class="line">            <span class="comment">//得到本类所有声明的方法，不包括从父类继承的</span></span><br><span class="line">            methods = clazz.getDeclaredMethods();</span><br><span class="line">            <span class="keyword">for</span> (Method method : methods) &#123;</span><br><span class="line">                System.out.println(method);</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="comment">//通过指定参数列表类型得到某个方法实例</span></span><br><span class="line">          	<span class="comment">//也就是：public void setEname(String s)&#123; ... &#125; 方法</span></span><br><span class="line">            <span class="type">Method</span> <span class="variable">method</span> <span class="operator">=</span> clazz.getDeclaredMethod(<span class="string">&quot;setEname&quot;</span>, String.class);</span><br><span class="line">            <span class="comment">//反射调用方法,如果方法无返回则为 null</span></span><br><span class="line">            <span class="type">Object</span> <span class="variable">returnValue</span> <span class="operator">=</span> method.invoke(instance,<span class="string">&quot;jerry&quot;</span>); 		</span><br><span class="line">          	<span class="comment">//instance.setEname(&quot;jerry&quot;);</span></span><br><span class="line"></span><br><span class="line">            System.out.println(<span class="string">&quot;调用 setEname 方法的返回值：&quot;</span> + returnValue);</span><br><span class="line">            System.out.println(instance);</span><br><span class="line"></span><br><span class="line">            <span class="comment">//得到 String test(String msg, int a)&#123; ... &#125; 方法</span></span><br><span class="line">            method = clazz.getDeclaredMethod(<span class="string">&quot;test&quot;</span>, String.class, <span class="type">int</span>.class);</span><br><span class="line">            method.setAccessible(<span class="literal">true</span>);</span><br><span class="line">            <span class="comment">//反射调用test方法</span></span><br><span class="line">            returnValue = method.invoke(instance, <span class="string">&quot;hello &quot;</span>, <span class="number">22</span>);</span><br><span class="line">            System.out.println(<span class="string">&quot;调用 test 方法的返回值：&quot;</span> + returnValue);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (ClassNotFoundException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (IllegalAccessException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (InstantiationException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (NoSuchMethodException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (InvocationTargetException e) &#123; <span class="comment">//调用异常</span></span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h2 id="反射为什么慢"><a href="#反射为什么慢" class="headerlink" title="反射为什么慢"></a>反射为什么慢</h2><blockquote>
-<p>Java虚拟机限制</p>
-</blockquote>
-<p>在JVM中，将字节码翻译成机械码的方式有：Java自带的解释器和JIT即时编译器。</p>
-<p><img src="what-is-jvm-20231030185742.png"></p>
-<p>由于反射涉及到动态解析的类型，对此不能执行java虚拟机的某些优化机制, 比如JIT优化。</p>
-<p><img src="what-is-jvm-20231223102608.png"></p>
-<p>这两种方式的区别在于，前者启动速度快但运行速度慢，后者启动速度慢但运行速度快，原因是因为解释器不需要像JIT编译器一样，将所有<strong>字节码</strong>都转化为<strong>机器码</strong>，自然就少去了优化时间。</p>
-<p><a href="https://blog.csdn.net/mandy1526/article/details/117195647">一文看懂为什么java反射性能慢、效率低_反射为什么消耗性能大-CSDN博客</a></p>
-<p><a href="https://blog.csdn.net/m0_68723562/article/details/138012914">Java的反射机制? 为什么反射慢_java反射性能低下的原因-CSDN博客</a></p>
-<blockquote>
-<p>需要反复装箱拆箱</p>
-</blockquote>
-<p>在使用反射时, 参数需要包装成Object类型, 但是真正执行方法的时候, 又需要拆包成真正的类型</p>
-<blockquote>
-<p>触发GC次数多</p>
-</blockquote>
-<p>需要额外的内存分配，反射操作可能涉及到临时的对象创建，比如method,field等对象，导致垃圾回收的成本变高，造成额外的开销</p>
-]]></content>
-      <categories>
-        <category>Java开发</category>
-      </categories>
-      <tags>
-        <tag>面试</tag>
-        <tag>Java</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>分布式事务：Seata</title>
     <url>/2024/09/13/10seata/</url>
     <content><![CDATA[<h1 id="微服务下的事务场景"><a href="#微服务下的事务场景" class="headerlink" title="微服务下的事务场景"></a>微服务下的事务场景</h1><p>在以下场景中，用户支付成功后，订单服务创建业务，同时使用 restTemplate 或者 feign 对其他服务发起远程调用，完成整个业务流程。</p>
@@ -1537,6 +1432,111 @@
       <tags>
         <tag>面试</tag>
         <tag>seata</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Java高级：动态代理、反射</title>
+    <url>/2024/09/12/09%E5%8A%A8%E6%80%81%E4%BB%A3%E7%90%86%E5%92%8C%E5%8F%8D%E5%B0%84/</url>
+    <content><![CDATA[<h1 id="动态代理"><a href="#动态代理" class="headerlink" title="动态代理"></a>动态代理</h1><h2 id="什么是动态代理"><a href="#什么是动态代理" class="headerlink" title="什么是动态代理"></a>什么是动态代理</h2><p>为了避免代码侵入式的修改，在程序运行时，目标对象不变，对目标对象生成代理对象，代理对象中的方法是目标对象方法的增强方法，最终达到目标对象增强的效果。</p>
+<h2 id="Java中动态代理的实现"><a href="#Java中动态代理的实现" class="headerlink" title="Java中动态代理的实现"></a>Java中动态代理的实现</h2><p>第一种：基于接口实现动态代理</p>
+<p>基于接口的动态代理，用到的类是Proxy的newProxyInstance静态方法创建，<strong>要求</strong>被代理对象至少实现一个接口，如果没有，则不能创建代理对象。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">import</span> java.lang.reflect.InvocationHandler;  </span><br><span class="line"><span class="keyword">import</span> java.lang.reflect.Method;  </span><br><span class="line"><span class="keyword">import</span> java.lang.reflect.Proxy;  </span><br><span class="line">  </span><br><span class="line"><span class="keyword">interface</span> <span class="title class_">MyInterface</span> &#123;  </span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">doSomething</span><span class="params">()</span>;  </span><br><span class="line">&#125;  </span><br><span class="line">  </span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">DynamicProxyDemo</span> &#123;  </span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;  </span><br><span class="line">   <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 生成对象的代理对象，对被代理对象进行所有方法日志增强</span></span><br><span class="line"><span class="comment">     * 参数：原始对象</span></span><br><span class="line"><span class="comment">     * 返回值：被代理的对象</span></span><br><span class="line"><span class="comment">     * JDK 动态代理</span></span><br><span class="line"><span class="comment">     *  基于接口的动态代理</span></span><br><span class="line"><span class="comment">     *  被代理类必须实现接口</span></span><br><span class="line"><span class="comment">     *  JDK提供的</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">        <span class="type">MyInterface</span> <span class="variable">proxyInstance</span> <span class="operator">=</span> (MyInterface) Proxy.newProxyInstance(  </span><br><span class="line">       <span class="comment">/**</span></span><br><span class="line"><span class="comment">         * 创建对象的代理对象</span></span><br><span class="line"><span class="comment">         * 参数一：类加载器</span></span><br><span class="line"><span class="comment">         * 参数二：对象的接口</span></span><br><span class="line"><span class="comment">         * 参数三：调用处理器，代理对象中的方法被调用，都会在执行方法。对所有被代理对象的方法进行拦截</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">            MyInterface.class.getClassLoader(),  </span><br><span class="line">            MyInterface.getClass().getInterface(),  <span class="comment">//new Class[] &#123; MyInterface.class &#125;,多个接口的情况</span></span><br><span class="line">            <span class="keyword">new</span> <span class="title class_">InvocationHandler</span>() &#123;  </span><br><span class="line">                <span class="meta">@Override</span>  </span><br><span class="line">                <span class="keyword">public</span> Object <span class="title function_">invoke</span><span class="params">(Object proxy, Method method, Object[] args)</span> <span class="keyword">throws</span> Throwable &#123;  </span><br><span class="line">                    System.out.println(<span class="string">&quot;Before method: &quot;</span> + method.getName());  </span><br><span class="line">                    <span class="type">Object</span> <span class="variable">result</span> <span class="operator">=</span> method.invoke(<span class="keyword">new</span> <span class="title class_">MyInterfaceTarget</span>(), args); <span class="comment">//假设MyInterfaceTarget是实现MyInterface的类 </span></span><br><span class="line">                    System.out.println(<span class="string">&quot;After method: &quot;</span> + method.getName());  </span><br><span class="line">                    <span class="keyword">return</span> result;  </span><br><span class="line">                &#125;  </span><br><span class="line">            &#125;  </span><br><span class="line">        );  </span><br><span class="line">  </span><br><span class="line">        proxyInstance.doSomething(); <span class="comment">// 调用代理实例的方法  </span></span><br><span class="line">    &#125;  </span><br><span class="line">  </span><br><span class="line">    <span class="comment">// 假设的实现类  </span></span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">MyInterfaceTarget</span> <span class="keyword">implements</span> <span class="title class_">MyInterface</span> &#123;  </span><br><span class="line">        <span class="meta">@Override</span>  </span><br><span class="line">        <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">doSomething</span><span class="params">()</span> &#123;  </span><br><span class="line">            System.out.println(<span class="string">&quot;Doing something...&quot;</span>);  </span><br><span class="line">        &#125;  </span><br><span class="line">    &#125;  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到，参数三InvocationHandler是一个函数式接口，这里采用匿名内部类的形式重写方法，这个方法中的这行代码：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">Object</span> <span class="variable">result</span> <span class="operator">=</span> method.invoke(<span class="keyword">new</span> <span class="title class_">MyInterfaceTarget</span>(), args);</span><br></pre></td></tr></table></figure>
+
+<p>就是利用反射，拿到目标对象的方法，而上下两行的打印语句就是被增强的地方。</p>
+<p>方法返回原始方法method。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">return</span> result;  </span><br></pre></td></tr></table></figure>
+
+<p>最终返回结果是原始方法，因为增强的功能已经执行了。</p>
+<p>第二种：基于第三方库CGLib</p>
+<p><strong>要导入cglib第三方库</strong>，使用的类是Enhancer的create静态方法创建，<strong>要求</strong>被代理类不能是最终类，即不能用final修饰，如String类。</p>
+<p>CGLib 实现步骤</p>
+<ol>
+<li>创建一个实现接口 MethodInterceptor 的代理类，重写 intercept 方法；</li>
+<li>创建获取被代理类的方法 getInstance(Object target);</li>
+<li>获取代理类，通过代理调用方法。</li>
+</ol>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> Object <span class="title function_">getObjectByCGLib</span><span class="params">(<span class="keyword">final</span> Object obj)</span>&#123;</span><br><span class="line">       <span class="comment">/**</span></span><br><span class="line"><span class="comment">        * 使用CGLib的Enhancer创建代理对象</span></span><br><span class="line"><span class="comment">        * 参数一：对象的字节码文件</span></span><br><span class="line"><span class="comment">        * 参数二：方法的拦截器</span></span><br><span class="line"><span class="comment">        */</span></span><br><span class="line">       <span class="type">Object</span> <span class="variable">proxyObj</span> <span class="operator">=</span> Enhancer.create(obj.getClass(), <span class="keyword">new</span> <span class="title class_">MethodInterceptor</span>() &#123;</span><br><span class="line">           <span class="keyword">public</span> Object <span class="title function_">intercept</span><span class="params">(Object o, Method method, Object[] objects, MethodProxy methodProxy)</span> <span class="keyword">throws</span> Throwable &#123;</span><br><span class="line">               <span class="comment">//方法执行前</span></span><br><span class="line">               <span class="type">long</span> <span class="variable">startTime</span> <span class="operator">=</span> System.currentTimeMillis();</span><br><span class="line"></span><br><span class="line">               <span class="type">Object</span> <span class="variable">invokeObject</span> <span class="operator">=</span> method.invoke(obj, objects);<span class="comment">//执行方法的调用</span></span><br><span class="line"></span><br><span class="line">               <span class="comment">//方法执行后</span></span><br><span class="line">               <span class="type">long</span> <span class="variable">endTime</span> <span class="operator">=</span> System.currentTimeMillis();</span><br><span class="line">               <span class="type">SimpleDateFormat</span> <span class="variable">sdf</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">SimpleDateFormat</span>();</span><br><span class="line">               System.out.printf(String.format(<span class="string">&quot;%s方法执行结束时间：%%s ；方法执行耗时：%%d%%n&quot;</span></span><br><span class="line">                       , method.getName()), sdf.format(endTime), endTime - startTime);</span><br><span class="line">               <span class="keyword">return</span> invokeObject;</span><br><span class="line">           &#125;</span><br><span class="line">       &#125;);</span><br><span class="line">       <span class="keyword">return</span> proxyObj;</span><br><span class="line">   &#125;</span><br><span class="line">   <span class="comment">// 注意：这个方法返回的是代理对象的实例，但它与被代理对象（obj）在内存中是两个不同的实例。</span></span><br><span class="line">   <span class="comment">// 如果你需要代理对象和被代理对象在某些场景下是同一个实例（比如单例模式），这种方法就不适用了。</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="两者区别"><a href="#两者区别" class="headerlink" title="两者区别"></a>两者区别</h2><p>JDK Proxy 和 CGLib 的区别主要体现在以下方面：</p>
+<ul>
+<li>JDK Proxy 是 Java 语言自带的功能，无需通过加载第三方类实现；</li>
+<li>Java 对 JDK Proxy 提供了稳定的支持，并且会持续的升级和更新，Java 8 版本中的 JDK Proxy 性能相比于之前版本提升了很多；</li>
+<li>JDK Proxy 是通过拦截器加反射的方式实现的；</li>
+<li>JDK Proxy 只能代理实现接口的类；</li>
+<li>JDK Proxy 实现和调用起来比较简单；</li>
+<li>CGLib 是第三方提供的工具，基于 ASM 实现的，性能比较高；</li>
+<li>CGLib 无需通过接口来实现，它是针对类实现代理，主要是对指定的类生成一个子类，它是通过实现子类的方式来完成调用的。</li>
+</ul>
+<h2 id="ASM"><a href="#ASM" class="headerlink" title="ASM"></a>ASM</h2><p>ASM是一个Java字节码操作和分析框架，它提供了一套直接操作Java字节码的API。与Java反射机制相比，ASM通过直接操作字节码来避免了许多反射带来的性能开销，因此能够显著提高应用程序的性能。ASM的API设计得非常灵活且强大，它允许开发者在类被加载到Java虚拟机之前动态地修改类的行为，包括添加、删除或修改方法、字段等。</p>
+<p>具体来说，当CGLib需要创建一个代理对象时，它会利用ASM来动态生成这个代理类的字节码。这个过程中，CGLib会根据被代理类的结构、需要增强的方法等信息，生成相应的字节码，并加载到Java虚拟机中。这样，CGLib就能够在运行时动态地创建代理类，而无需编写大量的模板代码。</p>
+<h1 id="反射"><a href="#反射" class="headerlink" title="反射"></a>反射</h1><p>Reflection 是 Java 程序开发语言的特征之一，它允许运行中的 Java 程序对自身进行检查，或者说“自审”，并能直接操作程序的内部属性、方法、构造函数、访问修饰符等信息。例如，使用它能获得 Java 类中各成员的名称并显示出来。在运行时动态加载类等。第三方主流的框架如：spring, springMVC, mybatis 等内部都大量的使用反射技术。</p>
+<blockquote>
+<p>面试官问你什么是反射</p>
+</blockquote>
+<p>只需要答出来，<strong>反射机制指的是在程序运行时（JVM时期）可以获取自身的信息。在Java中只需要给定类名，就可以通过反射机制获取该类所有的属性和方法。</strong></p>
+<ol>
+<li><p>JAVA反射机制是在运行状态中，对于任意一个类，都能够知道这个类的所有属性和方法；对于任意一个对象，都能够调用它的任意一个方法；这种动态获取的信息以及动态调用对象的方法的功能称为java语言的反射机制。</p>
+</li>
+<li><p>Java反射机制主要提供了以下功能： </p>
+<ol>
+<li>在运行时判断任意一个对象所属的类；</li>
+</ol>
+<ol start="2">
+<li>在运行时构造任意一个类的对象；</li>
+<li>在运行时判断任意一个类所具有的成员变量和方法；</li>
+<li>在运行时调用任意一个对象的方法；</li>
+<li>生成动态代理。</li>
+</ol>
+<ul>
+<li>反射 <code>java.lang.Class</code> 实例：表示正在运行的类的信息</li>
+<li>通过 <code>java.lang.Class</code>反射<code>Constructor</code><em>（构造函数）</em>实例</li>
+<li>通过 <code>java.lang.Class</code>反射<code>Field</code><em>（字段、属性）</em>实例</li>
+<li>通过 <code>java.lang.Class</code>反射<code>Method</code><em>（方法）</em>实例</li>
+</ul>
+</li>
+</ol>
+<h2 id="Java代码实现反射"><a href="#Java代码实现反射" class="headerlink" title="Java代码实现反射"></a>Java代码实现反射</h2><h3 id="反射-Class"><a href="#反射-Class" class="headerlink" title="反射 Class"></a>反射 Class</h3><p><img src="image-20240912164039483.png"></p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ReflectionConstructor</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="comment">//反射类</span></span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">//方式1.</span></span><br><span class="line">            <span class="comment">//获得 Employee类在JVM 中运行时的java.lang.Class实例</span></span><br><span class="line">            java.lang.<span class="type">Class</span> <span class="variable">clazz</span> <span class="operator">=</span> Class.forName(<span class="string">&quot;com.lanqiao.reflect.Employee&quot;</span>);</span><br><span class="line"></span><br><span class="line">            <span class="comment">//如果Class&lt;Employee&gt;使用了泛型，则创建实例直接返回实际的类型</span></span><br><span class="line">            <span class="comment">// Employee employee = clazz.newInstance();</span></span><br><span class="line">            <span class="comment">// System.out.println(employee);</span></span><br><span class="line"></span><br><span class="line">            <span class="comment">//方式2.</span></span><br><span class="line">            java.lang.Class&lt;?&gt; clazz2 = Employee.class;</span><br><span class="line">            <span class="comment">//System.out.println(Employee.class.getName());</span></span><br><span class="line">            </span><br><span class="line">            </span><br><span class="line">            <span class="comment">//方式3.</span></span><br><span class="line">            <span class="type">Employee</span> <span class="variable">e</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Employee</span>();</span><br><span class="line">            Class&lt;? extends ?&gt; aClass = e.getClass();</span><br><span class="line">            </span><br><span class="line">            </span><br><span class="line">        &#125; <span class="keyword">catch</span> (ClassNotFoundException e) &#123; <span class="comment">//找不到类的异常(字符串类名错误)</span></span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125; </span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="反射构造方法"><a href="#反射构造方法" class="headerlink" title="反射构造方法"></a>反射构造方法</h3><p><img src="image-20240912164101219.png"></p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ReflectionConstructor</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">//方式1.</span></span><br><span class="line">            <span class="comment">//获得 Employee类在JVM 中运行时的java.lang.Class实例</span></span><br><span class="line">            <span class="type">Class</span> <span class="variable">clazz</span> <span class="operator">=</span> Class.forName(<span class="string">&quot;com.lanqiao.reflect.Employee&quot;</span>);</span><br><span class="line">            <span class="comment">//反射构造函数</span></span><br><span class="line">            <span class="comment">//getDeclaredConstructors(...)得到类中声明的所有构造函数，包括private,public,default</span></span><br><span class="line">            Constructor[] constructors = clazz.getDeclaredConstructors();</span><br><span class="line">            <span class="comment">//仅得到public 声明的构造函数</span></span><br><span class="line">            constructors = clazz.getConstructors();</span><br><span class="line">          </span><br><span class="line">            <span class="keyword">for</span> (Constructor constructor : constructors) &#123;</span><br><span class="line">                System.out.println(constructor);</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="comment">//得到指定参数列表的构造函数</span></span><br><span class="line">            <span class="type">Constructor</span> <span class="variable">constructor</span> <span class="operator">=</span> clazz.getDeclaredConstructor(String.class, <span class="type">int</span>.class);</span><br><span class="line">            System.out.println(constructor);</span><br><span class="line"></span><br><span class="line">            <span class="comment">//修改构造函数的访问性为可访问,即 public</span></span><br><span class="line">            constructor.setAccessible(<span class="literal">true</span>);</span><br><span class="line"></span><br><span class="line">            <span class="comment">//通过构造函数创建实例（反射调用构造）</span></span><br><span class="line">            <span class="comment">//调用 private Employee(String ename, int month)</span></span><br><span class="line">            <span class="type">Object</span> <span class="variable">emp</span> <span class="operator">=</span> constructor.newInstance(<span class="string">&quot;james&quot;</span>, <span class="number">11</span>);</span><br><span class="line">            System.out.println(emp);</span><br><span class="line"></span><br><span class="line">            <span class="comment">//调用 Employee(String ename, Double sal, int month)</span></span><br><span class="line">            constructor = clazz.getDeclaredConstructor(String.class, Double.class, <span class="type">int</span>.class);</span><br><span class="line">            emp = constructor.newInstance(<span class="string">&quot;mike&quot;</span>, <span class="number">999.9</span>, <span class="number">11</span>);</span><br><span class="line">            System.out.println(emp);</span><br><span class="line"></span><br><span class="line">        &#125; <span class="keyword">catch</span> (ClassNotFoundException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (NoSuchMethodException e) &#123; <span class="comment">// 找不到方法或构造函数的异常</span></span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (IllegalAccessException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (InstantiationException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (InvocationTargetException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="反射成员属性"><a href="#反射成员属性" class="headerlink" title="反射成员属性"></a>反射成员属性</h3><p><img src="image-20240912164113399.png"></p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ReflectionField</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">//获得 Employee类在JVM 中运行时的java.lang.Class实例</span></span><br><span class="line">            <span class="type">Class</span> <span class="variable">clazz</span> <span class="operator">=</span> Class.forName(<span class="string">&quot;com.lanqiao.reflect.Employee&quot;</span>);</span><br><span class="line">            <span class="comment">//通过默认构造函数创建 Employee实例</span></span><br><span class="line">            <span class="type">Object</span> <span class="variable">instance</span> <span class="operator">=</span> clazz.newInstance();</span><br><span class="line"></span><br><span class="line">             <span class="comment">//public声明的字段</span></span><br><span class="line">            Field[] fields = clazz.getFields();</span><br><span class="line">            <span class="comment">//反射所有字段（属性）</span></span><br><span class="line">            fields = clazz.getDeclaredFields();</span><br><span class="line">            <span class="keyword">for</span> (Field field : fields) &#123;</span><br><span class="line">                System.out.println(field);</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="comment">//得到指定字段</span></span><br><span class="line">            <span class="type">Field</span> <span class="variable">field</span> <span class="operator">=</span> clazz.getDeclaredField(<span class="string">&quot;ename&quot;</span>);</span><br><span class="line">          	<span class="comment">//修改属性的可访问性为 public</span></span><br><span class="line">            field.setAccessible(<span class="literal">true</span>);</span><br><span class="line">            <span class="comment">//给name字段赋值</span></span><br><span class="line">            field.set(instance, <span class="string">&quot;jerry&quot;</span>); <span class="comment">//等价于：instance.ename= &quot;jerry&quot;;</span></span><br><span class="line"></span><br><span class="line">            field = clazz.getDeclaredField(<span class="string">&quot;sal&quot;</span>);</span><br><span class="line">            field.setAccessible(<span class="literal">true</span>);</span><br><span class="line">            field.set(instance, <span class="number">999.88</span>);</span><br><span class="line"></span><br><span class="line">            System.out.println(instance);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (ClassNotFoundException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (NoSuchFieldException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (IllegalAccessException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (InstantiationException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="反射成员方法"><a href="#反射成员方法" class="headerlink" title="反射成员方法"></a>反射成员方法</h3><p><img src="image-20240912164149773.png"></p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ReflectionMethod</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">//获得 Employee类在JVM 中运行时的java.lang.Class实例</span></span><br><span class="line">            <span class="type">Class</span> <span class="variable">clazz</span> <span class="operator">=</span> Class.forName(<span class="string">&quot;com.lanqiao.reflect.Employee&quot;</span>);</span><br><span class="line">            <span class="comment">//通过默认构造函数创建 Employee实例</span></span><br><span class="line">            <span class="type">Object</span> <span class="variable">instance</span> <span class="operator">=</span> clazz.newInstance();</span><br><span class="line"></span><br><span class="line">            <span class="comment">//得到所有 public 的方法，包括类声明的和从父类继承的</span></span><br><span class="line">            Method[] methods = clazz.getMethods();</span><br><span class="line">            <span class="comment">//得到本类所有声明的方法，不包括从父类继承的</span></span><br><span class="line">            methods = clazz.getDeclaredMethods();</span><br><span class="line">            <span class="keyword">for</span> (Method method : methods) &#123;</span><br><span class="line">                System.out.println(method);</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="comment">//通过指定参数列表类型得到某个方法实例</span></span><br><span class="line">          	<span class="comment">//也就是：public void setEname(String s)&#123; ... &#125; 方法</span></span><br><span class="line">            <span class="type">Method</span> <span class="variable">method</span> <span class="operator">=</span> clazz.getDeclaredMethod(<span class="string">&quot;setEname&quot;</span>, String.class);</span><br><span class="line">            <span class="comment">//反射调用方法,如果方法无返回则为 null</span></span><br><span class="line">            <span class="type">Object</span> <span class="variable">returnValue</span> <span class="operator">=</span> method.invoke(instance,<span class="string">&quot;jerry&quot;</span>); 		</span><br><span class="line">          	<span class="comment">//instance.setEname(&quot;jerry&quot;);</span></span><br><span class="line"></span><br><span class="line">            System.out.println(<span class="string">&quot;调用 setEname 方法的返回值：&quot;</span> + returnValue);</span><br><span class="line">            System.out.println(instance);</span><br><span class="line"></span><br><span class="line">            <span class="comment">//得到 String test(String msg, int a)&#123; ... &#125; 方法</span></span><br><span class="line">            method = clazz.getDeclaredMethod(<span class="string">&quot;test&quot;</span>, String.class, <span class="type">int</span>.class);</span><br><span class="line">            method.setAccessible(<span class="literal">true</span>);</span><br><span class="line">            <span class="comment">//反射调用test方法</span></span><br><span class="line">            returnValue = method.invoke(instance, <span class="string">&quot;hello &quot;</span>, <span class="number">22</span>);</span><br><span class="line">            System.out.println(<span class="string">&quot;调用 test 方法的返回值：&quot;</span> + returnValue);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (ClassNotFoundException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (IllegalAccessException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (InstantiationException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (NoSuchMethodException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (InvocationTargetException e) &#123; <span class="comment">//调用异常</span></span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="反射为什么慢"><a href="#反射为什么慢" class="headerlink" title="反射为什么慢"></a>反射为什么慢</h2><blockquote>
+<p>Java虚拟机限制</p>
+</blockquote>
+<p>在JVM中，将字节码翻译成机械码的方式有：Java自带的解释器和JIT即时编译器。</p>
+<p><img src="what-is-jvm-20231030185742.png"></p>
+<p>由于反射涉及到动态解析的类型，对此不能执行java虚拟机的某些优化机制, 比如JIT优化。</p>
+<p><img src="what-is-jvm-20231223102608.png"></p>
+<p>这两种方式的区别在于，前者启动速度快但运行速度慢，后者启动速度慢但运行速度快，原因是因为解释器不需要像JIT编译器一样，将所有<strong>字节码</strong>都转化为<strong>机器码</strong>，自然就少去了优化时间。</p>
+<p><a href="https://blog.csdn.net/mandy1526/article/details/117195647">一文看懂为什么java反射性能慢、效率低_反射为什么消耗性能大-CSDN博客</a></p>
+<p><a href="https://blog.csdn.net/m0_68723562/article/details/138012914">Java的反射机制? 为什么反射慢_java反射性能低下的原因-CSDN博客</a></p>
+<blockquote>
+<p>需要反复装箱拆箱</p>
+</blockquote>
+<p>在使用反射时, 参数需要包装成Object类型, 但是真正执行方法的时候, 又需要拆包成真正的类型</p>
+<blockquote>
+<p>触发GC次数多</p>
+</blockquote>
+<p>需要额外的内存分配，反射操作可能涉及到临时的对象创建，比如method,field等对象，导致垃圾回收的成本变高，造成额外的开销</p>
+]]></content>
+      <categories>
+        <category>Java开发</category>
+      </categories>
+      <tags>
+        <tag>面试</tag>
+        <tag>Java</tag>
       </tags>
   </entry>
   <entry>
@@ -2787,6 +2787,196 @@
 
 
 
+<h2 id="K8S-的资源清单"><a href="#K8S-的资源清单" class="headerlink" title="K8S 的资源清单"></a>K8S 的资源清单</h2><p>官方文档参考：<a href="https://kubernetes.io/zh-cn/docs/tasks/configure-pod-container/assign-memory-resource/">为容器和 Pod 分配内存资源 | Kubernetes</a></p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>类型</th>
+<th>字段说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>apiVersion</td>
+<td>String</td>
+<td>K8S APl 的版本，可以用 kubectl api versions 命令查询</td>
+</tr>
+<tr>
+<td>kind</td>
+<td>String</td>
+<td>yam 文件定义的资源类型和角色</td>
+</tr>
+<tr>
+<td>metadata</td>
+<td>Object</td>
+<td>元数据对象，下面是它的属性</td>
+</tr>
+<tr>
+<td>metadata.name</td>
+<td>String</td>
+<td>元数据对象的名字，比如 pod 的名字</td>
+</tr>
+<tr>
+<td>metadata.namespace</td>
+<td>String</td>
+<td>元数据对象的命名空间</td>
+</tr>
+<tr>
+<td>Spec</td>
+<td>Object</td>
+<td>详细定义对象</td>
+</tr>
+<tr>
+<td>spec.containers[]</td>
+<td>list</td>
+<td>定义 Spec 对象的容器列表</td>
+</tr>
+<tr>
+<td>spec.containers[].name</td>
+<td>String</td>
+<td>为列表中的某个容器定义名称</td>
+</tr>
+<tr>
+<td>spec.containers[].image</td>
+<td>String</td>
+<td>为列表中的某个容器定义需要的镜像名称</td>
+</tr>
+<tr>
+<td>spec.containers[].imagePullPolicy</td>
+<td>string</td>
+<td>定义镜像拉取策略，有 Always、Never、IfNotPresent 三个值可选<br>  - Always（默认）：意思是每次都尝试重新拉取镜像<br>  - Never：表示仅适用本地镜像<br>  - IfNotPresent：如果本地有镜像就使用本地镜像，没有就拉取在线镜像。</td>
+</tr>
+<tr>
+<td>spec.containers[].command[]</td>
+<td>list</td>
+<td>指定容器启动命令，因为是数组可以指定多个，不指定则使用镜像打包时使用的启动命令。</td>
+</tr>
+<tr>
+<td>spec.containers[].args[]</td>
+<td>list</td>
+<td>指定容器启动命令参数，因为是数组可以指定多个。</td>
+</tr>
+<tr>
+<td>spec.containers[].workingDir</td>
+<td>string</td>
+<td>指定容器的工作目录</td>
+</tr>
+<tr>
+<td>spec.containers[].volumeMounts[]</td>
+<td>list</td>
+<td>指定容器内部的存储卷配置</td>
+</tr>
+<tr>
+<td>spec.containers[].volumeMounts[].name</td>
+<td>string</td>
+<td>指定可以被容器挂载的存储卷的名称</td>
+</tr>
+<tr>
+<td>spec.containers[].volumeMounts[].mountPath</td>
+<td>string</td>
+<td>指定可以被容器挂载的存储卷的路径</td>
+</tr>
+<tr>
+<td>spec.containers[].volumeMounts[].readOnly</td>
+<td>string</td>
+<td>设置存储卷路径的读写模式，ture 或者 false，默认是读写模式</td>
+</tr>
+<tr>
+<td>spec.containers[].ports[]</td>
+<td>list</td>
+<td>指定容器需要用到的端口列表</td>
+</tr>
+<tr>
+<td>spec.containers[].ports[].name</td>
+<td>string</td>
+<td>指定端口的名称</td>
+</tr>
+<tr>
+<td>spec.containers[].ports[].containerPort</td>
+<td>string</td>
+<td>指定容器需要监听的端口号</td>
+</tr>
+<tr>
+<td>spec.containers[].ports[].hostPort</td>
+<td>string</td>
+<td>指定容器所在主机需要监听的端口号，默认跟上面 containerPort 相同，注意设置了 hostPort 同一台主机无法启动该容器的相同副本（因为主机的端口号不能相同，这样会冲突）</td>
+</tr>
+<tr>
+<td>spec.containers[].ports[].protocol</td>
+<td>string</td>
+<td>指定端口协议，支持 TCP 和 UDP，默认值为 TCP</td>
+</tr>
+<tr>
+<td>spec.containers[].env[]</td>
+<td>list</td>
+<td>指定容器运行前需设置的环境变量列表</td>
+</tr>
+<tr>
+<td>spec.containers[].env[].name</td>
+<td>string</td>
+<td>指定环境变量名称</td>
+</tr>
+<tr>
+<td>spec.containers[].env[].value</td>
+<td>string</td>
+<td>指定环境变量值</td>
+</tr>
+<tr>
+<td>spec.containers[].resources</td>
+<td>Object</td>
+<td>指定资源限制和资源请求的值（这里开始就是设置容器的资源上限）</td>
+</tr>
+<tr>
+<td>spec.containers[].resources.limits</td>
+<td>Object</td>
+<td>指定设置容器运行时资源的运行上限</td>
+</tr>
+<tr>
+<td>spec.containers[].resources.limits.cpu</td>
+<td>string</td>
+<td>指定 CPU 的限制，单位为 Core 数，将用于 docker run –cpu-shares 参数</td>
+</tr>
+<tr>
+<td>spec.containers[].resources.limits.memory</td>
+<td>string</td>
+<td>指定 mem 内存的限制，单位为 MIB、GiB</td>
+</tr>
+<tr>
+<td>spec.containers[].resources.requests</td>
+<td>Object</td>
+<td>指定容器启动和调度时的限制设置</td>
+</tr>
+<tr>
+<td>spec.containers[].resources.requests.cpu</td>
+<td>string</td>
+<td>CPU请求，单位为core数，容器启动时初始化可用数量</td>
+</tr>
+<tr>
+<td>spec.containers[].resources.requests.memory</td>
+<td>string</td>
+<td>内存请求，单位为MIB、GiB，容器启动的初始化可用数量</td>
+</tr>
+<tr>
+<td>spec.restartPolicy</td>
+<td>string</td>
+<td>定义 pod 的重启策略，可选值为 Always、OnFailure、Never，默认值为 Always。<br>  - Always：pod 一旦终止运行，则无论容器是如何终止的，kubelet 服务都将重启它。<br>  - OnFailure：只有 pod 以非零退出码终止时，kubelet 才会重启该容器。如果容器正常结束（退出码为0），则 kubectl 将不会重启它。<br>  - Never：Pod 终止后，kubelet 将退出码报告给 master，不会重启该 pod</td>
+</tr>
+<tr>
+<td>spec.nodeSelector</td>
+<td>Object</td>
+<td>定义 Node 的 label 过滤标签，以 key：value 格式指定</td>
+</tr>
+<tr>
+<td>spec.imagePullSecrets</td>
+<td>Object</td>
+<td>定义 pull 镜像时使用 secret 名称，以 name：secretkey 格式指定</td>
+</tr>
+<tr>
+<td>spec.hostNetwork</td>
+<td>Boolean</td>
+<td>定义是否使用主机网络模式，默认值为 false。设置 true 表示使用宿主机网络，不使用 docker 网桥，同时设置了 true将无法在同一台宿主机上启动第二个副本</td>
+</tr>
+</tbody></table>
 <h2 id="资源分类：集群级、命名空间级、元数据级"><a href="#资源分类：集群级、命名空间级、元数据级" class="headerlink" title="资源分类：集群级、命名空间级、元数据级"></a>资源分类：集群级、命名空间级、元数据级</h2><p><img src="image-20241022093051261.png" alt="思维导图"></p>
 <p><img src="image-20241022091645153.png"></p>
 <h3 id="元数据类型"><a href="#元数据类型" class="headerlink" title="元数据类型"></a>元数据类型</h3><h4 id="Horizontal-Pod-Autoscaler（HPA）"><a href="#Horizontal-Pod-Autoscaler（HPA）" class="headerlink" title="Horizontal Pod Autoscaler（HPA）"></a>Horizontal Pod Autoscaler（HPA）</h4><p>Pod 自动扩容：可以根据 CPU 使用率或自定义指标（metrics）自动对 Pod 进行扩&#x2F;缩容。</p>
@@ -4271,31 +4461,6 @@
       </tags>
   </entry>
   <entry>
-    <title>MySQL：（五）分库分表</title>
-    <url>/2024/08/20/MySQL-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8/</url>
-    <content><![CDATA[<h1 id="为什么要进行分库分表"><a href="#为什么要进行分库分表" class="headerlink" title="为什么要进行分库分表"></a>为什么要进行分库分表</h1><p><img src="Snipaste_2024-08-20_16-32-57.png"></p>
-<p>来解释一下IO瓶颈：</p>
-<p>在介绍innodb存储引擎<a href="https://rengoku.top/2024/08/15/MySQL-%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E/">MySQL：（二）存储引擎 | 颓废市民黄先生 (rengoku.top)</a>的时候，曾经说过，内存架构中大部分的组件都分配给了缓存。如果内存不足，缓存就不够，那么就要使用后台线程和磁盘进行io，这样效率就会低</p>
-<h1 id="拆分策略"><a href="#拆分策略" class="headerlink" title="拆分策略"></a>拆分策略</h1><p><img src="Snipaste_2024-08-20_16-40-42.png" alt="拆分策略"></p>
-<h2 id="垂直拆分"><a href="#垂直拆分" class="headerlink" title="垂直拆分"></a>垂直拆分</h2><ul>
-<li>垂直分表：局限于单个数据库内部，不涉及跨数据库操作。</li>
-<li>垂直分库：跨越多个数据库，甚至可能跨越不同的服务器，涉及跨数据库的数据访问和管理。</li>
-</ul>
-<p><img src="Snipaste_2024-08-20_16-43-58.png" alt="垂直拆分"></p>
-<h2 id="水平拆分"><a href="#水平拆分" class="headerlink" title="水平拆分"></a>水平拆分</h2><p>和垂直拆分一样，水平分库会涉及跨数据库，而水平分表不跨数据库。</p>
-<p><img src="Snipaste_2024-08-20_16-51-01.png" alt="水平拆分"></p>
-<h1 id="MyCat"><a href="#MyCat" class="headerlink" title="MyCat"></a>MyCat</h1><p><a href="https://blog.csdn.net/liuerchong/article/details/107887804">mycat详细介绍及实战-CSDN博客</a></p>
-<p>mycat实现分库分表，读写分离。</p>
-]]></content>
-      <categories>
-        <category>数据库</category>
-      </categories>
-      <tags>
-        <tag>mysql</tag>
-        <tag>面试</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>MySQL：（四）事务隔离级别和MVCC</title>
     <url>/2024/08/16/MySQL-MVCC/</url>
     <content><![CDATA[<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>MVCC是面试重灾区，网上的内容我发现并不全面，只有生搬硬套下来的原理却不解释过程，让我看的云里雾里。我写这篇MVCC的内容目的是能更好了理解MVCC如何实现，结合一些八股的内容和实际的案例进行介绍，全程干货。</p>
@@ -4448,6 +4613,31 @@
       </tags>
   </entry>
   <entry>
+    <title>MySQL：（五）分库分表</title>
+    <url>/2024/08/20/MySQL-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8/</url>
+    <content><![CDATA[<h1 id="为什么要进行分库分表"><a href="#为什么要进行分库分表" class="headerlink" title="为什么要进行分库分表"></a>为什么要进行分库分表</h1><p><img src="Snipaste_2024-08-20_16-32-57.png"></p>
+<p>来解释一下IO瓶颈：</p>
+<p>在介绍innodb存储引擎<a href="https://rengoku.top/2024/08/15/MySQL-%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E/">MySQL：（二）存储引擎 | 颓废市民黄先生 (rengoku.top)</a>的时候，曾经说过，内存架构中大部分的组件都分配给了缓存。如果内存不足，缓存就不够，那么就要使用后台线程和磁盘进行io，这样效率就会低</p>
+<h1 id="拆分策略"><a href="#拆分策略" class="headerlink" title="拆分策略"></a>拆分策略</h1><p><img src="Snipaste_2024-08-20_16-40-42.png" alt="拆分策略"></p>
+<h2 id="垂直拆分"><a href="#垂直拆分" class="headerlink" title="垂直拆分"></a>垂直拆分</h2><ul>
+<li>垂直分表：局限于单个数据库内部，不涉及跨数据库操作。</li>
+<li>垂直分库：跨越多个数据库，甚至可能跨越不同的服务器，涉及跨数据库的数据访问和管理。</li>
+</ul>
+<p><img src="Snipaste_2024-08-20_16-43-58.png" alt="垂直拆分"></p>
+<h2 id="水平拆分"><a href="#水平拆分" class="headerlink" title="水平拆分"></a>水平拆分</h2><p>和垂直拆分一样，水平分库会涉及跨数据库，而水平分表不跨数据库。</p>
+<p><img src="Snipaste_2024-08-20_16-51-01.png" alt="水平拆分"></p>
+<h1 id="MyCat"><a href="#MyCat" class="headerlink" title="MyCat"></a>MyCat</h1><p><a href="https://blog.csdn.net/liuerchong/article/details/107887804">mycat详细介绍及实战-CSDN博客</a></p>
+<p>mycat实现分库分表，读写分离。</p>
+]]></content>
+      <categories>
+        <category>数据库</category>
+      </categories>
+      <tags>
+        <tag>mysql</tag>
+        <tag>面试</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>MySQL：（二）存储引擎</title>
     <url>/2024/08/15/MySQL-%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E/</url>
     <content><![CDATA[<h1 id="一、存储引擎"><a href="#一、存储引擎" class="headerlink" title="一、存储引擎"></a>一、存储引擎</h1><h2 id="1-InnoDB"><a href="#1-InnoDB" class="headerlink" title="1. InnoDB"></a>1. InnoDB</h2><p>在MySQL现版本，默认的存储引擎是InnoDB，这个不用多说了，另外常见的还有MyISAM，Memory，CSV等，这里就InnoDB进行介绍。</p>
@@ -4506,145 +4696,6 @@
 </ol>
 <h2 id="2-undo-log"><a href="#2-undo-log" class="headerlink" title="2. undo log"></a>2. undo log</h2><p><img src="Snipaste_2024-08-17_19-10-31.png" alt="undo log"></p>
 <p>MVCC：<a href="https://rengoku.top/2024/08/16/MySQL-MVCC/">MySQL：（四）事务隔离级别和MVCC | 颓废市民黄先生 (rengoku.top)</a></p>
-]]></content>
-      <categories>
-        <category>数据库</category>
-      </categories>
-      <tags>
-        <tag>mysql</tag>
-        <tag>面试</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>MySQL：（三）全局锁、表级锁、行级锁</title>
-    <url>/2024/08/15/MySQL-%E9%94%81/</url>
-    <content><![CDATA[<p>MySQL中的锁，按照锁的粒度分，分为：</p>
-<ol>
-<li>全局锁：锁定数据库中所有表</li>
-<li>表级锁：每次操作锁整张表</li>
-<li>行级锁：每次操作锁住对应行数据</li>
-</ol>
-<h1 id="一、全局锁"><a href="#一、全局锁" class="headerlink" title="一、全局锁"></a>一、全局锁</h1><p><img src="Snipaste_2024-08-16_15-45-59.png" alt="全局锁"></p>
-<blockquote>
-<p>mysqldump相信大家都听说过，这是用来进行数据库备份的工具，除此以外也可以采用数据库主从复制机制进行数据库备份，这同时也是异地容灾、备份等内容。</p>
-</blockquote>
-<p><strong>数据库备份操作：</strong></p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># 加锁操作</span><br><span class="line">flush tables with read lock;</span><br><span class="line"></span><br><span class="line"># 数据备份</span><br><span class="line">mysqldump -uroot -p1234 databases &gt; database.sql</span><br><span class="line"># 加端口的数据备份</span><br><span class="line">mysqldump -h192.168.xx.xx -uroot -p1234 databases &gt; database.sql</span><br><span class="line"></span><br><span class="line"># 解锁操作</span><br><span class="line">unlock tables;</span><br></pre></td></tr></table></figure>
-
-<p>这里附上一篇<code>flush操作</code>的博客，用的是博客中的第4条：<a href="https://blog.csdn.net/a772304419/article/details/138797621">MySQL flush命令详解-CSDN博客</a></p>
-<blockquote>
-<p><strong>FLUSH TABLES</strong>: 关闭所有表并清空表缓存（如查询缓存），或者指定特定表进行刷新。这对于解决锁问题、确保数据一致性或在没有重启MySQL服务的情况下应用表结构更改很有用。加上<code>WITH READ LOCK</code>选项可以全局锁定所有表，以便进行安全的备份。</p>
-</blockquote>
-<p><strong>全局锁存在的问题：</strong></p>
-<p><img src="Snipaste_2024-08-16_16-22-46.png" alt="全局锁存在的问题"></p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># 数据备份</span><br><span class="line">mysqldump --single-transaction -uroot -p1234 databases &gt; database.sql</span><br></pre></td></tr></table></figure>
-
-<p>加上这个参数以后，就是通过快照读而不加全局锁了，快照读在上一篇博客有介绍，可以戳链接看看：<a href="https://rengoku.top/2024/08/15/MySQL-MVCC/">MySQL：MVCC与事务 | 颓废市民黄先生 (rengoku.top)</a></p>
-<h1 id="二、表级锁"><a href="#二、表级锁" class="headerlink" title="二、表级锁"></a>二、表级锁</h1><p><img src="Snipaste_2024-08-16_16-29-40.png" alt="表级锁分类"></p>
-<h2 id="1-表锁"><a href="#1-表锁" class="headerlink" title="1. 表锁"></a>1. 表锁</h2><p>对于表锁，分为两类</p>
-<ul>
-<li>表共享读锁（read lock）</li>
-<li>表独占写锁（write lock）</li>
-</ul>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># 加锁</span><br><span class="line">lock tables 表名... read/write</span><br><span class="line"></span><br><span class="line"># 解锁</span><br><span class="line">unlock tables</span><br></pre></td></tr></table></figure>
-
-<p><img src="Snipaste_2024-08-16_16-41-58.png" alt="表锁"></p>
-<p>我相信看到这里大家肯定非常熟悉，其实表锁和<strong>读写锁</strong>很类似，都是读共享，写独占。</p>
-<p><strong>读的时候会阻塞写操作，例如DDL，DML，写的时候只能让拿到锁的客户端或者线程进行读写操作。</strong></p>
-<p>读写锁可以参考另外一篇博客：<a href="https://rengoku.top/2024/08/05/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E9%94%81/">Java多线程：三、多线程锁、java锁的实现 | 颓废市民黄先生 (rengoku.top)</a></p>
-<p><strong>演示读锁：</strong></p>
-<p><img src="Snipaste_2024-08-16_16-37-24.png" alt="表锁演示"></p>
-<p>首先左边的客户端1（线程1）对表score加了一个读锁，然后两个客户端做select操作，发现都是可以读出来的；客户端1（线程1）如果进行写操作（update）则会报错，客户端2（线程2）进行修改操作会阻塞。</p>
-<p>通过演示得到的结论：<strong>读锁不会阻塞读操作，而会阻塞其他客户端的写操作。</strong></p>
-<p><strong>演示写锁：</strong></p>
-<p><img src="Snipaste_2024-08-16_16-44-42.png" alt="写锁演示"></p>
-<h2 id="2-元数据锁"><a href="#2-元数据锁" class="headerlink" title="2. 元数据锁"></a>2. 元数据锁</h2><p><img src="Snipaste_2024-08-16_16-55-26.png" alt="元数据锁"></p>
-<p>简单来说，<strong>如果某一张表存在未提交的事务，那么元数据锁是不允许对表结构进行修改操作的。</strong></p>
-<p>下面我提出两个问题，需要重点理解：</p>
-<h3 id="（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？"><a href="#（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？" class="headerlink" title="（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？"></a>（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？</h3><p><strong>DML操作与MDL读锁</strong></p>
-<p><strong>DML（Data Manipulation Language）</strong> 包括INSERT、UPDATE、DELETE等语句，这些语句用于修改数据库中的数据，但不涉及数据库结构的变更。当执行DML操作时，数据库需要访问表的元数据以了解表的结构（如列的类型、是否存在索引等），以便正确地执行数据修改。</p>
-<p>为了保证在DML操作期间表的结构不会被其他事务修改（例如，通过DDL语句），数据库会对表的元数据加上一个<strong>MDL读锁</strong>。MDL读锁允许多个事务同时读取元数据，但阻止任何事务修改元数据。这样，DML操作可以安全地执行，因为它们知道在它们执行期间，表的结构是稳定的。</p>
-<p><strong>DDL操作与MDL写锁</strong></p>
-<p><strong>DDL（Data Definition Language）</strong> 包括CREATE TABLE、ALTER TABLE、DROP TABLE等语句，这些语句用于定义或修改数据库的结构。由于DDL操作直接改变数据库的结构，因此它们需要更高的访问权限和更严格的并发控制。</p>
-<p>当执行DDL操作时，数据库会对涉及的表的元数据加上一个<strong>MDL写锁</strong>。MDL写锁是排他的，意味着当一个事务持有表的MDL写锁时，其他任何事务（无论是想读取还是修改元数据）都必须等待该锁被释放。这种锁定机制确保了DDL操作的原子性和一致性，防止了在DDL操作执行期间表的结构被意外修改或访问。</p>
-<blockquote>
-<p>“元数据”指的是描述数据的数据，它是关于数据本身的信息，包括但不限于数据的结构、属性、关系、存储位置、模型定义、生命周期等。</p>
-</blockquote>
-<h3 id="（2）如何理解兼容性？"><a href="#（2）如何理解兼容性？" class="headerlink" title="（2）如何理解兼容性？"></a>（2）如何理解兼容性？</h3><ul>
-<li><strong>shared_read与shared_write的兼容性</strong>：在元数据锁的层面上，shared_read锁和shared_write锁是兼容的，因为它们都不涉及修改元数据。这意味着，当多个事务同时执行SELECT查询或DML操作时，它们可以并发地访问表的元数据。</li>
-<li><strong>与排他锁的互斥性</strong>：然而，无论是shared_read锁还是shared_write锁，都与DDL操作所需的MDL排他锁互斥。这是因为DDL操作需要修改表的元数据，而修改元数据时必须确保没有其他事务正在访问或修改该元数据。</li>
-</ul>
-<h2 id="3-意向锁"><a href="#3-意向锁" class="headerlink" title="3. 意向锁"></a>3. 意向锁</h2><p>假设线程1已经对某行数据加了行锁，现在线程2想要加一个表锁，那么线程2可以直接加锁吗？<strong>实际上是不行的，这样行锁和表锁会冲突，此时线程2需要对整个表进行逐行遍历，判断是否添加了行锁，没有行锁才能加表锁。</strong>这样一看，加表锁的的效率是不是十分的低？于是为了优化这个加锁的机制，现在引入了意向锁。</p>
-<p><img src="Snipaste_2024-08-16_17-19-08.png" alt="意向锁概述"></p>
-<p>意向锁优化：<strong>如果线程A添加行锁的时候，添加的意向锁和接下来线程B添加的表锁是兼容的，那么线程B添加表锁成功，反之线程B添加处于阻塞。</strong></p>
-<blockquote>
-<p>线程A添加行锁的时候，可以添加意向锁。</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">SELECT ... LOCK IN SHARE MODE</span><br></pre></td></tr></table></figure>
-
-<p>这样在加共享锁时候会添加IS。</p>
-</blockquote>
-<p><strong>意向锁分为两类：意向共享锁（IS）和意向排他所（IX）。</strong></p>
-<p><img src="Snipaste_2024-08-16_17-32-45.png" alt="意向锁分类"></p>
-<p>意向共享锁：</p>
-<p>如果线程A添加了行锁的时候添加了IS，那么线程B添加表锁的读锁可以添加成功，添加表锁的写锁失败</p>
-<p>意向排它锁：</p>
-<p>如果线程A添加了行锁的时候添加了XS，那么线程B添加表锁的读锁或者写锁都会失败。</p>
-<h1 id="三、行级锁"><a href="#三、行级锁" class="headerlink" title="三、行级锁"></a>三、行级锁</h1><p><img src="Snipaste_2024-08-16_18-00-25.png" alt="行级锁"></p>
-<p><strong>划重点：如果不走索引，那么行级锁就失效了</strong></p>
-<p><strong>划重点：如果不走索引，那么行级锁就失效了</strong></p>
-<p><strong>划重点：如果不走索引，那么行级锁就失效了</strong></p>
-<p>在RR的事务隔离级别下，MySQL InnoDB存储引擎默认使用的是<strong>临键锁（Next-Key Lock）</strong>，但也会根据具体的查询条件和索引情况来决定是否退化为间隙锁（Gap Lock）或行锁（Record Lock）。</p>
-<h2 id="1-行锁"><a href="#1-行锁" class="headerlink" title="1. 行锁"></a>1. 行锁</h2><p>InnoDB使用多种类型的行锁，包括共享锁（S锁）和排他锁（X锁）：</p>
-<ul>
-<li><p><strong>共享锁（S锁）</strong>：允许事务读取一行数据，但不允许其他事务修改它。共享锁不会阻止其他事务获取同一行的共享锁，<strong>但会阻止排他锁的获取。</strong></p>
-<blockquote>
-<p>什么叫阻止排他锁的获取？</p>
-<p>当一个事务对数据库中的某个资源（如一行数据）加上了共享锁（Shared Lock）时，这个共享锁允许其他事务也对该资源加上共享锁进行读取操作，但会阻止其他事务对该资源加上排他锁（Exclusive Lock）进行写入或修改操作。</p>
-</blockquote>
-</li>
-<li><p><strong>排他锁（X锁）</strong>：允许事务读取和修改一行数据，同时阻止其他事务获取该行的任何类型的锁。当事务需要修改一行数据时，它会尝试获取该行的排他锁。如果成功，其他事务将无法读取或修改该行，直到锁被释放。</p>
-</li>
-</ul>
-<p><img src="Snipaste_2024-08-16_18-09-19.png" alt="增删改查的加锁情况"></p>
-<p><strong>可以看到，DML语句默认是会加上行锁的。刚刚在意向锁中也有介绍，后面两个方式会同时添加意向锁。</strong></p>
-<p><img src="Snipaste_2024-08-16_18-12-15.png"></p>
-<p><strong>刚刚说了，不走索引的话行锁就失效，此时会自动升级为表锁</strong></p>
-<h2 id="2-间隙锁-临键锁"><a href="#2-间隙锁-临键锁" class="headerlink" title="2. 间隙锁&amp;临键锁"></a>2. 间隙锁&amp;临键锁</h2><p><img src="Snipaste_2024-08-16_18-47-46.png" alt="间隙锁概述"></p>
-<p><strong>演示第一种情况：索引上的等值查询(唯一索引), 给不存在的记录加锁时,优化为间隙锁。</strong></p>
-<p><img src="Snipaste_2024-08-16_18-43-35.png" alt="间隙锁演示1"></p>
-<p>线程A使用begin开启事务以后，可以在线程B中的lock_data中可以看到8之前的数据被间隙锁锁上了（3-8，不包含3和8），此时在线程B执行插入操作是会被阻塞的：</p>
-<p><img src="Snipaste_2024-08-16_18-52-24.png" alt="间隙锁阻塞插入操作"></p>
-<p>如果线程A将事务commit后，线程B才能执行插入操作。</p>
-<p><strong>演示第二种情况：索引上的等值查询(普通索引)，向右遍历时最后一个值不满足查询需求时, next-key lock退化为间隙锁。</strong></p>
-<p>我们来慢慢分析这段话，现在这段话针对的是<strong>普通索引</strong>。普通索引不是唯一的，这个<strong>B+树的叶子结点形成的双向链表是可以有重复的节点的。</strong></p>
-<p>假设我们有一个表<code>students</code>，其中有一个非唯一普通索引<code>age</code>，表中的数据如下：</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">+----+-----+  </span><br><span class="line">| id | age |  </span><br><span class="line">+----+-----+  </span><br><span class="line">|  1 |  18 |  </span><br><span class="line">|  2 |  18 |  </span><br><span class="line">|  3 |  18 |  </span><br><span class="line">|  4 |  20 |  </span><br><span class="line">|  5 |  22 |  </span><br><span class="line">+----+-----+</span><br></pre></td></tr></table></figure>
-
-<p>现在，我们执行一个等值查询，试图找到<code>age</code>为19的记录，但显然这样的记录不存在：</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">BEGIN</span>; <span class="comment">-- 开始一个事务  </span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> students <span class="keyword">WHERE</span> age <span class="operator">=</span> <span class="number">19</span> <span class="keyword">FOR</span> <span class="keyword">UPDATE</span>; <span class="comment">-- 使用FOR UPDATE来触发锁</span></span><br></pre></td></tr></table></figure>
-
-<p>在这个查询中，InnoDB会利用<code>age</code>索引来查找<code>age</code>为19的记录。由于索引是排序的，查询会向右遍历索引树，直到找到一个不满足查询条件（即<code>age</code>不等于19）的值为止。在这个例子中，查询会遍历到<code>age</code>为20的记录，因为20是第一个大于19的值。</p>
-<p><strong>加锁行为：</strong></p>
-<ul>
-<li><strong>在遍历过程中</strong>：由于查询是等值查询，并且索引是非唯一的，InnoDB原本会为每个可能满足条件的记录（如果存在的话）加上next-key lock。但是，在这个例子中，没有记录满足条件。</li>
-<li><strong>当遍历到最后一个不满足条件的值时</strong>：在这个例子中，是<code>age</code>为20的记录。由于查询没有找到任何满足条件的记录，InnoDB不会在这个记录上加上行锁（因为行锁是针对满足查询条件的记录的）。但是，为了防止其他事务在这个间隙（即<code>age</code>为18和20之间的间隙）中插入<code>age</code>为19的记录，InnoDB会在这个间隙上加上间隙锁。</li>
-</ul>
-<p><strong>结果：</strong></p>
-<p>因此，尽管查询没有找到任何满足条件的记录，但InnoDB仍然在<code>age</code>为18和20之间的间隙上加了间隙锁。这意味着，在这个事务提交之前，其他事务无法在这个间隙中插入<code>age</code>为19的记录，从而防止了幻读的发生。</p>
-<p><strong>这里存在的理解误区：</strong></p>
-<p>现在是基于age索引进行的，所以id走唯一索引不一样，现在的间隙锁锁住的是age&#x3D;18和age&#x3D;20之间的间隙，而非age&#x3D;18或者age&#x3D;20的哪条具体的记录。</p>
-<p><strong>情景三：索引上的范围查询(唯一索引)– 会访问到不满足条件的第一个值为止。</strong></p>
-<ul>
-<li><p><strong>查询执行</strong>：当执行一个范围查询（如<code>SELECT * FROM table WHERE index_column BETWEEN value1 AND value2 FOR UPDATE;</code>）时，InnoDB会利用索引来加速查询过程。</p>
-</li>
-<li><p><strong>锁定行为</strong>：</p>
-<p>对于唯一索引，由于索引值是唯一的，因此查询会逐一访问索引中的记录，直到找到不满足条件的第一个值为止。</p>
-<p>在这个过程中，InnoDB会为每个满足条件的记录加上临键锁。这意味着，它锁定了这些记录本身以及它们之前的间隙（实际上，对于唯一索引的最后一个满足条件的记录，它可能只锁定间隙部分，因为后面没有更多的记录来形成临键锁的行锁部分）。</p>
-<p>当查询到达不满足条件的第一个值时，InnoDB会在这个值之前的间隙上加上间隙锁（如果之前还没有加上的话），但不会锁定这个值本身，因为它不满足查询条件。</p>
-</li>
-<li><p><strong>防止幻读</strong>：通过这种方式，临键锁确保了即使在可重复读事务隔离级别下，其他事务也无法在查询范围内插入新的记录，从而防止了幻读的发生。</p>
-</li>
-</ul>
 ]]></content>
       <categories>
         <category>数据库</category>
@@ -4874,6 +4925,145 @@
       </tags>
   </entry>
   <entry>
+    <title>MySQL：（三）全局锁、表级锁、行级锁</title>
+    <url>/2024/08/15/MySQL-%E9%94%81/</url>
+    <content><![CDATA[<p>MySQL中的锁，按照锁的粒度分，分为：</p>
+<ol>
+<li>全局锁：锁定数据库中所有表</li>
+<li>表级锁：每次操作锁整张表</li>
+<li>行级锁：每次操作锁住对应行数据</li>
+</ol>
+<h1 id="一、全局锁"><a href="#一、全局锁" class="headerlink" title="一、全局锁"></a>一、全局锁</h1><p><img src="Snipaste_2024-08-16_15-45-59.png" alt="全局锁"></p>
+<blockquote>
+<p>mysqldump相信大家都听说过，这是用来进行数据库备份的工具，除此以外也可以采用数据库主从复制机制进行数据库备份，这同时也是异地容灾、备份等内容。</p>
+</blockquote>
+<p><strong>数据库备份操作：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># 加锁操作</span><br><span class="line">flush tables with read lock;</span><br><span class="line"></span><br><span class="line"># 数据备份</span><br><span class="line">mysqldump -uroot -p1234 databases &gt; database.sql</span><br><span class="line"># 加端口的数据备份</span><br><span class="line">mysqldump -h192.168.xx.xx -uroot -p1234 databases &gt; database.sql</span><br><span class="line"></span><br><span class="line"># 解锁操作</span><br><span class="line">unlock tables;</span><br></pre></td></tr></table></figure>
+
+<p>这里附上一篇<code>flush操作</code>的博客，用的是博客中的第4条：<a href="https://blog.csdn.net/a772304419/article/details/138797621">MySQL flush命令详解-CSDN博客</a></p>
+<blockquote>
+<p><strong>FLUSH TABLES</strong>: 关闭所有表并清空表缓存（如查询缓存），或者指定特定表进行刷新。这对于解决锁问题、确保数据一致性或在没有重启MySQL服务的情况下应用表结构更改很有用。加上<code>WITH READ LOCK</code>选项可以全局锁定所有表，以便进行安全的备份。</p>
+</blockquote>
+<p><strong>全局锁存在的问题：</strong></p>
+<p><img src="Snipaste_2024-08-16_16-22-46.png" alt="全局锁存在的问题"></p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># 数据备份</span><br><span class="line">mysqldump --single-transaction -uroot -p1234 databases &gt; database.sql</span><br></pre></td></tr></table></figure>
+
+<p>加上这个参数以后，就是通过快照读而不加全局锁了，快照读在上一篇博客有介绍，可以戳链接看看：<a href="https://rengoku.top/2024/08/15/MySQL-MVCC/">MySQL：MVCC与事务 | 颓废市民黄先生 (rengoku.top)</a></p>
+<h1 id="二、表级锁"><a href="#二、表级锁" class="headerlink" title="二、表级锁"></a>二、表级锁</h1><p><img src="Snipaste_2024-08-16_16-29-40.png" alt="表级锁分类"></p>
+<h2 id="1-表锁"><a href="#1-表锁" class="headerlink" title="1. 表锁"></a>1. 表锁</h2><p>对于表锁，分为两类</p>
+<ul>
+<li>表共享读锁（read lock）</li>
+<li>表独占写锁（write lock）</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"># 加锁</span><br><span class="line">lock tables 表名... read/write</span><br><span class="line"></span><br><span class="line"># 解锁</span><br><span class="line">unlock tables</span><br></pre></td></tr></table></figure>
+
+<p><img src="Snipaste_2024-08-16_16-41-58.png" alt="表锁"></p>
+<p>我相信看到这里大家肯定非常熟悉，其实表锁和<strong>读写锁</strong>很类似，都是读共享，写独占。</p>
+<p><strong>读的时候会阻塞写操作，例如DDL，DML，写的时候只能让拿到锁的客户端或者线程进行读写操作。</strong></p>
+<p>读写锁可以参考另外一篇博客：<a href="https://rengoku.top/2024/08/05/java%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9A%E4%B8%89%E3%80%81%E9%94%81/">Java多线程：三、多线程锁、java锁的实现 | 颓废市民黄先生 (rengoku.top)</a></p>
+<p><strong>演示读锁：</strong></p>
+<p><img src="Snipaste_2024-08-16_16-37-24.png" alt="表锁演示"></p>
+<p>首先左边的客户端1（线程1）对表score加了一个读锁，然后两个客户端做select操作，发现都是可以读出来的；客户端1（线程1）如果进行写操作（update）则会报错，客户端2（线程2）进行修改操作会阻塞。</p>
+<p>通过演示得到的结论：<strong>读锁不会阻塞读操作，而会阻塞其他客户端的写操作。</strong></p>
+<p><strong>演示写锁：</strong></p>
+<p><img src="Snipaste_2024-08-16_16-44-42.png" alt="写锁演示"></p>
+<h2 id="2-元数据锁"><a href="#2-元数据锁" class="headerlink" title="2. 元数据锁"></a>2. 元数据锁</h2><p><img src="Snipaste_2024-08-16_16-55-26.png" alt="元数据锁"></p>
+<p>简单来说，<strong>如果某一张表存在未提交的事务，那么元数据锁是不允许对表结构进行修改操作的。</strong></p>
+<p>下面我提出两个问题，需要重点理解：</p>
+<h3 id="（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？"><a href="#（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？" class="headerlink" title="（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？"></a>（1）当进行DML操作的时候会添加MDL读锁，当进行DDL操作的时候添加MDL写锁，怎么理解这句话？</h3><p><strong>DML操作与MDL读锁</strong></p>
+<p><strong>DML（Data Manipulation Language）</strong> 包括INSERT、UPDATE、DELETE等语句，这些语句用于修改数据库中的数据，但不涉及数据库结构的变更。当执行DML操作时，数据库需要访问表的元数据以了解表的结构（如列的类型、是否存在索引等），以便正确地执行数据修改。</p>
+<p>为了保证在DML操作期间表的结构不会被其他事务修改（例如，通过DDL语句），数据库会对表的元数据加上一个<strong>MDL读锁</strong>。MDL读锁允许多个事务同时读取元数据，但阻止任何事务修改元数据。这样，DML操作可以安全地执行，因为它们知道在它们执行期间，表的结构是稳定的。</p>
+<p><strong>DDL操作与MDL写锁</strong></p>
+<p><strong>DDL（Data Definition Language）</strong> 包括CREATE TABLE、ALTER TABLE、DROP TABLE等语句，这些语句用于定义或修改数据库的结构。由于DDL操作直接改变数据库的结构，因此它们需要更高的访问权限和更严格的并发控制。</p>
+<p>当执行DDL操作时，数据库会对涉及的表的元数据加上一个<strong>MDL写锁</strong>。MDL写锁是排他的，意味着当一个事务持有表的MDL写锁时，其他任何事务（无论是想读取还是修改元数据）都必须等待该锁被释放。这种锁定机制确保了DDL操作的原子性和一致性，防止了在DDL操作执行期间表的结构被意外修改或访问。</p>
+<blockquote>
+<p>“元数据”指的是描述数据的数据，它是关于数据本身的信息，包括但不限于数据的结构、属性、关系、存储位置、模型定义、生命周期等。</p>
+</blockquote>
+<h3 id="（2）如何理解兼容性？"><a href="#（2）如何理解兼容性？" class="headerlink" title="（2）如何理解兼容性？"></a>（2）如何理解兼容性？</h3><ul>
+<li><strong>shared_read与shared_write的兼容性</strong>：在元数据锁的层面上，shared_read锁和shared_write锁是兼容的，因为它们都不涉及修改元数据。这意味着，当多个事务同时执行SELECT查询或DML操作时，它们可以并发地访问表的元数据。</li>
+<li><strong>与排他锁的互斥性</strong>：然而，无论是shared_read锁还是shared_write锁，都与DDL操作所需的MDL排他锁互斥。这是因为DDL操作需要修改表的元数据，而修改元数据时必须确保没有其他事务正在访问或修改该元数据。</li>
+</ul>
+<h2 id="3-意向锁"><a href="#3-意向锁" class="headerlink" title="3. 意向锁"></a>3. 意向锁</h2><p>假设线程1已经对某行数据加了行锁，现在线程2想要加一个表锁，那么线程2可以直接加锁吗？<strong>实际上是不行的，这样行锁和表锁会冲突，此时线程2需要对整个表进行逐行遍历，判断是否添加了行锁，没有行锁才能加表锁。</strong>这样一看，加表锁的的效率是不是十分的低？于是为了优化这个加锁的机制，现在引入了意向锁。</p>
+<p><img src="Snipaste_2024-08-16_17-19-08.png" alt="意向锁概述"></p>
+<p>意向锁优化：<strong>如果线程A添加行锁的时候，添加的意向锁和接下来线程B添加的表锁是兼容的，那么线程B添加表锁成功，反之线程B添加处于阻塞。</strong></p>
+<blockquote>
+<p>线程A添加行锁的时候，可以添加意向锁。</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">SELECT ... LOCK IN SHARE MODE</span><br></pre></td></tr></table></figure>
+
+<p>这样在加共享锁时候会添加IS。</p>
+</blockquote>
+<p><strong>意向锁分为两类：意向共享锁（IS）和意向排他所（IX）。</strong></p>
+<p><img src="Snipaste_2024-08-16_17-32-45.png" alt="意向锁分类"></p>
+<p>意向共享锁：</p>
+<p>如果线程A添加了行锁的时候添加了IS，那么线程B添加表锁的读锁可以添加成功，添加表锁的写锁失败</p>
+<p>意向排它锁：</p>
+<p>如果线程A添加了行锁的时候添加了XS，那么线程B添加表锁的读锁或者写锁都会失败。</p>
+<h1 id="三、行级锁"><a href="#三、行级锁" class="headerlink" title="三、行级锁"></a>三、行级锁</h1><p><img src="Snipaste_2024-08-16_18-00-25.png" alt="行级锁"></p>
+<p><strong>划重点：如果不走索引，那么行级锁就失效了</strong></p>
+<p><strong>划重点：如果不走索引，那么行级锁就失效了</strong></p>
+<p><strong>划重点：如果不走索引，那么行级锁就失效了</strong></p>
+<p>在RR的事务隔离级别下，MySQL InnoDB存储引擎默认使用的是<strong>临键锁（Next-Key Lock）</strong>，但也会根据具体的查询条件和索引情况来决定是否退化为间隙锁（Gap Lock）或行锁（Record Lock）。</p>
+<h2 id="1-行锁"><a href="#1-行锁" class="headerlink" title="1. 行锁"></a>1. 行锁</h2><p>InnoDB使用多种类型的行锁，包括共享锁（S锁）和排他锁（X锁）：</p>
+<ul>
+<li><p><strong>共享锁（S锁）</strong>：允许事务读取一行数据，但不允许其他事务修改它。共享锁不会阻止其他事务获取同一行的共享锁，<strong>但会阻止排他锁的获取。</strong></p>
+<blockquote>
+<p>什么叫阻止排他锁的获取？</p>
+<p>当一个事务对数据库中的某个资源（如一行数据）加上了共享锁（Shared Lock）时，这个共享锁允许其他事务也对该资源加上共享锁进行读取操作，但会阻止其他事务对该资源加上排他锁（Exclusive Lock）进行写入或修改操作。</p>
+</blockquote>
+</li>
+<li><p><strong>排他锁（X锁）</strong>：允许事务读取和修改一行数据，同时阻止其他事务获取该行的任何类型的锁。当事务需要修改一行数据时，它会尝试获取该行的排他锁。如果成功，其他事务将无法读取或修改该行，直到锁被释放。</p>
+</li>
+</ul>
+<p><img src="Snipaste_2024-08-16_18-09-19.png" alt="增删改查的加锁情况"></p>
+<p><strong>可以看到，DML语句默认是会加上行锁的。刚刚在意向锁中也有介绍，后面两个方式会同时添加意向锁。</strong></p>
+<p><img src="Snipaste_2024-08-16_18-12-15.png"></p>
+<p><strong>刚刚说了，不走索引的话行锁就失效，此时会自动升级为表锁</strong></p>
+<h2 id="2-间隙锁-临键锁"><a href="#2-间隙锁-临键锁" class="headerlink" title="2. 间隙锁&amp;临键锁"></a>2. 间隙锁&amp;临键锁</h2><p><img src="Snipaste_2024-08-16_18-47-46.png" alt="间隙锁概述"></p>
+<p><strong>演示第一种情况：索引上的等值查询(唯一索引), 给不存在的记录加锁时,优化为间隙锁。</strong></p>
+<p><img src="Snipaste_2024-08-16_18-43-35.png" alt="间隙锁演示1"></p>
+<p>线程A使用begin开启事务以后，可以在线程B中的lock_data中可以看到8之前的数据被间隙锁锁上了（3-8，不包含3和8），此时在线程B执行插入操作是会被阻塞的：</p>
+<p><img src="Snipaste_2024-08-16_18-52-24.png" alt="间隙锁阻塞插入操作"></p>
+<p>如果线程A将事务commit后，线程B才能执行插入操作。</p>
+<p><strong>演示第二种情况：索引上的等值查询(普通索引)，向右遍历时最后一个值不满足查询需求时, next-key lock退化为间隙锁。</strong></p>
+<p>我们来慢慢分析这段话，现在这段话针对的是<strong>普通索引</strong>。普通索引不是唯一的，这个<strong>B+树的叶子结点形成的双向链表是可以有重复的节点的。</strong></p>
+<p>假设我们有一个表<code>students</code>，其中有一个非唯一普通索引<code>age</code>，表中的数据如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">+----+-----+  </span><br><span class="line">| id | age |  </span><br><span class="line">+----+-----+  </span><br><span class="line">|  1 |  18 |  </span><br><span class="line">|  2 |  18 |  </span><br><span class="line">|  3 |  18 |  </span><br><span class="line">|  4 |  20 |  </span><br><span class="line">|  5 |  22 |  </span><br><span class="line">+----+-----+</span><br></pre></td></tr></table></figure>
+
+<p>现在，我们执行一个等值查询，试图找到<code>age</code>为19的记录，但显然这样的记录不存在：</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">BEGIN</span>; <span class="comment">-- 开始一个事务  </span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> students <span class="keyword">WHERE</span> age <span class="operator">=</span> <span class="number">19</span> <span class="keyword">FOR</span> <span class="keyword">UPDATE</span>; <span class="comment">-- 使用FOR UPDATE来触发锁</span></span><br></pre></td></tr></table></figure>
+
+<p>在这个查询中，InnoDB会利用<code>age</code>索引来查找<code>age</code>为19的记录。由于索引是排序的，查询会向右遍历索引树，直到找到一个不满足查询条件（即<code>age</code>不等于19）的值为止。在这个例子中，查询会遍历到<code>age</code>为20的记录，因为20是第一个大于19的值。</p>
+<p><strong>加锁行为：</strong></p>
+<ul>
+<li><strong>在遍历过程中</strong>：由于查询是等值查询，并且索引是非唯一的，InnoDB原本会为每个可能满足条件的记录（如果存在的话）加上next-key lock。但是，在这个例子中，没有记录满足条件。</li>
+<li><strong>当遍历到最后一个不满足条件的值时</strong>：在这个例子中，是<code>age</code>为20的记录。由于查询没有找到任何满足条件的记录，InnoDB不会在这个记录上加上行锁（因为行锁是针对满足查询条件的记录的）。但是，为了防止其他事务在这个间隙（即<code>age</code>为18和20之间的间隙）中插入<code>age</code>为19的记录，InnoDB会在这个间隙上加上间隙锁。</li>
+</ul>
+<p><strong>结果：</strong></p>
+<p>因此，尽管查询没有找到任何满足条件的记录，但InnoDB仍然在<code>age</code>为18和20之间的间隙上加了间隙锁。这意味着，在这个事务提交之前，其他事务无法在这个间隙中插入<code>age</code>为19的记录，从而防止了幻读的发生。</p>
+<p><strong>这里存在的理解误区：</strong></p>
+<p>现在是基于age索引进行的，所以id走唯一索引不一样，现在的间隙锁锁住的是age&#x3D;18和age&#x3D;20之间的间隙，而非age&#x3D;18或者age&#x3D;20的哪条具体的记录。</p>
+<p><strong>情景三：索引上的范围查询(唯一索引)– 会访问到不满足条件的第一个值为止。</strong></p>
+<ul>
+<li><p><strong>查询执行</strong>：当执行一个范围查询（如<code>SELECT * FROM table WHERE index_column BETWEEN value1 AND value2 FOR UPDATE;</code>）时，InnoDB会利用索引来加速查询过程。</p>
+</li>
+<li><p><strong>锁定行为</strong>：</p>
+<p>对于唯一索引，由于索引值是唯一的，因此查询会逐一访问索引中的记录，直到找到不满足条件的第一个值为止。</p>
+<p>在这个过程中，InnoDB会为每个满足条件的记录加上临键锁。这意味着，它锁定了这些记录本身以及它们之前的间隙（实际上，对于唯一索引的最后一个满足条件的记录，它可能只锁定间隙部分，因为后面没有更多的记录来形成临键锁的行锁部分）。</p>
+<p>当查询到达不满足条件的第一个值时，InnoDB会在这个值之前的间隙上加上间隙锁（如果之前还没有加上的话），但不会锁定这个值本身，因为它不满足查询条件。</p>
+</li>
+<li><p><strong>防止幻读</strong>：通过这种方式，临键锁确保了即使在可重复读事务隔离级别下，其他事务也无法在查询范围内插入新的记录，从而防止了幻读的发生。</p>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>数据库</category>
+      </categories>
+      <tags>
+        <tag>mysql</tag>
+        <tag>面试</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>CentOS7部署docker</title>
     <url>/2024/07/06/centOS%E9%83%A8%E7%BD%B2docker/</url>
     <content><![CDATA[<h1 id="0-安装Docker"><a href="#0-安装Docker" class="headerlink" title="0.安装Docker"></a>0.安装Docker</h1><p>Docker 分为 CE 和 EE 两大版本。CE 即社区版（免费，支持周期 7 个月），EE 即企业版，强调安全，付费使用，支持周期 24 个月。</p>
@@ -5053,126 +5243,6 @@
       <tags>
         <tag>软件技术</tag>
         <tag>git</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>Java多线程：（一）线程池</title>
-    <url>/2024/08/03/java-%E7%BA%BF%E7%A8%8B%E6%B1%A0/</url>
-    <content><![CDATA[<h1 id="前言："><a href="#前言：" class="headerlink" title="前言："></a>前言：</h1><p>全文了解线程池干货，<strong>要想看面试题直接看标题中带有八股的就行了。</strong></p>
-<h1 id="一、什么是线程池"><a href="#一、什么是线程池" class="headerlink" title="一、什么是线程池"></a>一、什么是线程池</h1><h2 id="1-1-什么是线程池？"><a href="#1-1-什么是线程池？" class="headerlink" title="1.1 什么是线程池？"></a>1.1 什么是线程池？</h2><p>线程池（Thread Pool）是一种并发编程中常用的技术，用于管理和重用线程。它由线程池管理器、工作队列和线程池线程组成。</p>
-<p>线程池的基本概念是，在应用程序启动时创建一定数量的线程，并将它们保存在线程池中。当需要执行任务时，从线程池中获取一个空闲的线程，将任务分配给该线程执行。当任务执行完毕后，线程将返回到线程池，可以被其他任务复用。</p>
-<p>大白话：线程池的设计思想是为了避免频繁地创建和销毁线程的开销，以及控制并发执行的线程数量，从而提高系统的性能和资源利用率。线程池保证线程的可复用。</p>
-<h2 id="1-2-线程池的关键组成部分："><a href="#1-2-线程池的关键组成部分：" class="headerlink" title="1.2 线程池的关键组成部分："></a>1.2 线程池的关键组成部分：</h2><h3 id="1-2-1-线程池管理器（ThreadPoolExecutor）"><a href="#1-2-1-线程池管理器（ThreadPoolExecutor）" class="headerlink" title="1.2.1 线程池管理器（ThreadPoolExecutor）"></a>1.2.1 线程池管理器（ThreadPoolExecutor）</h3><p>负责创建、管理和控制线程池。它负责线程的创建、销毁和管理，以及线程池的状态监控和调度任务。</p>
-<h3 id="1-2-2-线程池阻塞队列（BlockingQueue）"><a href="#1-2-2-线程池阻塞队列（BlockingQueue）" class="headerlink" title="1.2.2 线程池阻塞队列（BlockingQueue）"></a>1.2.2 线程池阻塞队列（BlockingQueue）</h3><p>用于存储待执行的任务。当线程池中的线程都在执行任务时，新的任务会被放入工作队列中等待执行。</p>
-<h3 id="1-2-3-线程池线程（Worker-Thread）"><a href="#1-2-3-线程池线程（Worker-Thread）" class="headerlink" title="1.2.3 线程池线程（Worker Thread）"></a>1.2.3 线程池线程（Worker Thread）</h3><p>实际执行任务的线程。线程池中会维护一组线程，这些线程可以被重复使用，从而避免了频繁创建和销毁线程的开销。</p>
-<h2 id="1-3-八股：Java线程池中阻塞队列常用类型有哪些？"><a href="#1-3-八股：Java线程池中阻塞队列常用类型有哪些？" class="headerlink" title="1.3 八股：Java线程池中阻塞队列常用类型有哪些？"></a>1.3 八股：Java线程池中阻塞队列常用类型有哪些？</h2><p><code>ArrayBlockingQueue</code>是一个基于数组结构的有界阻塞队列，此队列按 FIFO（先进先出）原则 对元素进行排序。 </p>
-<p><code>LinkedBlockingQueue</code> 一个基于链表结构的阻塞队列，此队列按FIFO （先进先出） 排序元素，吞吐量通常要高于 ArrayBlockingQueue </p>
-<p><code>SynchronousQueue</code>一个不存储元素的阻塞队列。</p>
-<p><code>PriorityBlockingQueue</code>一个具有优先级的无限阻塞队列。PriorityBlockingQueue也是基于最小二叉堆实现。PriorityBlockingQueue 并<strong>不会阻塞数据生产者，而只会在没有可消费的数据时，阻塞数据的消费者。</strong><br>因此使用的时候要特别注意，<strong>生产者生产数据的速度绝对不能快于消费者消费数据的速度</strong>，否则时间一长，会最终耗尽所有的可用堆内存空间。</p>
-<p><code>DelayQueue</code> 阿里内部资料只有当其指定的延迟时间到了，才能够从队列中获取到该元素。 DelayQueue是一个没有大小限制的队列， 因此往队列中插入数据的操作（生产者）永远不会被阻塞，而只有获取数据的操作（消费者）才会被阻塞。 </p>
-<p>这里能说出前三种也就差不多了，如果能说全那是最好。</p>
-<h1 id="二、八股：常用的线程池"><a href="#二、八股：常用的线程池" class="headerlink" title="二、八股：常用的线程池"></a>二、八股：常用的线程池</h1><blockquote>
-<p>阿里写的</p>
-</blockquote>
-<p><strong>newSingleThreadExecutor：</strong>创建一个单线程的线程池，此线程池保证所有任务的执行顺序按照任务的提交顺序执行。</p>
-<p><strong>newFixedThreadPool：</strong>创建固定大小的线程池，每次提交一个任务就创建一个线程，直到线程达到线程池的最大大小。</p>
-<p><strong>newCachedThreadPool：</strong>创建一个可缓存的线程池，此线程池不会对线程池大小做限制，线程池大小完全依赖于操作系统（或者说JVM）能够创建的最大线程大小。</p>
-<p><strong>newScheduledThreadPool：</strong>创建一个大小无限的线程池，此线程池支持定时以及周期性执行任务的需求。</p>
-<blockquote>
-<p>简化一下</p>
-</blockquote>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 主函数</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="type">ExecutorService</span> <span class="variable">executor1</span> <span class="operator">=</span> Executors.newFixedThreadPool(<span class="number">3</span>);<span class="comment">//固定线程池，线程不变</span></span><br><span class="line">        <span class="type">ExecutorService</span> <span class="variable">executor2</span> <span class="operator">=</span> Executors.newCachedThreadPool();<span class="comment">//缓冲线程池，自由伸缩</span></span><br><span class="line">        <span class="type">ExecutorService</span> <span class="variable">executor3</span> <span class="operator">=</span> Executors.newSingleThreadExecutor();<span class="comment">//单线程池，FIFO</span></span><br><span class="line">        <span class="type">ScheduledExecutorService</span>  <span class="variable">executor4</span> <span class="operator">=</span> Executors.newScheduledThreadPool (<span class="number">5</span>);<span class="comment">// 调度线程池，用于实现定时任务、周期任务</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-
-
-<h1 id="三、使用线程池的步骤"><a href="#三、使用线程池的步骤" class="headerlink" title="三、使用线程池的步骤"></a>三、使用线程池的步骤</h1><h2 id="3-1-使用线程池的一般步骤如下："><a href="#3-1-使用线程池的一般步骤如下：" class="headerlink" title="3.1 使用线程池的一般步骤如下："></a>3.1 使用线程池的一般步骤如下：</h2><ol>
-<li><strong>创建线程池：</strong>使用Executors工具类提供的静态方法之一，或者直接使用ThreadPoolExecutor类来创建线程池。</li>
-</ol>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">ExecutorService</span> <span class="variable">executor</span> <span class="operator">=</span> Executors.newFixedThreadPool(<span class="number">5</span>); <span class="comment">// 创建固定大小的线程池</span></span><br></pre></td></tr></table></figure>
-
-<p><img src="Snipaste_2024-08-03_18-05-06.png" alt="使用executors工具类创建线程"></p>
-<p><code>newCachedThreadPool</code>说是没有上限的线程池，实际上还是有的，是int的最大值。并且普通电脑在创建几千个的时候就蚌埠住了，所以理论上是没有上限的线程池。</p>
-<ol start="2">
-<li><strong>提交任务：</strong>使用execute()或submit()方法将任务提交给线程池。</li>
-</ol>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">executor.execute(<span class="keyword">new</span> <span class="title class_">MyRunnable</span>()); <span class="comment">// 提交Runnable任务</span></span><br><span class="line">Future&lt;String&gt; future = executor.submit(<span class="keyword">new</span> <span class="title class_">MyCallable</span>()); <span class="comment">// 提交Callable任务，并返回Future对象</span></span><br></pre></td></tr></table></figure>
-<ol start="3">
-<li><strong>关闭线程池：</strong>在不再需要线程池时，需要调用shutdown()方法来关闭线程池。这将停止接受新任务，并逐渐关闭线程池中的线程。</li>
-</ol>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">executor.shutdown();</span><br></pre></td></tr></table></figure>
-
-<p>实际开发中不会关闭线程池，比如游戏的服务器之类的，实时打开，在学习的时候还是需要了解流程的。</p>
-<h2 id="3-2-八股：Java线程池中submit-和-execute-方法有什么区别？"><a href="#3-2-八股：Java线程池中submit-和-execute-方法有什么区别？" class="headerlink" title="3.2 八股：Java线程池中submit() 和 execute()方法有什么区别？"></a>3.2 八股：Java线程池中submit() 和 execute()方法有什么区别？</h2><p>两个方法都可以向线程池提交任务，execute()方法的返回类型是void，它定义在Executor接口中, 而submit()方法可以返回持有计算结果的Future对象，它定义在ExecutorService接口中，它扩展了 Executor接口，其它线程池类像ThreadPoolExecutor和ScheduledThreadPoolExecutor都有这些 方法。</p>
-<h2 id="3-3-演示线程池（个人认为理解线程池的需要看）"><a href="#3-3-演示线程池（个人认为理解线程池的需要看）" class="headerlink" title="3.3 演示线程池（个人认为理解线程池的需要看）"></a>3.3 演示线程池（个人认为理解线程池的需要看）</h2><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//线程类：</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MyRunnable</span> <span class="keyword">implements</span> <span class="title class_">Runnable</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</span><br><span class="line">            System.out.print1n(Thread.current <span class="title function_">Thread</span><span class="params">()</span>.getName() + ---<span class="string">&quot; );</span></span><br><span class="line"><span class="string">        &#125;</span></span><br><span class="line"><span class="string">    &#125;</span></span><br><span class="line"><span class="string">&#125;</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">//main方法：</span></span><br><span class="line"><span class="string">//1.获取线程池对象</span></span><br><span class="line"><span class="string">ExecutorService pool1 = Executors . newCachedThreadPool();</span></span><br><span class="line"><span class="string">//2.提交任务</span></span><br><span class="line"><span class="string">pool1. submit (new MyRunnable());</span></span><br><span class="line"><span class="string">//Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">poo11.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">//Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit(new MyRunnable());</span></span><br><span class="line"><span class="string">//Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit(new MyRunnable());</span></span><br><span class="line"><span class="string">//Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">poo11.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">//Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">//3.销毁线程池</span></span><br><span class="line"><span class="string">//pool1. shutdown();</span></span><br></pre></td></tr></table></figure>
-
-<p>首先，在main方法中，不让main线程sleep，那么打印的结果如下：可以看到，线程池1中创建了1,2,3,4,5，一共5个线程（打印结果比较长我就截图一部分，实际上是5个）</p>
-<p><img src="Snipaste_2024-08-03_18-21-34.png" alt="main线程没有sleep的打印结果"></p>
-<p><strong>如果让main线程睡眠，那么可以让线程1在main方法sleep时赶紧结束run方法中的逻辑，使得线程1执行结束后返回线程池，在main线程sleep的时间结束后，再次调用submit方法时，拿到的还是线程1</strong></p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//线程类：</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MyRunnable</span> <span class="keyword">implements</span> <span class="title class_">Runnable</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</span><br><span class="line">            System.out.print1n(Thread.current <span class="title function_">Thread</span><span class="params">()</span>.getName() + ---<span class="string">&quot; );</span></span><br><span class="line"><span class="string">        &#125;</span></span><br><span class="line"><span class="string">    &#125;</span></span><br><span class="line"><span class="string">&#125;</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">//main方法：</span></span><br><span class="line"><span class="string">//1.获取线程池对象</span></span><br><span class="line"><span class="string">ExecutorService pool1 = Executors . newCachedThreadPool();</span></span><br><span class="line"><span class="string">//2.提交任务</span></span><br><span class="line"><span class="string">pool1. submit (new MyRunnable());</span></span><br><span class="line"><span class="string">Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">poo11.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit(new MyRunnable());</span></span><br><span class="line"><span class="string">Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit(new MyRunnable());</span></span><br><span class="line"><span class="string">Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">poo11.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">//3.销毁线程池</span></span><br><span class="line"><span class="string">//pool1. shutdown();</span></span><br></pre></td></tr></table></figure>
-
-<p><img src="Snipaste_2024-08-03_18-26-05.png" alt="使main线程sleep的打印结果"></p>
-<h1 id="四、线程池原理"><a href="#四、线程池原理" class="headerlink" title="四、线程池原理"></a>四、线程池原理</h1><h2 id="4-1-ThreadPoolExecutor类"><a href="#4-1-ThreadPoolExecutor类" class="headerlink" title="4.1 ThreadPoolExecutor类"></a>4.1 ThreadPoolExecutor类</h2><p>在创建线程池的方法中（3.1节），曾经说过创建线程池使用工具类或者使用ThreadPoolExecutor类，实际上工具类的底层也是调用ThreadPoolExecutor类来创建线程池：</p>
-<p>Executors类提供4个静态工厂方法：newCachedThreadPool()、newFixedThreadPool(int)、newSingleThreadExecutor和newScheduledThreadPool(int)。这些方法最终都是通过ThreadPoolExecutor类来完成的。</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="title function_">ThreadPoolExecutor</span><span class="params">(<span class="type">int</span> corePoolSize,</span></span><br><span class="line"><span class="params">                          <span class="type">int</span> maximumPoolSize,</span></span><br><span class="line"><span class="params">                          <span class="type">long</span> keepAliveTime,</span></span><br><span class="line"><span class="params">                          TimeUnit unit,</span></span><br><span class="line"><span class="params">                          BlockingQueue&lt;Runnable&gt; workQueue,</span></span><br><span class="line"><span class="params">                          ThreadFactory threadFactory,</span></span><br><span class="line"><span class="params">                          RejectedExecutionHandler handler)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (corePoolSize &lt; <span class="number">0</span> ||</span><br><span class="line">        maximumPoolSize &lt;= <span class="number">0</span> ||</span><br><span class="line">        maximumPoolSize &lt; corePoolSize ||</span><br><span class="line">        keepAliveTime &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IllegalArgumentException</span>();</span><br><span class="line">    <span class="keyword">if</span> (workQueue == <span class="literal">null</span> || threadFactory == <span class="literal">null</span> || handler == <span class="literal">null</span>)</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">NullPointerException</span>();</span><br><span class="line">    <span class="built_in">this</span>.acc = System.getSecurityManager() == <span class="literal">null</span> ?</span><br><span class="line">            <span class="literal">null</span> :</span><br><span class="line">            AccessController.getContext();</span><br><span class="line">    <span class="built_in">this</span>.corePoolSize = corePoolSize;</span><br><span class="line">    <span class="built_in">this</span>.maximumPoolSize = maximumPoolSize;</span><br><span class="line">    <span class="built_in">this</span>.workQueue = workQueue;</span><br><span class="line">    <span class="built_in">this</span>.keepAliveTime = unit.toNanos(keepAliveTime);</span><br><span class="line">    <span class="built_in">this</span>.threadFactory = threadFactory;</span><br><span class="line">    <span class="built_in">this</span>.handler = handler;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p><strong>可以看到类里面有7个参数，这7个参数也就是线程池的核心参数。</strong></p>
-<h2 id="4-2-八股：线程池七大核心参数"><a href="#4-2-八股：线程池七大核心参数" class="headerlink" title="4.2 八股：线程池七大核心参数"></a>4.2 八股：线程池七大核心参数</h2><h3 id="4-2-1-黑马讲的故事（方便记忆参数，可以跳过）"><a href="#4-2-1-黑马讲的故事（方便记忆参数，可以跳过）" class="headerlink" title="4.2.1 黑马讲的故事（方便记忆参数，可以跳过）"></a>4.2.1 黑马讲的故事（方便记忆参数，可以跳过）</h3><p>故事就是讲了饭店内只有3名正式员工，同时招待的顾客最大6人，但是剩下的3名员工是临时工，只有招待人数大于3人的时候才会去招人，否则就不招，辞退这三个临时工。</p>
-<p><img src="Snipaste_2024-08-03_18-48-51.png"></p>
-<p>但是饭店小，只能允许10个人排队，超出的人就不给排队了</p>
-<p><img src="Snipaste_2024-08-03_18-53-22.png"></p>
-<p>OK，现在根据故事给出的7个参数代换： </p>
-<p><img src="Snipaste_2024-08-03_18-57-58.png" alt="7个参数代换"></p>
-<h3 id="4-2-2-八股：7个核心参数"><a href="#4-2-2-八股：7个核心参数" class="headerlink" title="4.2.2 八股：7个核心参数"></a>4.2.2 八股：7个核心参数</h3><ol>
-<li>int corePoolSize,核心线程数量，不能小于0 </li>
-<li>int maximumPoolSize,最大的线程数量，减去核心线程&#x3D;临时线程</li>
-<li>long keepAliveTime,空闲线程的最大存活时间</li>
-<li>TimeUnit unit,时间单位</li>
-<li>BlockingQueue<Runnable> workQueue,任务队列</Runnable></li>
-<li>ThreadFactory threadFactory,创建线程工厂</li>
-<li>RejectedExecutionHandler handler，任务的拒绝策略</li>
-</ol>
-<h2 id="4-3-线程池的工作原理流程（建议4-3全看，方便理解4-5的八股）"><a href="#4-3-线程池的工作原理流程（建议4-3全看，方便理解4-5的八股）" class="headerlink" title="4.3 线程池的工作原理流程（建议4.3全看，方便理解4.5的八股）"></a>4.3 线程池的工作原理流程（建议4.3全看，方便理解4.5的八股）</h2><h3 id="4-3-1-场景一"><a href="#4-3-1-场景一" class="headerlink" title="4.3.1 场景一"></a>4.3.1 场景一</h3><p>现在有如下场景：核心线程3个，临时线程3个，此时有5个任务进来的时候线程池应该如何创建线程？</p>
-<p><img src="Snipaste_2024-08-03_19-05-57.png"></p>
-<p>正确的是创建3个核心线程去处理前3个任务，而后两个任务应该排队，直到3个核心线程空闲出来才会被执行。</p>
-<p><img src="Snipaste_2024-08-03_19-07-50.png"></p>
-<h3 id="4-3-2-场景二"><a href="#4-3-2-场景二" class="headerlink" title="4.3.2 场景二"></a>4.3.2 场景二</h3><p>此时在场景一中，提交的任务数是8个，那么线程池如何创建线程？</p>
-<p>答案是1,2,3任务由核心线程处理，4,5,6任务进入阻塞队列，7,8任务交给临时线程处理。</p>
-<p><strong>重点：</strong></p>
-<ol>
-<li>只有阻塞队列满了以后，才会临时线程</li>
-<li>任务被线程处理的顺序不取决于先来先处理，比如案例中4,5,6任务先来但是7,8任务先被处理</li>
-</ol>
-<p><img src="Snipaste_2024-08-03_19-13-39.png"></p>
-<h3 id="4-3-3-场景三"><a href="#4-3-3-场景三" class="headerlink" title="4.3.3 场景三"></a>4.3.3 场景三</h3><p>当提交的任务数超过了核心线程数（参数1），临时线程数（参数2减去参数1），队列数（参数6，创建阻塞队列的时候给队列传递参数决定容量的大小，比如ArrayBlockingQueue指定数组大小，见1.3节）的时候，多出来的线程就会触发拒绝策略（参数7）</p>
-<p><img src="Snipaste_2024-08-03_19-23-56.png"></p>
-<h2 id="4-4-八股：任务拒绝策略（参数7）"><a href="#4-4-八股：任务拒绝策略（参数7）" class="headerlink" title="4.4 八股：任务拒绝策略（参数7）"></a>4.4 八股：任务拒绝策略（参数7）</h2><p><img src="Snipaste_2024-08-03_19-28-28.png" alt="任务拒绝策略"></p>
-<p><strong>主要的是使用默认的策略。</strong></p>
-<p>如果使用第三个，那么在场景三中，被抛弃的是任务4，然后加入任务10，队列为5&#x3D;&gt;6&#x3D;&gt;10</p>
-<p>如果使用第四个，那么任务10会跳过线程池，直接调用这个线程的run方法</p>
-<h2 id="4-5-阿里八股：线程池原理知道吗？以及核心参数？"><a href="#4-5-阿里八股：线程池原理知道吗？以及核心参数？" class="headerlink" title="4.5 阿里八股：线程池原理知道吗？以及核心参数？"></a>4.5 阿里八股：线程池原理知道吗？以及核心参数？</h2><p>首先线程池有几个核心的参数概念： </p>
-<ol>
-<li>最大线程数maximumPoolSize </li>
-<li>核心线程数corePoolSize </li>
-<li>活跃时间keepAliveTime </li>
-<li>阻塞队列workQueue </li>
-<li>拒绝策略RejectedExecutionHandler</li>
-</ol>
-<p>当提交一个新任务到线程池时，具体的执行流程如下： </p>
-<ol>
-<li>当我们提交任务，线程池会根据corePoolSize大小创建若干任务数量线程执行任务 </li>
-<li>当任务的数量超过corePoolSize数量，后续的任务将会进入阻塞队列阻塞排队 </li>
-<li>当阻塞队列也满了之后，那么将会继续创建(maximumPoolSize-corePoolSize)个数量的线程来 执行任务，如果任务处理完成，maximumPoolSize-corePoolSize额外创建的线程等待 keepAliveTime之后被自动销毁 </li>
-<li>如果达到maximumPoolSize，阻塞队列还是满的状态，那么将根据不同的拒绝策略对应处理</li>
-</ol>
-<p><img src="Snipaste_2024-08-03_19-33-13.png"></p>
-<p>这是阿里面试多线程&amp;JUC的35题，我直接照着搬答案过来了，是不是把第四大节看完后就很好理解了？</p>
-]]></content>
-      <categories>
-        <category>Java开发</category>
-      </categories>
-      <tags>
-        <tag>面试</tag>
-        <tag>多线程</tag>
       </tags>
   </entry>
   <entry>
@@ -6344,6 +6414,126 @@
       </tags>
   </entry>
   <entry>
+    <title>Java多线程：（一）线程池</title>
+    <url>/2024/08/03/java-%E7%BA%BF%E7%A8%8B%E6%B1%A0/</url>
+    <content><![CDATA[<h1 id="前言："><a href="#前言：" class="headerlink" title="前言："></a>前言：</h1><p>全文了解线程池干货，<strong>要想看面试题直接看标题中带有八股的就行了。</strong></p>
+<h1 id="一、什么是线程池"><a href="#一、什么是线程池" class="headerlink" title="一、什么是线程池"></a>一、什么是线程池</h1><h2 id="1-1-什么是线程池？"><a href="#1-1-什么是线程池？" class="headerlink" title="1.1 什么是线程池？"></a>1.1 什么是线程池？</h2><p>线程池（Thread Pool）是一种并发编程中常用的技术，用于管理和重用线程。它由线程池管理器、工作队列和线程池线程组成。</p>
+<p>线程池的基本概念是，在应用程序启动时创建一定数量的线程，并将它们保存在线程池中。当需要执行任务时，从线程池中获取一个空闲的线程，将任务分配给该线程执行。当任务执行完毕后，线程将返回到线程池，可以被其他任务复用。</p>
+<p>大白话：线程池的设计思想是为了避免频繁地创建和销毁线程的开销，以及控制并发执行的线程数量，从而提高系统的性能和资源利用率。线程池保证线程的可复用。</p>
+<h2 id="1-2-线程池的关键组成部分："><a href="#1-2-线程池的关键组成部分：" class="headerlink" title="1.2 线程池的关键组成部分："></a>1.2 线程池的关键组成部分：</h2><h3 id="1-2-1-线程池管理器（ThreadPoolExecutor）"><a href="#1-2-1-线程池管理器（ThreadPoolExecutor）" class="headerlink" title="1.2.1 线程池管理器（ThreadPoolExecutor）"></a>1.2.1 线程池管理器（ThreadPoolExecutor）</h3><p>负责创建、管理和控制线程池。它负责线程的创建、销毁和管理，以及线程池的状态监控和调度任务。</p>
+<h3 id="1-2-2-线程池阻塞队列（BlockingQueue）"><a href="#1-2-2-线程池阻塞队列（BlockingQueue）" class="headerlink" title="1.2.2 线程池阻塞队列（BlockingQueue）"></a>1.2.2 线程池阻塞队列（BlockingQueue）</h3><p>用于存储待执行的任务。当线程池中的线程都在执行任务时，新的任务会被放入工作队列中等待执行。</p>
+<h3 id="1-2-3-线程池线程（Worker-Thread）"><a href="#1-2-3-线程池线程（Worker-Thread）" class="headerlink" title="1.2.3 线程池线程（Worker Thread）"></a>1.2.3 线程池线程（Worker Thread）</h3><p>实际执行任务的线程。线程池中会维护一组线程，这些线程可以被重复使用，从而避免了频繁创建和销毁线程的开销。</p>
+<h2 id="1-3-八股：Java线程池中阻塞队列常用类型有哪些？"><a href="#1-3-八股：Java线程池中阻塞队列常用类型有哪些？" class="headerlink" title="1.3 八股：Java线程池中阻塞队列常用类型有哪些？"></a>1.3 八股：Java线程池中阻塞队列常用类型有哪些？</h2><p><code>ArrayBlockingQueue</code>是一个基于数组结构的有界阻塞队列，此队列按 FIFO（先进先出）原则 对元素进行排序。 </p>
+<p><code>LinkedBlockingQueue</code> 一个基于链表结构的阻塞队列，此队列按FIFO （先进先出） 排序元素，吞吐量通常要高于 ArrayBlockingQueue </p>
+<p><code>SynchronousQueue</code>一个不存储元素的阻塞队列。</p>
+<p><code>PriorityBlockingQueue</code>一个具有优先级的无限阻塞队列。PriorityBlockingQueue也是基于最小二叉堆实现。PriorityBlockingQueue 并<strong>不会阻塞数据生产者，而只会在没有可消费的数据时，阻塞数据的消费者。</strong><br>因此使用的时候要特别注意，<strong>生产者生产数据的速度绝对不能快于消费者消费数据的速度</strong>，否则时间一长，会最终耗尽所有的可用堆内存空间。</p>
+<p><code>DelayQueue</code> 阿里内部资料只有当其指定的延迟时间到了，才能够从队列中获取到该元素。 DelayQueue是一个没有大小限制的队列， 因此往队列中插入数据的操作（生产者）永远不会被阻塞，而只有获取数据的操作（消费者）才会被阻塞。 </p>
+<p>这里能说出前三种也就差不多了，如果能说全那是最好。</p>
+<h1 id="二、八股：常用的线程池"><a href="#二、八股：常用的线程池" class="headerlink" title="二、八股：常用的线程池"></a>二、八股：常用的线程池</h1><blockquote>
+<p>阿里写的</p>
+</blockquote>
+<p><strong>newSingleThreadExecutor：</strong>创建一个单线程的线程池，此线程池保证所有任务的执行顺序按照任务的提交顺序执行。</p>
+<p><strong>newFixedThreadPool：</strong>创建固定大小的线程池，每次提交一个任务就创建一个线程，直到线程达到线程池的最大大小。</p>
+<p><strong>newCachedThreadPool：</strong>创建一个可缓存的线程池，此线程池不会对线程池大小做限制，线程池大小完全依赖于操作系统（或者说JVM）能够创建的最大线程大小。</p>
+<p><strong>newScheduledThreadPool：</strong>创建一个大小无限的线程池，此线程池支持定时以及周期性执行任务的需求。</p>
+<blockquote>
+<p>简化一下</p>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 主函数</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="type">ExecutorService</span> <span class="variable">executor1</span> <span class="operator">=</span> Executors.newFixedThreadPool(<span class="number">3</span>);<span class="comment">//固定线程池，线程不变</span></span><br><span class="line">        <span class="type">ExecutorService</span> <span class="variable">executor2</span> <span class="operator">=</span> Executors.newCachedThreadPool();<span class="comment">//缓冲线程池，自由伸缩</span></span><br><span class="line">        <span class="type">ExecutorService</span> <span class="variable">executor3</span> <span class="operator">=</span> Executors.newSingleThreadExecutor();<span class="comment">//单线程池，FIFO</span></span><br><span class="line">        <span class="type">ScheduledExecutorService</span>  <span class="variable">executor4</span> <span class="operator">=</span> Executors.newScheduledThreadPool (<span class="number">5</span>);<span class="comment">// 调度线程池，用于实现定时任务、周期任务</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h1 id="三、使用线程池的步骤"><a href="#三、使用线程池的步骤" class="headerlink" title="三、使用线程池的步骤"></a>三、使用线程池的步骤</h1><h2 id="3-1-使用线程池的一般步骤如下："><a href="#3-1-使用线程池的一般步骤如下：" class="headerlink" title="3.1 使用线程池的一般步骤如下："></a>3.1 使用线程池的一般步骤如下：</h2><ol>
+<li><strong>创建线程池：</strong>使用Executors工具类提供的静态方法之一，或者直接使用ThreadPoolExecutor类来创建线程池。</li>
+</ol>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">ExecutorService</span> <span class="variable">executor</span> <span class="operator">=</span> Executors.newFixedThreadPool(<span class="number">5</span>); <span class="comment">// 创建固定大小的线程池</span></span><br></pre></td></tr></table></figure>
+
+<p><img src="Snipaste_2024-08-03_18-05-06.png" alt="使用executors工具类创建线程"></p>
+<p><code>newCachedThreadPool</code>说是没有上限的线程池，实际上还是有的，是int的最大值。并且普通电脑在创建几千个的时候就蚌埠住了，所以理论上是没有上限的线程池。</p>
+<ol start="2">
+<li><strong>提交任务：</strong>使用execute()或submit()方法将任务提交给线程池。</li>
+</ol>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">executor.execute(<span class="keyword">new</span> <span class="title class_">MyRunnable</span>()); <span class="comment">// 提交Runnable任务</span></span><br><span class="line">Future&lt;String&gt; future = executor.submit(<span class="keyword">new</span> <span class="title class_">MyCallable</span>()); <span class="comment">// 提交Callable任务，并返回Future对象</span></span><br></pre></td></tr></table></figure>
+<ol start="3">
+<li><strong>关闭线程池：</strong>在不再需要线程池时，需要调用shutdown()方法来关闭线程池。这将停止接受新任务，并逐渐关闭线程池中的线程。</li>
+</ol>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">executor.shutdown();</span><br></pre></td></tr></table></figure>
+
+<p>实际开发中不会关闭线程池，比如游戏的服务器之类的，实时打开，在学习的时候还是需要了解流程的。</p>
+<h2 id="3-2-八股：Java线程池中submit-和-execute-方法有什么区别？"><a href="#3-2-八股：Java线程池中submit-和-execute-方法有什么区别？" class="headerlink" title="3.2 八股：Java线程池中submit() 和 execute()方法有什么区别？"></a>3.2 八股：Java线程池中submit() 和 execute()方法有什么区别？</h2><p>两个方法都可以向线程池提交任务，execute()方法的返回类型是void，它定义在Executor接口中, 而submit()方法可以返回持有计算结果的Future对象，它定义在ExecutorService接口中，它扩展了 Executor接口，其它线程池类像ThreadPoolExecutor和ScheduledThreadPoolExecutor都有这些 方法。</p>
+<h2 id="3-3-演示线程池（个人认为理解线程池的需要看）"><a href="#3-3-演示线程池（个人认为理解线程池的需要看）" class="headerlink" title="3.3 演示线程池（个人认为理解线程池的需要看）"></a>3.3 演示线程池（个人认为理解线程池的需要看）</h2><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//线程类：</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MyRunnable</span> <span class="keyword">implements</span> <span class="title class_">Runnable</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</span><br><span class="line">            System.out.print1n(Thread.current <span class="title function_">Thread</span><span class="params">()</span>.getName() + ---<span class="string">&quot; );</span></span><br><span class="line"><span class="string">        &#125;</span></span><br><span class="line"><span class="string">    &#125;</span></span><br><span class="line"><span class="string">&#125;</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">//main方法：</span></span><br><span class="line"><span class="string">//1.获取线程池对象</span></span><br><span class="line"><span class="string">ExecutorService pool1 = Executors . newCachedThreadPool();</span></span><br><span class="line"><span class="string">//2.提交任务</span></span><br><span class="line"><span class="string">pool1. submit (new MyRunnable());</span></span><br><span class="line"><span class="string">//Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">poo11.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">//Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit(new MyRunnable());</span></span><br><span class="line"><span class="string">//Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit(new MyRunnable());</span></span><br><span class="line"><span class="string">//Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">poo11.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">//Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">//3.销毁线程池</span></span><br><span class="line"><span class="string">//pool1. shutdown();</span></span><br></pre></td></tr></table></figure>
+
+<p>首先，在main方法中，不让main线程sleep，那么打印的结果如下：可以看到，线程池1中创建了1,2,3,4,5，一共5个线程（打印结果比较长我就截图一部分，实际上是5个）</p>
+<p><img src="Snipaste_2024-08-03_18-21-34.png" alt="main线程没有sleep的打印结果"></p>
+<p><strong>如果让main线程睡眠，那么可以让线程1在main方法sleep时赶紧结束run方法中的逻辑，使得线程1执行结束后返回线程池，在main线程sleep的时间结束后，再次调用submit方法时，拿到的还是线程1</strong></p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//线程类：</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MyRunnable</span> <span class="keyword">implements</span> <span class="title class_">Runnable</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</span><br><span class="line">            System.out.print1n(Thread.current <span class="title function_">Thread</span><span class="params">()</span>.getName() + ---<span class="string">&quot; );</span></span><br><span class="line"><span class="string">        &#125;</span></span><br><span class="line"><span class="string">    &#125;</span></span><br><span class="line"><span class="string">&#125;</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">//main方法：</span></span><br><span class="line"><span class="string">//1.获取线程池对象</span></span><br><span class="line"><span class="string">ExecutorService pool1 = Executors . newCachedThreadPool();</span></span><br><span class="line"><span class="string">//2.提交任务</span></span><br><span class="line"><span class="string">pool1. submit (new MyRunnable());</span></span><br><span class="line"><span class="string">Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">poo11.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit(new MyRunnable());</span></span><br><span class="line"><span class="string">Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit(new MyRunnable());</span></span><br><span class="line"><span class="string">Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">poo11.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">Thread.sleep( millis: 1000);</span></span><br><span class="line"><span class="string">pool1.submit (new MyRunnable());</span></span><br><span class="line"><span class="string">//3.销毁线程池</span></span><br><span class="line"><span class="string">//pool1. shutdown();</span></span><br></pre></td></tr></table></figure>
+
+<p><img src="Snipaste_2024-08-03_18-26-05.png" alt="使main线程sleep的打印结果"></p>
+<h1 id="四、线程池原理"><a href="#四、线程池原理" class="headerlink" title="四、线程池原理"></a>四、线程池原理</h1><h2 id="4-1-ThreadPoolExecutor类"><a href="#4-1-ThreadPoolExecutor类" class="headerlink" title="4.1 ThreadPoolExecutor类"></a>4.1 ThreadPoolExecutor类</h2><p>在创建线程池的方法中（3.1节），曾经说过创建线程池使用工具类或者使用ThreadPoolExecutor类，实际上工具类的底层也是调用ThreadPoolExecutor类来创建线程池：</p>
+<p>Executors类提供4个静态工厂方法：newCachedThreadPool()、newFixedThreadPool(int)、newSingleThreadExecutor和newScheduledThreadPool(int)。这些方法最终都是通过ThreadPoolExecutor类来完成的。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="title function_">ThreadPoolExecutor</span><span class="params">(<span class="type">int</span> corePoolSize,</span></span><br><span class="line"><span class="params">                          <span class="type">int</span> maximumPoolSize,</span></span><br><span class="line"><span class="params">                          <span class="type">long</span> keepAliveTime,</span></span><br><span class="line"><span class="params">                          TimeUnit unit,</span></span><br><span class="line"><span class="params">                          BlockingQueue&lt;Runnable&gt; workQueue,</span></span><br><span class="line"><span class="params">                          ThreadFactory threadFactory,</span></span><br><span class="line"><span class="params">                          RejectedExecutionHandler handler)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (corePoolSize &lt; <span class="number">0</span> ||</span><br><span class="line">        maximumPoolSize &lt;= <span class="number">0</span> ||</span><br><span class="line">        maximumPoolSize &lt; corePoolSize ||</span><br><span class="line">        keepAliveTime &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IllegalArgumentException</span>();</span><br><span class="line">    <span class="keyword">if</span> (workQueue == <span class="literal">null</span> || threadFactory == <span class="literal">null</span> || handler == <span class="literal">null</span>)</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">NullPointerException</span>();</span><br><span class="line">    <span class="built_in">this</span>.acc = System.getSecurityManager() == <span class="literal">null</span> ?</span><br><span class="line">            <span class="literal">null</span> :</span><br><span class="line">            AccessController.getContext();</span><br><span class="line">    <span class="built_in">this</span>.corePoolSize = corePoolSize;</span><br><span class="line">    <span class="built_in">this</span>.maximumPoolSize = maximumPoolSize;</span><br><span class="line">    <span class="built_in">this</span>.workQueue = workQueue;</span><br><span class="line">    <span class="built_in">this</span>.keepAliveTime = unit.toNanos(keepAliveTime);</span><br><span class="line">    <span class="built_in">this</span>.threadFactory = threadFactory;</span><br><span class="line">    <span class="built_in">this</span>.handler = handler;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>可以看到类里面有7个参数，这7个参数也就是线程池的核心参数。</strong></p>
+<h2 id="4-2-八股：线程池七大核心参数"><a href="#4-2-八股：线程池七大核心参数" class="headerlink" title="4.2 八股：线程池七大核心参数"></a>4.2 八股：线程池七大核心参数</h2><h3 id="4-2-1-黑马讲的故事（方便记忆参数，可以跳过）"><a href="#4-2-1-黑马讲的故事（方便记忆参数，可以跳过）" class="headerlink" title="4.2.1 黑马讲的故事（方便记忆参数，可以跳过）"></a>4.2.1 黑马讲的故事（方便记忆参数，可以跳过）</h3><p>故事就是讲了饭店内只有3名正式员工，同时招待的顾客最大6人，但是剩下的3名员工是临时工，只有招待人数大于3人的时候才会去招人，否则就不招，辞退这三个临时工。</p>
+<p><img src="Snipaste_2024-08-03_18-48-51.png"></p>
+<p>但是饭店小，只能允许10个人排队，超出的人就不给排队了</p>
+<p><img src="Snipaste_2024-08-03_18-53-22.png"></p>
+<p>OK，现在根据故事给出的7个参数代换： </p>
+<p><img src="Snipaste_2024-08-03_18-57-58.png" alt="7个参数代换"></p>
+<h3 id="4-2-2-八股：7个核心参数"><a href="#4-2-2-八股：7个核心参数" class="headerlink" title="4.2.2 八股：7个核心参数"></a>4.2.2 八股：7个核心参数</h3><ol>
+<li>int corePoolSize,核心线程数量，不能小于0 </li>
+<li>int maximumPoolSize,最大的线程数量，减去核心线程&#x3D;临时线程</li>
+<li>long keepAliveTime,空闲线程的最大存活时间</li>
+<li>TimeUnit unit,时间单位</li>
+<li>BlockingQueue<Runnable> workQueue,任务队列</Runnable></li>
+<li>ThreadFactory threadFactory,创建线程工厂</li>
+<li>RejectedExecutionHandler handler，任务的拒绝策略</li>
+</ol>
+<h2 id="4-3-线程池的工作原理流程（建议4-3全看，方便理解4-5的八股）"><a href="#4-3-线程池的工作原理流程（建议4-3全看，方便理解4-5的八股）" class="headerlink" title="4.3 线程池的工作原理流程（建议4.3全看，方便理解4.5的八股）"></a>4.3 线程池的工作原理流程（建议4.3全看，方便理解4.5的八股）</h2><h3 id="4-3-1-场景一"><a href="#4-3-1-场景一" class="headerlink" title="4.3.1 场景一"></a>4.3.1 场景一</h3><p>现在有如下场景：核心线程3个，临时线程3个，此时有5个任务进来的时候线程池应该如何创建线程？</p>
+<p><img src="Snipaste_2024-08-03_19-05-57.png"></p>
+<p>正确的是创建3个核心线程去处理前3个任务，而后两个任务应该排队，直到3个核心线程空闲出来才会被执行。</p>
+<p><img src="Snipaste_2024-08-03_19-07-50.png"></p>
+<h3 id="4-3-2-场景二"><a href="#4-3-2-场景二" class="headerlink" title="4.3.2 场景二"></a>4.3.2 场景二</h3><p>此时在场景一中，提交的任务数是8个，那么线程池如何创建线程？</p>
+<p>答案是1,2,3任务由核心线程处理，4,5,6任务进入阻塞队列，7,8任务交给临时线程处理。</p>
+<p><strong>重点：</strong></p>
+<ol>
+<li>只有阻塞队列满了以后，才会临时线程</li>
+<li>任务被线程处理的顺序不取决于先来先处理，比如案例中4,5,6任务先来但是7,8任务先被处理</li>
+</ol>
+<p><img src="Snipaste_2024-08-03_19-13-39.png"></p>
+<h3 id="4-3-3-场景三"><a href="#4-3-3-场景三" class="headerlink" title="4.3.3 场景三"></a>4.3.3 场景三</h3><p>当提交的任务数超过了核心线程数（参数1），临时线程数（参数2减去参数1），队列数（参数6，创建阻塞队列的时候给队列传递参数决定容量的大小，比如ArrayBlockingQueue指定数组大小，见1.3节）的时候，多出来的线程就会触发拒绝策略（参数7）</p>
+<p><img src="Snipaste_2024-08-03_19-23-56.png"></p>
+<h2 id="4-4-八股：任务拒绝策略（参数7）"><a href="#4-4-八股：任务拒绝策略（参数7）" class="headerlink" title="4.4 八股：任务拒绝策略（参数7）"></a>4.4 八股：任务拒绝策略（参数7）</h2><p><img src="Snipaste_2024-08-03_19-28-28.png" alt="任务拒绝策略"></p>
+<p><strong>主要的是使用默认的策略。</strong></p>
+<p>如果使用第三个，那么在场景三中，被抛弃的是任务4，然后加入任务10，队列为5&#x3D;&gt;6&#x3D;&gt;10</p>
+<p>如果使用第四个，那么任务10会跳过线程池，直接调用这个线程的run方法</p>
+<h2 id="4-5-阿里八股：线程池原理知道吗？以及核心参数？"><a href="#4-5-阿里八股：线程池原理知道吗？以及核心参数？" class="headerlink" title="4.5 阿里八股：线程池原理知道吗？以及核心参数？"></a>4.5 阿里八股：线程池原理知道吗？以及核心参数？</h2><p>首先线程池有几个核心的参数概念： </p>
+<ol>
+<li>最大线程数maximumPoolSize </li>
+<li>核心线程数corePoolSize </li>
+<li>活跃时间keepAliveTime </li>
+<li>阻塞队列workQueue </li>
+<li>拒绝策略RejectedExecutionHandler</li>
+</ol>
+<p>当提交一个新任务到线程池时，具体的执行流程如下： </p>
+<ol>
+<li>当我们提交任务，线程池会根据corePoolSize大小创建若干任务数量线程执行任务 </li>
+<li>当任务的数量超过corePoolSize数量，后续的任务将会进入阻塞队列阻塞排队 </li>
+<li>当阻塞队列也满了之后，那么将会继续创建(maximumPoolSize-corePoolSize)个数量的线程来 执行任务，如果任务处理完成，maximumPoolSize-corePoolSize额外创建的线程等待 keepAliveTime之后被自动销毁 </li>
+<li>如果达到maximumPoolSize，阻塞队列还是满的状态，那么将根据不同的拒绝策略对应处理</li>
+</ol>
+<p><img src="Snipaste_2024-08-03_19-33-13.png"></p>
+<p>这是阿里面试多线程&amp;JUC的35题，我直接照着搬答案过来了，是不是把第四大节看完后就很好理解了？</p>
+]]></content>
+      <categories>
+        <category>Java开发</category>
+      </categories>
+      <tags>
+        <tag>面试</tag>
+        <tag>多线程</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>Spring：IoC、AOP、事务</title>
     <url>/2024/08/19/spring%E6%A1%86%E6%9E%B6%EF%BC%9A%E9%9D%A2%E8%AF%95%E7%9F%A5%E8%AF%86/</url>
     <content><![CDATA[<h1 id="一、控制反转（IoC）和依赖注入（DI）"><a href="#一、控制反转（IoC）和依赖注入（DI）" class="headerlink" title="一、控制反转（IoC）和依赖注入（DI）"></a>一、控制反转（IoC）和依赖注入（DI）</h1><h2 id="1-控制反转"><a href="#1-控制反转" class="headerlink" title="1. 控制反转"></a>1. 控制反转</h2><p>　　<strong>Ioc—Inversion of Control，即“控制反转”，不是什么技术，而是一种设计思想。</strong>在Java开发中，<strong>Ioc意味着将你设计好的对象交给容器控制，而不是传统的在你的对象内部直接控制。</strong></p>
@@ -7001,208 +7191,6 @@
       </categories>
       <tags>
         <tag>算法</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>k8s：创建pod所需的资源清单</title>
-    <url>/2024/10/24/17k8s%20%E7%9A%84%E8%B5%84%E6%BA%90%E6%B8%85%E5%8D%95/</url>
-    <content><![CDATA[<h1 id="官方文档参考"><a href="#官方文档参考" class="headerlink" title="官方文档参考"></a>官方文档参考</h1><p><a href="https://kubernetes.io/zh-cn/docs/tasks/configure-pod-container/assign-memory-resource/">为容器和 Pod 分配内存资源 | Kubernetes</a></p>
-<h1 id="K8S-的资源清单"><a href="#K8S-的资源清单" class="headerlink" title="K8S 的资源清单"></a>K8S 的资源清单</h1><table>
-<thead>
-<tr>
-<th>参数名</th>
-<th>类型</th>
-<th>字段说明</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>apiVersion</td>
-<td>String</td>
-<td>K8S APl 的版本，可以用 kubectl api versions 命令查询</td>
-</tr>
-<tr>
-<td>kind</td>
-<td>String</td>
-<td>yam 文件定义的资源类型和角色</td>
-</tr>
-<tr>
-<td>metadata</td>
-<td>Object</td>
-<td>元数据对象，下面是它的属性</td>
-</tr>
-<tr>
-<td>metadata.name</td>
-<td>String</td>
-<td>元数据对象的名字，比如 pod 的名字</td>
-</tr>
-<tr>
-<td>metadata.namespace</td>
-<td>String</td>
-<td>元数据对象的命名空间</td>
-</tr>
-<tr>
-<td>Spec</td>
-<td>Object</td>
-<td>详细定义对象</td>
-</tr>
-<tr>
-<td>spec.containers[]</td>
-<td>list</td>
-<td>定义 Spec 对象的容器列表</td>
-</tr>
-<tr>
-<td>spec.containers[].name</td>
-<td>String</td>
-<td>为列表中的某个容器定义名称</td>
-</tr>
-<tr>
-<td>spec.containers[].image</td>
-<td>String</td>
-<td>为列表中的某个容器定义需要的镜像名称</td>
-</tr>
-<tr>
-<td>spec.containers[].imagePullPolicy</td>
-<td>string</td>
-<td>定义镜像拉取策略，有 Always、Never、IfNotPresent 三个值可选<br>  - Always（默认）：意思是每次都尝试重新拉取镜像<br>  - Never：表示仅适用本地镜像<br>  - IfNotPresent：如果本地有镜像就使用本地镜像，没有就拉取在线镜像。</td>
-</tr>
-<tr>
-<td>spec.containers[].command[]</td>
-<td>list</td>
-<td>指定容器启动命令，因为是数组可以指定多个，不指定则使用镜像打包时使用的启动命令。</td>
-</tr>
-<tr>
-<td>spec.containers[].args[]</td>
-<td>list</td>
-<td>指定容器启动命令参数，因为是数组可以指定多个。</td>
-</tr>
-<tr>
-<td>spec.containers[].workingDir</td>
-<td>string</td>
-<td>指定容器的工作目录</td>
-</tr>
-<tr>
-<td>spec.containers[].volumeMounts[]</td>
-<td>list</td>
-<td>指定容器内部的存储卷配置</td>
-</tr>
-<tr>
-<td>spec.containers[].volumeMounts[].name</td>
-<td>string</td>
-<td>指定可以被容器挂载的存储卷的名称</td>
-</tr>
-<tr>
-<td>spec.containers[].volumeMounts[].mountPath</td>
-<td>string</td>
-<td>指定可以被容器挂载的存储卷的路径</td>
-</tr>
-<tr>
-<td>spec.containers[].volumeMounts[].readOnly</td>
-<td>string</td>
-<td>设置存储卷路径的读写模式，ture 或者 false，默认是读写模式</td>
-</tr>
-<tr>
-<td>spec.containers[].ports[]</td>
-<td>list</td>
-<td>指定容器需要用到的端口列表</td>
-</tr>
-<tr>
-<td>spec.containers[].ports[].name</td>
-<td>string</td>
-<td>指定端口的名称</td>
-</tr>
-<tr>
-<td>spec.containers[].ports[].containerPort</td>
-<td>string</td>
-<td>指定容器需要监听的端口号</td>
-</tr>
-<tr>
-<td>spec.containers[].ports[].hostPort</td>
-<td>string</td>
-<td>指定容器所在主机需要监听的端口号，默认跟上面 containerPort 相同，注意设置了 hostPort 同一台主机无法启动该容器的相同副本（因为主机的端口号不能相同，这样会冲突）</td>
-</tr>
-<tr>
-<td>spec.containers[].ports[].protocol</td>
-<td>string</td>
-<td>指定端口协议，支持 TCP 和 UDP，默认值为 TCP</td>
-</tr>
-<tr>
-<td>spec.containers[].env[]</td>
-<td>list</td>
-<td>指定容器运行前需设置的环境变量列表</td>
-</tr>
-<tr>
-<td>spec.containers[].env[].name</td>
-<td>string</td>
-<td>指定环境变量名称</td>
-</tr>
-<tr>
-<td>spec.containers[].env[].value</td>
-<td>string</td>
-<td>指定环境变量值</td>
-</tr>
-<tr>
-<td>spec.containers[].resources</td>
-<td>Object</td>
-<td>指定资源限制和资源请求的值（这里开始就是设置容器的资源上限）</td>
-</tr>
-<tr>
-<td>spec.containers[].resources.limits</td>
-<td>Object</td>
-<td>指定设置容器运行时资源的运行上限</td>
-</tr>
-<tr>
-<td>spec.containers[].resources.limits.cpu</td>
-<td>string</td>
-<td>指定 CPU 的限制，单位为 Core 数，将用于 docker run –cpu-shares 参数</td>
-</tr>
-<tr>
-<td>spec.containers[].resources.limits.memory</td>
-<td>string</td>
-<td>指定 mem 内存的限制，单位为 MIB、GiB</td>
-</tr>
-<tr>
-<td>spec.containers[].resources.requests</td>
-<td>Object</td>
-<td>指定容器启动和调度时的限制设置</td>
-</tr>
-<tr>
-<td>spec.containers[].resources.requests.cpu</td>
-<td>string</td>
-<td>CPU请求，单位为core数，容器启动时初始化可用数量</td>
-</tr>
-<tr>
-<td>spec.containers[].resources.requests.memory</td>
-<td>string</td>
-<td>内存请求，单位为MIB、GiB，容器启动的初始化可用数量</td>
-</tr>
-<tr>
-<td>spec.restartPolicy</td>
-<td>string</td>
-<td>定义 pod 的重启策略，可选值为 Always、OnFailure、Never，默认值为 Always。<br>  - Always：pod 一旦终止运行，则无论容器是如何终止的，kubelet 服务都将重启它。<br>  - OnFailure：只有 pod 以非零退出码终止时，kubelet 才会重启该容器。如果容器正常结束（退出码为0），则 kubectl 将不会重启它。<br>  - Never：Pod 终止后，kubelet 将退出码报告给 master，不会重启该 pod</td>
-</tr>
-<tr>
-<td>spec.nodeSelector</td>
-<td>Object</td>
-<td>定义 Node 的 label 过滤标签，以 key：value 格式指定</td>
-</tr>
-<tr>
-<td>spec.imagePullSecrets</td>
-<td>Object</td>
-<td>定义 pull 镜像时使用 secret 名称，以 name：secretkey 格式指定</td>
-</tr>
-<tr>
-<td>spec.hostNetwork</td>
-<td>Boolean</td>
-<td>定义是否使用主机网络模式，默认值为 false。设置 true 表示使用宿主机网络，不使用 docker 网桥，同时设置了 true将无法在同一台宿主机上启动第二个副本</td>
-</tr>
-</tbody></table>
-]]></content>
-      <categories>
-        <category>软件技术</category>
-      </categories>
-      <tags>
-        <tag>软件技术</tag>
-        <tag>kubernetes</tag>
       </tags>
   </entry>
 </search>
