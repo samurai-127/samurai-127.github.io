@@ -1,0 +1,394 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="utf-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><title>istio：外部基于TCP协议访问集群服务 | 颓废市民黄先生</title><noscript>开启JavaScript才能访问本站哦~</noscript><link rel="icon" href="/img/avatar.ico"><!-- index.css--><link rel="stylesheet" href="/css/index.css?v=1.13.3"><!-- inject head--><link rel="canonical" href="https://samurai-127.github.io/2024/11/25/19istio%E6%9C%8D%E5%8A%A1%E6%9A%B4%E9%9C%B2/"><link rel="stylesheet" href="https://cdn2.codesign.qq.com/icons/7pOrz0WXB5ZWJPX/latest/iconfont.css"><!-- aplayer--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aplayer/1.10.1/APlayer.min.css"><!-- swiper--><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Swiper/11.0.5/swiper-bundle.min.css"><!-- fancybox ui--><!-- katex--><!-- Open Graph--><meta name="description" content="参考内容：Istio(四)：创建部署Gateway并使用网关暴露服务-博客园 ingressgateway、service、VirtualService流量路径：从浏览器到后端服务1.用户访问 后端服务 用户在浏览器中输入 http:&amp;#x2F;&amp;#x2F;exam.com&amp;#x2F;getList。 浏览器通过 DNS 查询"><!-- pwa--><meta name="apple-mobile-web-app-capable" content="颓废市民黄先生"><meta name="theme-color" content="var(--efu-main)"><meta name="apple-mobile-web-app-status-bar-style" content="var(--efu-main)"><link rel="bookmark" href="/img/avatar.ico"><link rel="apple-touch-icon" href="/img/avatar.ico" sizes="180x180"><script>console.log(' %c Solitude %c ' + '1.13.3' + ' %c https://github.com/everfu/hexo-theme-solitude',
+    'background:#35495e ; padding: 1px; border-radius: 3px 0 0 3px;  color: #fff',
+    'background:#ff9a9a ; padding: 1px; border-radius: 0 3px 3px 0;  color: #fff',
+    'background:unset ; padding: 1px; border-radius: 0 3px 3px 0;  color: #fff')
+</script><script>(()=>{
+        const saveToLocal = {
+            set: function setWithExpiry(key, value, ttl) {
+                if (ttl === 0)
+                    return
+                const now = new Date()
+                const expiryDay = ttl * 86400000
+                const item = {
+                    value: value,
+                    expiry: now.getTime() + expiryDay
+                }
+                localStorage.setItem(key, JSON.stringify(item))
+            },
+            get: function getWithExpiry(key) {
+                const itemStr = localStorage.getItem(key)
+    
+                if (!itemStr) {
+                    return undefined
+                }
+                const item = JSON.parse(itemStr)
+                const now = new Date()
+    
+                if (now.getTime() > item.expiry) {
+                    localStorage.removeItem(key)
+                    return undefined
+                }
+                return item.value
+            }
+        };
+        window.utils = {
+            saveToLocal: saveToLocal,
+            getCSS: (url, id = false) => new Promise((resolve, reject) => {
+              const link = document.createElement('link')
+              link.rel = 'stylesheet'
+              link.href = url
+              if (id) link.id = id
+              link.onerror = reject
+              link.onload = link.onreadystatechange = function() {
+                const loadState = this.readyState
+                if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+                link.onload = link.onreadystatechange = null
+                resolve()
+              }
+              document.head.appendChild(link)
+            }),
+            getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+              const script = document.createElement('script')
+              script.src = url
+              script.async = true
+              script.onerror = reject
+              script.onload = script.onreadystatechange = function() {
+                const loadState = this.readyState
+                if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+                script.onload = script.onreadystatechange = null
+                resolve()
+              }
+    
+              Object.keys(attr).forEach(key => {
+                script.setAttribute(key, attr[key])
+              })
+    
+              document.head.appendChild(script)
+            }),
+            addGlobalFn: (key, fn, name = false, parent = window) => {
+                const globalFn = parent.globalFn || {}
+                const keyObj = globalFn[key] || {}
+        
+                if (name && keyObj[name]) return
+        
+                name = name || Object.keys(keyObj).length
+                keyObj[name] = fn
+                globalFn[key] = keyObj
+                parent.globalFn = globalFn
+            },
+        }
+    })()</script><!-- global head--><script>const GLOBAL_CONFIG = {
+    root: '/',
+    algolia: undefined,
+    localsearch: {"preload":false,"path":"/search.xml"},
+    runtime: 'false',
+    lazyload: {
+        enable: false,
+        error: '/img/error_load.avif'
+    },
+    copyright: {"limit":50,"author":"作者: 颓废市民黄先生","link":"链接: ","source":"来源: 颓废市民黄先生","info":"著作权归作者所有。 商业转载请联系作者获得授权，非商业转载请注明出处。"},
+    highlight: {"limit":200,"expand":true,"copy":true,"syntax":"highlight.js"},
+    randomlink: false,
+    lang: {"theme":{"dark":"已切换至深色模式","light":"已切换至浅色模式"},"copy":{"success":"复制成功","error":"复制失败"},"backtop":"返回顶部","time":{"day":"天前","hour":"小时前","just":"刚刚","min":"分钟前","month":"个月前"},"day":" 天","f12":"开发者模式已打开，请遵循GPL协议。","totalk":"无需删除空行，直接输入评论即可","search":{"empty":"找不到你查询的内容：${query}","hit":"找到 ${hits} 条结果，用时 ${time} 毫秒","placeholder":"输入关键词快速查找","count":"共 <b>${count}</b> 条结果。"},"barrage":{"title":"热评"}},
+    aside: {
+        sayhello: {
+            morning: '起那么早看博客？',
+            noon: '中午休息一下呗',
+            afternoon: '下午好像在犯困',
+            night: '晚上洗个澡爽一下呗',
+            goodnight: '睡个好觉，保证精力充沛',
+        },
+        sayhello2: [],
+        sayhello3: {
+            prefix: '好久不见，',
+            back: '欢迎再次回来，',
+        },
+    },
+    covercolor: {
+        enable: false
+    },
+    comment: {"avatar":"https://cravatar.cn","commentBarrage":true},
+    lightbox: 'null',
+    post_ai: {"key":"449aa72132adf73ef7084ef83c46792af1edab","talk":null,"randomPost":false},
+    right_menu: {"mode":{"dark":"深色模式","light":"浅色模式"},"img_error":"此图片无法复制与下载","music":{"start":"播放音乐","stop":"暂停音乐"},"barrage":{"open":"显示热评","close":"关闭热评"},"translate":{"translateDelay":0,"defaultEncoding":2}},
+    lure: {"jump":"404 Not Found","back":"被骗了吧（），网页没有404"},
+    expire: false,
+};</script><!-- page-config head--><script id="config-diff">var PAGE_CONFIG = {
+    is_post: true,
+    is_page: false,
+    is_home: false,
+    page: 'string',
+    toc: true,
+    comment: true,
+    ai_text: false
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body id="body" data-type="string"><!-- universe--><canvas id="universe"></canvas><!-- background img--><div id="global_bg"></div><!-- loading--><!-- console--><!-- sidebar--><div id="sidebar" style="zoom: 1;"><div id="menu-mask" style="display: none;"></div><div id="sidebar-menus"><div class="site-data"><div class="data-item is-center"><div class="data-item-link"><a href="/archives/"><div class="headline">文章</div><div class="length-num">43</div></a></div></div><div class="data-item is-center"><div class="data-item-link"><a href="/categories/"><div class="headline">分类</div><div class="length-num">7</div></a></div></div><div class="data-item is-center"><div class="data-item-link"><a href="/tags/"><div class="headline">标签</div><div class="length-num">25</div></a></div></div></div><span class="sidebar-menu-item-title">功能</span><div class="sidebar-menu-item"><span class="darkmode_switchbutton menu-child" onclick="sco.switchDarkMode()"><i class="solitude st-moon-clear-fill"></i><span>显示模式</span></span></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><span>首页</span></a></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>文库</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="solitude  st-folder-fill"></i><span>文章列表</span></a></li><li><a class="site-page child" href="/categories/"><i class="solitude  st-checkbox-multiple-blank-fill"></i><span>全部分类</span></a></li><li><a class="site-page child" href="/tags/"><i class="solitude  st-price-tag-fill"></i><span>全部标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>我的歌单</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="solitude  st-disc-fill"></i><span>音乐馆</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>关于</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/about/"><i class="solitude  st-contacts-fill"></i><span>关于本站</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/message"><span>留言板</span></a></div><div class="menus_item"><a class="site-page" href="/recentcomments"><span>最近留言</span></a></div></div><span class="sidebar-menu-item-title">标签</span><div class="card-widget card-tags card-archives card-webinfo card-allinfo"><div class="card-tag-cloud"><a href="/tags/mysql/">mysql<sup>6</sup></a><a href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E4%BC%98%E5%8C%96/">数据库优化<sup>2</sup></a><a href="/tags/redis/">redis<sup>3</sup></a><a href="/tags/%E9%9D%A2%E8%AF%95/">面试<sup>22</sup></a><a href="/tags/MQ/">MQ<sup>2</sup></a><a href="/tags/springcloud/">springcloud<sup>4</sup></a><a href="/tags/Java/">Java<sup>2</sup></a><a href="/tags/seata/">seata<sup>1</sup></a><a href="/tags/%E5%90%8E%E7%AB%AF/">后端<sup>1</sup></a><a href="/tags/sentinel/">sentinel<sup>2</sup></a><a href="/tags/%E5%A4%9A%E7%BA%BF%E7%A8%8B/">多线程<sup>5</sup></a><a href="/tags/docker/">docker<sup>3</sup></a><a href="/tags/%E8%BD%AF%E4%BB%B6%E6%8A%80%E6%9C%AF/">软件技术<sup>6</sup></a><a href="/tags/kubernetes/">kubernetes<sup>3</sup></a><a href="/tags/istio/">istio<sup>2</sup></a><a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F/">云原生<sup>1</sup></a><a href="/tags/%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8/">分库分表<sup>1</sup></a><a href="/tags/JDBC/">JDBC<sup>1</sup></a><a href="/tags/JVM/">JVM<sup>1</sup></a><a href="/tags/git/">git<sup>1</sup></a><a href="/tags/mybatis/">mybatis<sup>1</sup></a><a href="/tags/spring/">spring<sup>1</sup></a><a href="/tags/hexo/">hexo<sup>1</sup></a><a href="/tags/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/">操作系统<sup>2</sup></a><a href="/tags/%E7%AE%97%E6%B3%95/">算法<sup>4</sup></a></div></div></div></div><!-- keyboard--><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav class="show" id="nav"><div id="nav-group"><div id="blog_name"><a id="site-name" href="/" title="返回博客主页"><span class="title">颓废市民黄先生</span></a></div><div id="page-name-mask"><div id="page-name"><a id="page-name-text" onclick="sco.toTop()">istio：外部基于TCP协议访问集群服务</a></div></div><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><span>首页</span></a></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>文库</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="solitude  st-folder-fill"></i><span>文章列表</span></a></li><li><a class="site-page child" href="/categories/"><i class="solitude  st-checkbox-multiple-blank-fill"></i><span>全部分类</span></a></li><li><a class="site-page child" href="/tags/"><i class="solitude  st-price-tag-fill"></i><span>全部标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>我的歌单</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="solitude  st-disc-fill"></i><span>音乐馆</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="javascript:void(0);"><span>关于</span></a><ul class="menus_item_child"><li><a class="site-page child" href="/about/"><i class="solitude  st-contacts-fill"></i><span>关于本站</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/message"><span>留言板</span></a></div><div class="menus_item"><a class="site-page" href="/recentcomments"><span>最近留言</span></a></div></div></div><div id="nav-left"></div><div id="nav-right"><div class="nav-button" id="randomPost_button"><a class="site-page" onclick="toRandomPost()" title="随机一篇文章" href="javascript:void(0);"><i class="solitude st-dice-line"></i></a></div><div class="nav-button" id="search-button"><a class="site-page social-icon search" href="javascript:void(0);" title="搜索"><i class="solitude st-search-line"></i></a></div><div class="nav-button" id="nav-totop" onclick="sco.toTop()"><a class="totopbtn"><i class="solitude st-arrow-up-line"></i><span id="percent">0</span></a></div><div id="toggle-menu"><a class="site-page"><i class="solitude st-menu-line"></i></a></div></div></div></nav><div class="coverdiv" id="coverdiv"><img class="nolazyload" id="post-cover" src="/img/cover/19istio%E6%9C%8D%E5%8A%A1%E6%9A%B4%E9%9C%B2.png" alt="istio：外部基于TCP协议访问集群服务"></div><div id="post-info"><div id="post-firstinfo"><div class="meta-firstline"><a class="post-meta-original" title="该文章为原创文章，注意版权协议">原创</a><span class="post-meta-categories"><a class="post-meta-categories" href="/categories/%E4%BA%91%E5%8E%9F%E7%94%9F/">云原生</a></span><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/kubernetes/"><span class="tags-name tags-punctuation">kubernetes</span></a><a class="post-meta__tags" href="/tags/istio/"><span class="tags-name tags-punctuation">istio</span></a></div></div></div></div><h1 class="post-title">istio：外部基于TCP协议访问集群服务</h1><div id="post-meta"><div class="meta-secondline"><span class="post-meta-date" title="发布于 2024-11-25 10:30:40"><i class="post-meta-icon solitude st-calendar-todo-fill"></i><time datetime="2024-11-25T02:30:40.000Z">2024-11-25T02:30:40.000Z</time></span><span class="post-meta-date" title="最后更新于 2024-12-09 17:00:46"><i class="post-meta-icon solitude st-refresh-line"></i><time datetime="2024-12-09T09:00:46.588Z">2024-12-09T09:00:46.588Z</time></span><span class="post-meta-position" title="作者IP归属地为广西"><i class="post-meta-icon solitude st-map-pin-fill"></i><span>广西</span></span><a class="post-meta-pv" href="/2024/11/25/19istio%E6%9C%8D%E5%8A%A1%E6%9A%B4%E9%9C%B2/" title="文章热度"><i class="post-meta-icon solitude st-fire-fill"></i><span id="twikoo_visitors"><i class="solitude st-loading-line"></i></span></a><span class="post-meta-commentcount" title="评论数" onclick="sco.scrollTo('post-comment')"><i class="solitude st-chat-fill"></i><a href="/2024/11/25/19istio%E6%9C%8D%E5%8A%A1%E6%9A%B4%E9%9C%B2/#post-comment"><span class="twikoo-count"><i class="solitude st-loading-line"></i></span></a></span></div></div></div><section class="main-hero-waves-area waves-area"><svg class="waves-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" viewBox="0 24 150 28" preserveAspectRatio="none" shape-rendering="auto"><defs><path id="gentle-wave" d="M -160 44 c 30 0 58 -18 88 -18 s 58 18 88 18 s 58 -18 88 -18 s 58 18 88 18 v 44 h -352 Z"></path></defs><g class="parallax"><use href="#gentle-wave" x="48" y="0"></use><use href="#gentle-wave" x="48" y="3"></use><use href="#gentle-wave" x="48" y="5"></use><use href="#gentle-wave" x="48" y="7"></use></g></svg></section></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><div class="post-ai"><div class="ai-title"><div class="ai-title-left"><i class="ai-title-icon solitude st-robot-fill"></i><div class="ai-title-text">文章摘要</div></div><div class="ai-tag" id="ai-tag">GPT 4</div></div><div class="ai-explanation" style="display: block;"></div><div class="ai-suggestions"></div><div class="ai-bottom"><div class="ai-tips">此内容根据文章生成，仅用于文章内容的解释与总结</div><a class="ai-report" title="投诉" href="https://samurai-127.github.io">投诉</a></div></div><p>参考内容：<a target="_blank" rel="noopener" href="https://www.cnblogs.com/renshengdezheli/p/16838966.html">Istio(四)：创建部署Gateway并使用网关暴露服务-博客园</a></p>
+<h1 id="ingressgateway、service、VirtualService"><a href="#ingressgateway、service、VirtualService" class="headerlink" title="ingressgateway、service、VirtualService"></a>ingressgateway、service、VirtualService</h1><h2 id="流量路径：从浏览器到后端服务"><a href="#流量路径：从浏览器到后端服务" class="headerlink" title="流量路径：从浏览器到后端服务"></a>流量路径：从浏览器到后端服务</h2><h3 id="1-用户访问-后端服务"><a href="#1-用户访问-后端服务" class="headerlink" title="1.用户访问 后端服务"></a>1.用户访问 后端服务</h3><ul>
+<li>用户在浏览器中输入 <code>http://exam.com/getList</code>。</li>
+<li>浏览器通过 DNS 查询 <code>exam.com</code> 的 IP 地址。</li>
+</ul>
+<h3 id="2-DNS-解析"><a href="#2-DNS-解析" class="headerlink" title="2.DNS 解析"></a>2.DNS 解析</h3><ul>
+<li><p>exam.com 的 DNS 记录指向 istio-ingressgateway的外部 IP。</p>
+<ul>
+<li><p>如果 Kubernetes <code>Service</code> 类型是 <code>LoadBalancer</code>，则 DNS 指向云负载均衡器的 IP。</p>
+</li>
+<li><p>如果是 <code>NodePort</code> 类型，DNS 可以指向集群节点的外部 IP。</p>
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="3-流量到达-Kubernetes-Service（istio-ingressgateway）"><a href="#3-流量到达-Kubernetes-Service（istio-ingressgateway）" class="headerlink" title="3.流量到达 Kubernetes Service（istio-ingressgateway）"></a>3.流量到达 Kubernetes Service（<code>istio-ingressgateway</code>）</h3><ul>
+<li><p>外部流量通过 IP 和端口（如 80）进入 Kubernetes Service <code>istio-ingressgateway</code>。</p>
+<p><strong>此处忽略pod：istio-ingressgateway是clusterIP类型，我也不知道这个项目为什么对外暴露是clusterIP类型，这里正常来说是LoadBalancer或者NodePort这种对外可访问的资源</strong></p>
+<p><img src="image-20241125153642516.png"></p>
+</li>
+<li><p>Service 将流量转发到运行 Ingress Gateway 的 Pod。</p>
+<blockquote>
+<p>Ingress Gateway 的 Pod是安装istio服务网格的时候自动配置的内容</p>
+</blockquote>
+<p><img src="image-20241125153823386.png"></p>
+</li>
+</ul>
+<h3 id="4-Envoy-代理解析流量（Istio-Gateway-匹配规则）"><a href="#4-Envoy-代理解析流量（Istio-Gateway-匹配规则）" class="headerlink" title="4.Envoy 代理解析流量（Istio Gateway 匹配规则）"></a>4.Envoy 代理解析流量（Istio Gateway 匹配规则）</h3><ul>
+<li><p>Pod 内的 <code>Envoy</code> 代理读取 Istio Gateway（CRD）的配置。</p>
+<p>Gateway是服务网格的自定义类型资源，这里提供一个实例的yaml文件</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">networking.istio.io/v1beta1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Gateway</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">my-gateway</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">istio:</span> <span class="string">ingressgateway</span>  <span class="comment"># 选择 istio-ingressgateway Service 的 Pod</span></span><br><span class="line">  <span class="attr">servers:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">port:</span></span><br><span class="line">        <span class="attr">number:</span> <span class="number">80</span></span><br><span class="line">        <span class="attr">name:</span> <span class="string">http</span></span><br><span class="line">        <span class="attr">protocol:</span> <span class="string">HTTP</span></span><br><span class="line">      <span class="attr">hosts:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">example.com</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p>匹配步骤：</p>
+<ul>
+<li><p>检查 <code>Host</code> 头部是否为 <code>exam.com</code>（由 Gateway 的 <code>hosts</code> 字段决定）。</p>
+</li>
+<li><p>检查请求端口是否为 80（由 Gateway 的 <code>port</code> 字段决定）。</p>
+</li>
+</ul>
+</li>
+</ul>
+<p>如果主机名和端口都匹配，则流量通过网关。</p>
+<hr>
+<blockquote>
+<p>istio-gateway的pod和gateway（CRD）之间的绑定关系</p>
+</blockquote>
+<p>我们来查看当时安装istio的时候，自动部署出来的pod，其中是包含istio: ingressgateway的labels，这里就形成了gateway和pod的绑定关系。绑定以后就是pod中envoy的主场。</p>
+<p><img src="image-20241125154924706.png"></p>
+<hr>
+<blockquote>
+<p>hosts字段的作用</p>
+</blockquote>
+<p><strong>情况 1：没有设置 <code>hosts</code></strong></p>
+<p>如果 Gateway 配置中没有指定 <code>hosts</code>（或者设置为通配符 <code>*</code>）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">apiVersion: networking.istio.io/v1beta1</span><br><span class="line">kind: Gateway</span><br><span class="line">metadata:</span><br><span class="line">  name: my-gateway</span><br><span class="line">spec:</span><br><span class="line">  servers:</span><br><span class="line">    - port:</span><br><span class="line">        number: 80</span><br><span class="line">        name: http</span><br><span class="line">        protocol: HTTP</span><br><span class="line">      hosts:</span><br><span class="line">        - &quot;*&quot;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>网关会接收所有到达其监听端口的流量，无论 <code>Host</code> 是什么。</li>
+<li>示例：<ul>
+<li>请求 1：<code>http://exam.com/getList</code> → <strong>会被接收</strong></li>
+<li>请求 2：<code>http://random.com/getList</code> → <strong>也会被接收</strong></li>
+<li>请求 3：<code>http://another.com/getList</code> → <strong>仍然会被接收</strong></li>
+</ul>
+</li>
+</ul>
+<p>在这种情况下，虽然网关接收了所有流量，但由于没有设置 <code>VirtualService</code> 的匹配规则，非预期的流量可能会导致错误或无效请求。</p>
+<hr>
+<p><strong>情况 2：设置了 <code>hosts: example.com</code></strong></p>
+<p>如果在 Gateway 配置中指定了 <code>hosts</code> 字段为 <code>example.com</code>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">apiVersion: networking.istio.io/v1beta1</span><br><span class="line">kind: Gateway</span><br><span class="line">metadata:</span><br><span class="line">  name: my-gateway</span><br><span class="line">spec:</span><br><span class="line">  servers:</span><br><span class="line">    - port:</span><br><span class="line">        number: 80</span><br><span class="line">        name: http</span><br><span class="line">        protocol: HTTP</span><br><span class="line">      hosts:</span><br><span class="line">        - example.com</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>网关只接收 <code>Host</code> 为 <code>example.com</code> 的流量，其他主机名的流量会被直接丢弃。</li>
+<li>示例：<ul>
+<li>请求 1：<code>http://example.com/getList</code> → <strong>会被接收</strong></li>
+<li>请求 2：<code>http://random.com/getList</code> → <strong>被拒绝</strong></li>
+<li>请求 3：<code>http://another.com/getList</code> → <strong>被拒绝</strong></li>
+</ul>
+</li>
+</ul>
+<p><strong>区别</strong>：</p>
+<ul>
+<li>**没有 <code>hosts</code>**：所有主机名的流量都会进入网关。</li>
+<li>**设置了 <code>hosts</code>**：只有目标主机名匹配 <code>example.com</code> 的流量会进入网关。</li>
+</ul>
+<h3 id="5-VirtualService-路由流量"><a href="#5-VirtualService-路由流量" class="headerlink" title="5.VirtualService 路由流量"></a>5.VirtualService 路由流量</h3><ul>
+<li><p><code>Envoy</code> 查找与 Gateway 绑定的 <code>VirtualService</code>，解析路由规则。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">networking.istio.io/v1beta1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">VirtualService</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">example-virtualservice</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">hosts:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">exam.com</span></span><br><span class="line">  <span class="attr">gateways:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">my-gateway</span> <span class="comment"># 绑定的网关</span></span><br><span class="line">  <span class="attr">http:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">match:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">uri:</span></span><br><span class="line">            <span class="attr">prefix:</span> <span class="string">/getList</span></span><br><span class="line">      <span class="attr">route:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">destination:</span></span><br><span class="line">            <span class="attr">host:</span> <span class="string">my-backend-service</span></span><br><span class="line">            <span class="attr">port:</span></span><br><span class="line">              <span class="attr">number:</span> <span class="number">8080</span></span><br></pre></td></tr></table></figure>
+
+
+</li>
+<li><p>根据路径 <code>/getList</code>，将流量路由到 Kubernetes Service <code>my-backend-service</code>。</p>
+</li>
+</ul>
+<h3 id="6-Kubernetes-Service-转发到-Pod"><a href="#6-Kubernetes-Service-转发到-Pod" class="headerlink" title="6.Kubernetes Service 转发到 Pod"></a>6.Kubernetes Service 转发到 Pod</h3><ul>
+<li>流量到达 <code>my-backend-service</code>，由 Kubernetes Service 转发到其后端 Pod（运行实际应用）。</li>
+<li>目标 Pod 处理请求并返回响应。</li>
+</ul>
+<h3 id="7-返回响应"><a href="#7-返回响应" class="headerlink" title="7.返回响应"></a>7.返回响应</h3><ul>
+<li><p>响应通过相同路径返回：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Pod -&gt; my-backend-service -&gt; VirtualService -&gt; Ingress Gateway Pod -&gt; Kubernetes Service -&gt; 客户端</span><br></pre></td></tr></table></figure></li>
+</ul>
+<p>　　　　　　　　　　　　　</p>
+<h2 id="暴露TCP协议的MySQL"><a href="#暴露TCP协议的MySQL" class="headerlink" title="暴露TCP协议的MySQL"></a>暴露TCP协议的MySQL</h2><h3 id="1-部署-MySQL-Pod-和-Service"><a href="#1-部署-MySQL-Pod-和-Service" class="headerlink" title="1. 部署 MySQL Pod 和 Service"></a><strong>1. 部署 MySQL Pod 和 Service</strong></h3><p>MySQL 的 Pod 和 Service 定义如下：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">tcp-mysql</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">demo-bookinfo</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="attr">app:</span> <span class="string">tcp-mysql</span></span><br><span class="line">    <span class="attr">version:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">1</span>  <span class="comment"># 设置副本数，通常设置为1表示单实例</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">tcp-mysql</span>  <span class="comment"># 用于匹配 Pod 的标签</span></span><br><span class="line">      <span class="attr">version:</span> <span class="string">v1</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">annotations:</span></span><br><span class="line">        <span class="attr">sidecar.istio.io/inject:</span> <span class="string">&quot;false&quot;</span></span><br><span class="line">        <span class="attr">sidecar.istio.io/proxyCPU:</span> <span class="string">&quot;0.1&quot;</span></span><br><span class="line">        <span class="attr">sidecar.istio.io/proxyCPULimit:</span> <span class="string">&quot;1.0&quot;</span></span><br><span class="line">        <span class="attr">sidecar.istio.io/proxyMemory:</span> <span class="number">128.</span><span class="string">0Mi</span></span><br><span class="line">        <span class="attr">sidecar.istio.io/proxyMemoryLimit:</span> <span class="number">512.</span><span class="string">0Mi</span></span><br><span class="line">        <span class="attr">traffic.sidecar.istio.io/includeInboundPorts:</span> <span class="string">&quot;3306&quot;</span></span><br><span class="line">        <span class="attr">traffic.sidecar.istio.io/excludeInboundPorts:</span> <span class="string">&quot;&quot;</span></span><br><span class="line">        <span class="attr">protocol.istio.io/port.3306:</span> <span class="string">&quot;tcp&quot;</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">tcp-mysql</span>  <span class="comment"># Pod 的标签，需要与 selector 匹配</span></span><br><span class="line">        <span class="attr">version:</span> <span class="string">v1</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">tolerations:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">&quot;skyview/nodepool-taint&quot;</span></span><br><span class="line">          <span class="attr">operator:</span> <span class="string">&quot;Equal&quot;</span></span><br><span class="line">          <span class="attr">value:</span> <span class="string">&quot;system&quot;</span></span><br><span class="line">          <span class="attr">effect:</span> <span class="string">&quot;NoSchedule&quot;</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">&quot;skyview/nodepool-taint&quot;</span></span><br><span class="line">          <span class="attr">operator:</span> <span class="string">&quot;Equal&quot;</span></span><br><span class="line">          <span class="attr">value:</span> <span class="string">&quot;18bhu&quot;</span></span><br><span class="line">          <span class="attr">effect:</span> <span class="string">&quot;NoSchedule&quot;</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">&quot;node-role.kubernetes.io/control-plane&quot;</span></span><br><span class="line">          <span class="attr">operator:</span> <span class="string">&quot;Exists&quot;</span></span><br><span class="line">          <span class="attr">effect:</span> <span class="string">&quot;NoSchedule&quot;</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">mysql</span></span><br><span class="line">          <span class="attr">image:</span> <span class="number">10.10</span><span class="number">.102</span><span class="number">.113</span><span class="string">:8443/x86_64/mysql:8</span></span><br><span class="line">          <span class="attr">ports:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="attr">containerPort:</span> <span class="number">3306</span></span><br><span class="line">          <span class="attr">env:</span></span><br><span class="line">            <span class="comment"># 设置 root 用户的密码</span></span><br><span class="line">            <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">MYSQL_ROOT_PASSWORD</span></span><br><span class="line">              <span class="attr">value:</span> <span class="string">root</span></span><br><span class="line">            <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">MYSQL_ROOT_HOST</span></span><br><span class="line">              <span class="attr">value:</span> <span class="string">&quot;%&quot;</span> </span><br><span class="line">          <span class="attr">resources:</span></span><br><span class="line">            <span class="attr">limits:</span></span><br><span class="line">              <span class="attr">cpu:</span> <span class="string">&quot;1&quot;</span></span><br><span class="line">              <span class="attr">memory:</span> <span class="string">1Gi</span></span><br><span class="line">            <span class="attr">requests:</span></span><br><span class="line">              <span class="attr">cpu:</span> <span class="string">300m</span></span><br><span class="line">              <span class="attr">memory:</span> <span class="string">500Mi</span></span><br><span class="line"></span><br><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Service</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">tcp-mysql</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">demo-bookinfo</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">app:</span> <span class="string">tcp-mysql</span></span><br><span class="line">  <span class="attr">ports:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">port:</span> <span class="number">3306</span></span><br><span class="line">      <span class="attr">targetPort:</span> <span class="number">3306</span></span><br><span class="line">      <span class="attr">name:</span> <span class="string">tcp-mysql</span></span><br><span class="line">      <span class="attr">protocol:</span> <span class="string">TCP</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>作用：<ul>
+<li><code>mysql-service</code> 将 MySQL Pod 暴露在 Kubernetes 内部，使用 ClusterIP 类型（默认）。</li>
+<li>服务的 <code>selector</code> 确保流量被转发到运行 MySQL 的 Pod。</li>
+</ul>
+</li>
+</ul>
+<p><strong>测试是否运行成功：</strong></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 进入pod容器后运行命令(此处填service的name而不是ip，因为ip会因为service重构而变换)</span></span><br><span class="line">mysql -h mysql-service -P 3306 -u root -p</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="2-配置-Gateway-、VirtualService、DestinationRule"><a href="#2-配置-Gateway-、VirtualService、DestinationRule" class="headerlink" title="2. 配置 Gateway 、VirtualService、DestinationRule"></a>2. 配置 Gateway 、VirtualService、DestinationRule</h3><p>通过 Istio 的 <code>Gateway</code> 和 <code>VirtualService</code> 、<code>DestinationRule</code>将 MySQL 服务对外暴露：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">networking.istio.io/v1alpha3</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Gateway</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">tcp-mysql-gateway</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">demo-bookinfo</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">app:</span> <span class="string">istio-ingressgateway</span></span><br><span class="line">    <span class="attr">istio:</span> <span class="string">ingressgateway</span>   <span class="comment"># 绑定到 Ingress Gateway Pod</span></span><br><span class="line">  <span class="attr">servers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">port:</span></span><br><span class="line">      <span class="attr">number:</span> <span class="number">65532</span>          <span class="comment"># 外部暴露的端口</span></span><br><span class="line">      <span class="attr">protocol:</span> <span class="string">TCP</span>         <span class="comment"># 使用 TCP 协议</span></span><br><span class="line">    <span class="attr">hosts:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">&quot;*&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">networking.istio.io/v1alpha3</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">VirtualService</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">mysql-virtualservice</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">tcp</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">gateways:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">mesh</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">mysql-gateway</span>  <span class="comment"># 引用 Gateway</span></span><br><span class="line">  <span class="attr">hosts:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">&quot;*&quot;</span></span><br><span class="line">  <span class="attr">tcp:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">route:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">destination:</span></span><br><span class="line">        <span class="attr">host:</span> <span class="string">mysql-service</span>  <span class="comment"># Kubernetes Service 名称</span></span><br><span class="line">        <span class="attr">port:</span></span><br><span class="line">          <span class="attr">number:</span> <span class="number">3306</span>       <span class="comment"># Kubernetes Service 暴露的端口</span></span><br><span class="line">          </span><br><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">networking.istio.io/v1beta1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">DestinationRule</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">mysql-destination-rule</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">demo-bookinfo</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">host:</span> <span class="string">tcp-mysql.demo-bookinfo.svc.cluster.local</span></span><br><span class="line">  <span class="attr">trafficPolicy:</span></span><br><span class="line">    <span class="attr">tls:</span></span><br><span class="line">      <span class="attr">mode:</span> <span class="string">DISABLE</span>  <span class="comment"># 禁用 TLS</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="3-暴露端口"><a href="#3-暴露端口" class="headerlink" title="3. 暴露端口"></a>3. 暴露端口</h3><p>ingressgateway的service需要暴露gateway监听的端口</p>
+<p><img src="image-20241203150013081.png"></p>
+<h3 id="4-访问ingressgateway的ip-暴露端口"><a href="#4-访问ingressgateway的ip-暴露端口" class="headerlink" title="4. 访问ingressgateway的ip+暴露端口"></a>4. 访问ingressgateway的ip+暴露端口</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mysql -h 10.109.64.88 -P 65532 -u root -p</span><br><span class="line">password: root</span><br></pre></td></tr></table></figure>
+
+<p><img src="image-20241203150446699.png"></p>
+<p><strong>负责项目：</strong>邮储服务网格研发</p>
+<p><strong>项目描述：</strong>本项目作为微服务架构体系，通过引入Istio服务网格与Spring Cloud框架，实现了各微服务容器化、服务间的灵活调度与高效协同。网格项目提供服务注册、服务暴露、流量管理、安全隔离、服务监控及策略实施等核心功能，通过本地 ServiceMesh 项目来测试服务的控制状态和资源调用。同时项目遵循devops的研发过程，在公司的自研平台中对项目进行持续发布、持续运维、持续部署。</p>
+<p><strong>主要技术：</strong>SpringCloud、kubernetes、Skywalking、Istio、SSH、Docker、Harbor、Postman接口测试等。</p>
+<p><strong>实习内容：</strong>● 参与 kubenetes 和容器云课程学习，了解云原生整体架构和原生微服务的缺陷及对应解决方案。</p>
+<p>　　　　　● 参与 Istio 与微服务集群进行 kubenetes 资源的开发，参与前后端联调，协助完成多个系统接口的对接工作。</p>
+<p>　　　　　● 参与服务网格中的 Gateway 设计，使用vip实现入口网关高可用，集成 keepalived 对访问流量进行路由转发。</p>
+<p>​                   ● 参与服务暴露接口，实现基于HTTP、HTTPS、TCP协议下，对注入边车代理的服务进行集群内的服务暴露。</p>
+<p>　　　　　● 根据项目的迭代使用 debug 检测系统中的多项 bug 并且进行修改，修复资源意外过滤、资源无法正常访问等问题。</p>
+</article><div class="post-copyright"><div class="post-copyright__author_group"><a class="post-copyright__author_img" href="/about/"><img class="post-copyright__author_img_front" src="/img/avatar.ico"></a><div class="post-copyright__author_name">颓废市民黄先生</div><div class="post-copyright__author_desc">welcome 艾瑞巴蒂</div></div><div class="post-tools" id="post-tools"><div class="post-tools-left"><div id="quit-box" onclick="RemoveRewardMask()"></div></div></div><div class="social-share"><a class="social-share-ico icon-qq" target="_blank" rel="noopener" href="https://connect.qq.com/widget/shareqq/index.html?url=https%3A%2F%2Fsamurai-127.github.io%2F2024%2F11%2F25%2F19istio%25E6%259C%258D%25E5%258A%25A1%25E6%259A%25B4%25E9%259C%25B2%2F&amp;title=istio%EF%BC%9A%E5%A4%96%E9%83%A8%E5%9F%BA%E4%BA%8ETCP%E5%8D%8F%E8%AE%AE%E8%AE%BF%E9%97%AE%E9%9B%86%E7%BE%A4%E6%9C%8D%E5%8A%A1&amp;desc=undefined&amp;summary=undefined&amp;site=istio%EF%BC%9A%E5%A4%96%E9%83%A8%E5%9F%BA%E4%BA%8ETCP%E5%8D%8F%E8%AE%AE%E8%AE%BF%E9%97%AE%E9%9B%86%E7%BE%A4%E6%9C%8D%E5%8A%A1&amp;pics=%2Fimg%2Fcover%2F19istio%E6%9C%8D%E5%8A%A1%E6%9A%B4%E9%9C%B2.png" title="分享到QQ"><i class="solitude st-qq-fill"></i></a></div><div class="post-copyright__notice"><span class="post-copyright-info">本文是原创文章，采用<a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh">CC BY-NC-SA 4.0</a>协议，完整转载请注明来自<a href="/">颓废市民黄先生</a></span></div></div><div class="post-tools-right"><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/kubernetes/"><span class="tags-punctuation"></span>kubernetes<span class="tagsPageCount">3</span></a><a class="post-meta__tags" href="/tags/istio/"><span class="tags-punctuation"></span>istio<span class="tagsPageCount">2</span></a></div></div></div><nav class="needEndHide pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2024/12/09/20ShardingSphere%E5%AE%9E%E6%93%8D/"><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info">ShardingSphere：分布式 SQL 事务和查询引擎</div></div></a></div><div class="next-post pull-right"><a href="/2024/11/19/18dubbo3%E6%8E%A5%E5%85%A5%E6%9C%8D%E5%8A%A1%E7%BD%91%E6%A0%BC/"><div class="pagination-info"><div class="label">下一篇</div><div class="next_info">k8s：dubbo3应用接入服务网格</div></div></a></div></nav><div class="relatedPosts"><div class="headline"><i class="solitude st-star-smile-fill"></i><span>喜欢这篇的人也看了</span><div class="relatedPosts-link"><a onclick="event.preventDefault(); toRandomPost();" href="javascript:void(0);" rel="external nofollow" data-pjax-state="">随便逛逛</a></div></div><div class="relatedPosts-list"><div><a href="/2024/11/19/18dubbo3%E6%8E%A5%E5%85%A5%E6%9C%8D%E5%8A%A1%E7%BD%91%E6%A0%BC/" title="k8s：dubbo3应用接入服务网格"><img class="cover" src="/img/cover/18dubb3%E6%8E%A5%E5%85%A5istio.png" alt="cover"><div class="content is-center"><div class="title">k8s：dubbo3应用接入服务网格</div></div></a></div><div><a href="/2024/10/21/16k8s/" title="k8s：自动部署、扩缩和管理容器化应用程序系统"><img class="cover" src="/img/cover/16k8s.avif" alt="cover"><div class="content is-center"><div class="title">k8s：自动部署、扩缩和管理容器化应用程序系统</div></div></a></div></div></div><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="solitude st-chat-fill"></i><span> 评论</span><span class="count"> (<span class="twikoo-count"><i class="solitude st-loading-line"></i></span>)</span></div></div><div class="comment-wrap"><div id="twikoo-wrap"></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="card-content"><div class="card-info-avatar is-center"><div class="author-info__top-group"><div class="author-info__sayhi" id="author-info__sayhi" onclick="sco.changeSayHelloText()">sayhello.morning</div></div></div><div class="avatar-img-group"><img class="avatar-img" alt="头像" src="/img/avatar.jpg"></div><div class="author-info__description_group"><div class="author-info__description">大郞，你来看我的博客啦~</div><div class="author-info__description2">看看有没有对你有帮助的内容呗</div></div><div class="author-info__bottom-group"><a class="author-info__bottom-group-left" href="/about/"><div class="author-info__name">颓废市民黄先生</div><div class="author-info__desc">welcome 艾瑞巴蒂</div></a><div class="card-info-social-icons is-center"><a class="social-icon" target="_blank" rel="noopener" href="https://space.bilibili.com/314882691" title="Bilibili"><i class="solitude  st-bilibili-line"></i></a><a class="social-icon" target="_blank" rel="noopener" href="https://www.douyin.com/user/MS4wLjABAAAAy1FJN9CK4loLwbU-ngonlCdhB5ZT99fq4_Jdg3qJS7w" title="douyin"><i class="solitude  st-douyin-fill"></i></a></div></div></div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="solitude st-menu-line"></i><span>文章目录</span></div><div class="toc-content" id="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#ingressgateway%E3%80%81service%E3%80%81VirtualService"><span class="toc-text">ingressgateway、service、VirtualService</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B5%81%E9%87%8F%E8%B7%AF%E5%BE%84%EF%BC%9A%E4%BB%8E%E6%B5%8F%E8%A7%88%E5%99%A8%E5%88%B0%E5%90%8E%E7%AB%AF%E6%9C%8D%E5%8A%A1"><span class="toc-text">流量路径：从浏览器到后端服务</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E7%94%A8%E6%88%B7%E8%AE%BF%E9%97%AE-%E5%90%8E%E7%AB%AF%E6%9C%8D%E5%8A%A1"><span class="toc-text">1.用户访问 后端服务</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-DNS-%E8%A7%A3%E6%9E%90"><span class="toc-text">2.DNS 解析</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E6%B5%81%E9%87%8F%E5%88%B0%E8%BE%BE-Kubernetes-Service%EF%BC%88istio-ingressgateway%EF%BC%89"><span class="toc-text">3.流量到达 Kubernetes Service（istio-ingressgateway）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-Envoy-%E4%BB%A3%E7%90%86%E8%A7%A3%E6%9E%90%E6%B5%81%E9%87%8F%EF%BC%88Istio-Gateway-%E5%8C%B9%E9%85%8D%E8%A7%84%E5%88%99%EF%BC%89"><span class="toc-text">4.Envoy 代理解析流量（Istio Gateway 匹配规则）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-VirtualService-%E8%B7%AF%E7%94%B1%E6%B5%81%E9%87%8F"><span class="toc-text">5.VirtualService 路由流量</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-Kubernetes-Service-%E8%BD%AC%E5%8F%91%E5%88%B0-Pod"><span class="toc-text">6.Kubernetes Service 转发到 Pod</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#7-%E8%BF%94%E5%9B%9E%E5%93%8D%E5%BA%94"><span class="toc-text">7.返回响应</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9A%B4%E9%9C%B2TCP%E5%8D%8F%E8%AE%AE%E7%9A%84MySQL"><span class="toc-text">暴露TCP协议的MySQL</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E9%83%A8%E7%BD%B2-MySQL-Pod-%E5%92%8C-Service"><span class="toc-text">1. 部署 MySQL Pod 和 Service</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E9%85%8D%E7%BD%AE-Gateway-%E3%80%81VirtualService%E3%80%81DestinationRule"><span class="toc-text">2. 配置 Gateway 、VirtualService、DestinationRule</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E6%9A%B4%E9%9C%B2%E7%AB%AF%E5%8F%A3"><span class="toc-text">3. 暴露端口</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-%E8%AE%BF%E9%97%AEingressgateway%E7%9A%84ip-%E6%9A%B4%E9%9C%B2%E7%AB%AF%E5%8F%A3"><span class="toc-text">4. 访问ingressgateway的ip+暴露端口</span></a></li></ol></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="solitude st-map-line"></i><span>最近发布</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2024/12/09/20ShardingSphere%E5%AE%9E%E6%93%8D/" title="ShardingSphere：分布式 SQL 事务和查询引擎"><img alt="ShardingSphere：分布式 SQL 事务和查询引擎" src="/img/cover/20ShardingSphere.png"></a><div class="content"><a class="title" href="/2024/12/09/20ShardingSphere%E5%AE%9E%E6%93%8D/" title="ShardingSphere：分布式 SQL 事务和查询引擎">ShardingSphere：分布式 SQL 事务和查询引擎</a><a class="article-recent_post_categories" href="/2024/12/09/20ShardingSphere%E5%AE%9E%E6%93%8D/">数据库</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/11/25/19istio%E6%9C%8D%E5%8A%A1%E6%9A%B4%E9%9C%B2/" title="istio：外部基于TCP协议访问集群服务"><img alt="istio：外部基于TCP协议访问集群服务" src="/img/cover/19istio%E6%9C%8D%E5%8A%A1%E6%9A%B4%E9%9C%B2.png"></a><div class="content"><a class="title" href="/2024/11/25/19istio%E6%9C%8D%E5%8A%A1%E6%9A%B4%E9%9C%B2/" title="istio：外部基于TCP协议访问集群服务">istio：外部基于TCP协议访问集群服务</a><a class="article-recent_post_categories" href="/2024/11/25/19istio%E6%9C%8D%E5%8A%A1%E6%9A%B4%E9%9C%B2/">云原生</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/11/19/18dubbo3%E6%8E%A5%E5%85%A5%E6%9C%8D%E5%8A%A1%E7%BD%91%E6%A0%BC/" title="k8s：dubbo3应用接入服务网格"><img alt="k8s：dubbo3应用接入服务网格" src="/img/cover/18dubb3%E6%8E%A5%E5%85%A5istio.png"></a><div class="content"><a class="title" href="/2024/11/19/18dubbo3%E6%8E%A5%E5%85%A5%E6%9C%8D%E5%8A%A1%E7%BD%91%E6%A0%BC/" title="k8s：dubbo3应用接入服务网格">k8s：dubbo3应用接入服务网格</a><a class="article-recent_post_categories" href="/2024/11/19/18dubbo3%E6%8E%A5%E5%85%A5%E6%9C%8D%E5%8A%A1%E7%BD%91%E6%A0%BC/">云原生</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/10/21/16k8s/" title="k8s：自动部署、扩缩和管理容器化应用程序系统"><img alt="k8s：自动部署、扩缩和管理容器化应用程序系统" src="/img/cover/16k8s.avif"></a><div class="content"><a class="title" href="/2024/10/21/16k8s/" title="k8s：自动部署、扩缩和管理容器化应用程序系统">k8s：自动部署、扩缩和管理容器化应用程序系统</a><a class="article-recent_post_categories" href="/2024/10/21/16k8s/">云原生</a></div></div><div class="aside-list-item"><a class="thumbnail" href="/2024/09/20/15%E6%9E%84%E5%BB%BAdocker%E9%95%9C%E5%83%8F%E4%B8%8E%E8%BF%90%E8%A1%8C%E5%AE%B9%E5%99%A8/" title="docker：容器化项目"><img alt="docker：容器化项目" src="/img/installdocker.png"></a><div class="content"><a class="title" href="/2024/09/20/15%E6%9E%84%E5%BB%BAdocker%E9%95%9C%E5%83%8F%E4%B8%8E%E8%BF%90%E8%A1%8C%E5%AE%B9%E5%99%A8/" title="docker：容器化项目">docker：容器化项目</a><a class="article-recent_post_categories" href="/2024/09/20/15%E6%9E%84%E5%BB%BAdocker%E9%95%9C%E5%83%8F%E4%B8%8E%E8%BF%90%E8%A1%8C%E5%AE%B9%E5%99%A8/">软件技术</a></div></div></div></div></div></div></main><footer id="footer"><div id="st-footer-bar"><div class="footer-logo"><span>颓废市民黄先生</span></div><div class="footer-bar-description">来自 颓废市民黄先生 的文章</div><a class="footer-bar-link" href="/about/">了解更多</a></div><div id="footer_deal"></div><div id="st-footer"></div><div id="footer-bar"><div class="footer-bar-links"><div class="footer-bar-left"><div class="copyright">© 2024 By&nbsp;<a class="footer-bar-link" href="/">颓废市民黄先生</a></div></div><div class="footer-bar-right"><a class="footer-bar-link" target="_blank" rel="noopener" href="https://github.com/everfu/hexo-theme-solitude" alt="主题">主题</a><a class="footer-bar-link cc" href="/null" aria-label="copyright"><i class="solitude st-copyright-line"></i><i class="solitude st-creative-commons-by-line"></i><i class="solitude st-creative-commons-nc-line"></i><i class="solitude st-creative-commons-nd-line"></i></a></div></div></div><div class="comment-barrage needEndHide"></div></footer></div><!-- right_menu--><div id="rightMenu"><div class="rightMenu-group rightMenu-small"><div class="rightMenu-item" id="menu-backward"><i class="solitude st-arrow-left-line"></i></div><div class="rightMenu-item" id="menu-forward"><i class="solitude st-arrow-right-line"></i></div><div class="rightMenu-item" id="menu-refresh"><i class="solitude st-restart-line"></i></div><div class="rightMenu-item" id="menu-top"><i class="solitude st-arrow-up-line"></i></div></div><div class="rightMenu-group rightMenu-line rightMenuPlugin"><div class="rightMenu-item" id="menu-copytext"><i class="solitude st-copy-fill"></i><span>复制选中文本</span></div><div class="rightMenu-item" id="menu-pastetext"><i class="solitude st-clipboard-fill"></i><span>粘贴文本</span></div><div class="rightMenu-item" id="menu-commenttext"><i class="solitude st-chat-new-fill"></i><span>引用到评论</span></div><div class="rightMenu-item" id="menu-newwindow"><i class="solitude st-window-fill"></i><span>新窗口打开</span></div><div class="rightMenu-item" id="menu-copylink"><i class="solitude st-link-line"></i><span>复制链接地址</span></div><div class="rightMenu-item" id="menu-copyimg"><i class="solitude st-copy-fill"></i><span>复制此图片</span></div><div class="rightMenu-item" id="menu-downloadimg"><i class="solitude st-download-cloud-fill"></i><span>下载此图片</span></div><div class="rightMenu-item" id="menu-search"><i class="solitude st-search-line"></i><span>站内搜索</span></div><div class="rightMenu-item" id="menu-music-toggle"><i class="solitude st-play-fill"></i><span>播放音乐</span></div><div class="rightMenu-item" id="menu-music-back"><i class="solitude st-skip-back-fill"></i><span>切换到上一首</span></div><div class="rightMenu-item" id="menu-music-forward"><i class="solitude st-skip-forward-fill"></i><span>切换到下一首</span></div><div class="rightMenu-item" id="menu-music-copyMusicName"><i class="solitude st-copy-fill"></i><span>复制歌名</span></div></div><div class="rightMenu-group rightMenu-line rightMenuOther"><div class="rightMenu-item" id="menu-randomPost" onclick="toRandomPost()||rm.hideRightMenu()"><i class="solitude st-signal-tower-fill"></i><span>随机短文</span></div><div class="rightMenu-item" onclick="pjax.loadUrl('/categories/')||rm.hideRightMenu()"><i class="solitude st-checkbox-multiple-blank-fill"></i><span>全部分类</span></div><div class="rightMenu-item" onclick="pjax.loadUrl('/tags/')||rm.hideRightMenu()"><i class="solitude st-price-tag-fill"></i><span>全部标签</span></div></div><div class="rightMenu-group rightMenu-line rightMenuOther"><div class="rightMenu-item" id="menu-commentBarrage" onclick="sco.switchCommentBarrage()"><i class="solitude st-chat-fill"></i><span class="menu-commentBarrage-text">关闭热评</span></div><div class="rightMenu-item" id="menu-darkmode" onclick="sco.switchDarkMode()"><i class="solitude st-moon-clear-fill"></i><span class="menu-darkmode-text">深色模式</span></div><div class="rightMenu-item" id="menu-translate"><i class="solitude st-panben-line"></i><span>轉為繁體</span></div></div></div><div id="rightmenu-mask"></div><!-- inject body--><div><script src="/js/utils.js?v=1.13.3"></script><script src="/js/main.js?v=1.13.3"></script><script src="/js/third_party/waterfall.min.js?v=1.13.3"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/pjax/0.2.8/pjax.min.js"></script><script src="/js/third_party/universe.min.js?v=1.13.3"></script><script>dark()
+</script><script src="/js/tw_cn.js?v=1.13.3"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/node-snackbar/0.1.16/snackbar.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/Swiper/11.0.5/swiper-bundle.min.js"></script><script src="/js/third_party/efu_ai.min.js?v=1.13.3"></script><script>var meting_api = 'https://meting.qjqq.cn/?server=:server&type=:type&id=:id&auth=:auth&r=:r';</script><script src="https://cdnjs.cloudflare.com/ajax/libs/aplayer/1.10.1/APlayer.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/meting/2.0.1/Meting.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/pace/1.2.4/pace.min.js"></script><script src="/js/right_menu.js?v=1.13.3"></script><script src="/js/custom.js"></script><div class="js-pjax"><script>(() => {
+    const getCount = () => {
+        const ele = document.querySelectorAll('.twikoo-count')
+        if (!ele) return
+        twikoo.getCommentsCount({
+            envId: 'https://samurai127.cn',
+            region: '',
+            urls: [window.location.pathname],
+            includeReply: false
+        }).then(res => {
+            ele.forEach(item => item.textContent = res[0].count)
+        }).catch(err => {
+            console.error(err)
+        })
+    }
+    const init = () => {
+        twikoo.init(Object.assign({
+            el: '#twikoo-wrap',
+            envId: 'https://samurai127.cn',
+            region: '',
+            path: window.location.pathname,
+            onCommentLoaded: () => {
+                GLOBAL_CONFIG.lightbox && utils.lightbox(document.querySelectorAll('#twikoo .tk-content img:not(.tk-owo-emotion)'))
+            }
+        }, null))
+
+         && getCount()
+        sco.owoBig({
+            body: '.OwO-body',
+            item: '.OwO-items li'
+        })
+
+        true && barrageTwikoo()
+    }
+
+    const loadTwikoo = () => {
+        if (typeof twikoo === 'object') setTimeout(init,0)
+        else utils.getScript('https://cdnjs.cloudflare.com/ajax/libs/twikoo/1.6.36/twikoo.all.min.js').then(init)
+    }
+
+    if ('Twikoo' === 'Twikoo' || false) {
+        if (false) utils.loadComment(document.getElementById('twikoo-wrap'), loadTwikoo)
+        else loadTwikoo()
+    } else {
+        window.loadTwoComment = loadTwikoo
+    }
+})()
+</script><script>async function barrageTwikoo() {
+    await fetch("https://samurai127.cn", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            event: "COMMENT_GET",
+            accessToken: "",
+            url: window.location.pathname
+        })
+    }).then(async res => {
+        if (!res.ok) throw new Error("HTTP error! status: " + res.status)
+        const data = await res.json();
+        const init = () => {
+            initializeCommentBarrage((data.data).map(item => Object.assign({
+                content: item.comment,
+                nick: item.nick,
+                mailMd5: item.mailMd5,
+                id: item.id
+            })))
+        }
+        if (typeof initializeCommentBarrage === "undefined") await utils.getScript('/js/third_party/barrage.min.js?v=1.13.3').then(init)
+        else init()
+    }).catch(error => console.error("An error occurred while fetching comments: ", error))
+}</script><script defer pjax src="https://cdnjs.cloudflare.com/ajax/libs/busuanzi/2.3.0/bsz.pure.mini.min.js"></script></div></div><!-- pjax--><script>const pjax = new Pjax({
+    elements: 'a:not([target="_blank"])',
+    selectors: ['title','#body-wrap','#site-config','meta[name="description"]','.js-pjax','meta[property^="og:"]','#config-diff'],
+    cacheBust: false,
+    analytics: false,
+    scrollRestoration: false
+})
+
+document.querySelectorAll('script[data-pjax]').forEach(item => {
+    const newScript = document.createElement('script')
+    const content = item.text || item.textContent || item.innerHTML || ""
+    Array.from(item.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value))
+    newScript.appendChild(document.createTextNode(content))
+    item.parentNode.replaceChild(newScript, item)
+})
+
+document.addEventListener('pjax:complete', () => {
+    window.refreshFn()
+
+    document.querySelectorAll('script[data-pjax]').forEach(item => {
+        const newScript = document.createElement('script')
+        const content = item.text || item.textContent || item.innerHTML || ""
+        Array.from(item.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value))
+        newScript.appendChild(document.createTextNode(content))
+        item.parentNode.replaceChild(newScript, item)
+    })
+
+    GLOBAL_CONFIG.islazyload && window.lazyLoadInstance.update()
+
+})
+
+document.addEventListener('pjax:error', (e) => {
+    if (e.request.status === 404) {
+        pjax.loadUrl('/404.html')
+    }
+})</script><!-- theme--><script>initTheme = () => {
+    let isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const cachedMode = utils.saveToLocal.get('theme');
+    if (cachedMode === undefined) {
+        const nowMode =
+            isDarkMode ? 'dark' : 'light'
+        document.documentElement.setAttribute('data-theme', nowMode);
+    } else {
+        document.documentElement.setAttribute('data-theme', cachedMode);
+    }
+    typeof rm === 'object' && rm.mode(cachedMode === 'dark' && isDarkMode)
+}
+initTheme()</script><!-- google adsense--><!-- search--><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><button class="search-close-button"><i class="solitude st-close-fill"></i></button></nav><div class="search-wrap"><div class="search-box"><input class="search-box-input" id="search-input" type="text" autocomplete="off" spellcheck="false" autocorrect="off" autocapitalize="off" placeholder="输入关键词快速查找"></div><div id="search-results"><div id="search-hits"></div></div><div id="search-pagination"></div><div id="search-tips"></div></div></div><div id="search-mask"></div></div><script src="/js/search/local.js?v=1.13.3"></script><!-- Tianli-Talk--><span class="needEndHide" id="efuTalk" onclick="togglePostChatContainer(); return false;" title="问答ai"><i class="solitude st-robot-fill"></i><span class="efuTalkTitle">问答ai</span></span><script>var postChatConfig = {
+backgroundColor: "var(--efu-main)",
+bottom: "60px",
+...{"defaultInput":false,"upLoadWeb":true,"userTitle":"小黄同学来也","userDesc":"有什么可以帮助你的？","showInviteLink":"https://ai.tianli0.top/?InviteID=OZ3Z0V2R","blackDom":[".aplayer"]}
+};
+
+let b = true;
+
+document.getElementById('efuTalk').addEventListener('click', function () {
+    this.classList.toggle('on');
+    let efu = this
+    b && setTimeout(() => {
+        document.getElementById('close-button').addEventListener('click', function () {
+            efu.classList.remove('on');
+        })
+    }, 0);
+    b = false
+});</script><script pjax data-postChat_key="449aa72132adf73ef7084ef83c46792af1edab" src="https://ai.tianli0.top/static/public/postChatUser.min.js"></script><!-- music--><div class="needEndHide" id="nav-music" onclick="sco.musicToggle()"><div id="nav-music-hoverTips">音乐已暂停</div><meting-js id="994057368" server="netease" type="playlist" mutex="true" preload="none" data-lrctype="0" order="random" theme="var(--efu-main)"></meting-js></div></body></html><script>const posts=["2024/12/09/20ShardingSphere实操/","2024/11/25/19istio服务暴露/","2024/11/19/18dubbo3接入服务网格/","2024/10/21/16k8s/","2024/09/20/15构建docker镜像与运行容器/","2024/09/19/14Java多线程：线程安全和本地线程/","2024/09/17/13sentinel规则持久化/","2024/09/14/11sentinel/","2024/09/14/12Resilience4J熔断、限流、重试/","2024/09/13/10seata/","2024/09/12/09动态代理和反射/","2024/09/11/08Nacos/","2024/09/11/07项目总结/","2024/09/09/06MQ进阶/","2024/09/04/05SpringAMQP/","2024/09/02/04Redis：（三）缓存设计/","2024/08/30/03Redis：（二）缓存问题/","2024/08/28/02Redis：（一）内存数据结构存储/","2024/08/23/01Mysql-sql优化/","2024/08/20/MySQL-分库分表/","2024/08/19/spring框架：面试知识/","2024/08/16/MySQL-MVCC/","2024/08/15/MySQL-锁/","2024/08/15/MySQL-存储引擎/","2024/08/15/MySQL-索引/","2024/08/13/JVM-gc/","2024/08/06/java：详解ConcurrentHashMap/","2024/08/05/java多线程：三、锁/","2024/08/04/java多线程：JMM/","2024/08/03/java-线程池/","2024/07/30/操作系统：（二）为什么0-1-0-2不等于0-3/","2024/07/14/搭建博客？本站搭建博客花费了多少精力？/","2024/07/09/算法：（四）递归/","2024/07/06/Java-JDK8函数式接口、lambda表达式、方法引用/","2024/07/06/算法：（三）链表/","2024/07/06/Docker实操/","2024/07/06/centOS部署docker/","2024/07/06/mybatis/","2024/07/06/JDBC 笔记/","2024/07/03/算法：（二）二分查找/","2024/07/03/操作系统：（一）快速学习存储器/","2024/07/03/算法：（一）排序算法/","2024/06/26/git速查/"];function toRandomPost(){ pjax.loadUrl(GLOBAL_CONFIG.root+posts[Math.floor(Math.random()*posts.length)]); }</script>
